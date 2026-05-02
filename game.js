@@ -616,7 +616,7 @@ barbMoveImg.src = 'Barbarian Animations/Barbarian Run.png';
 barbMoveImg.onload = () => { barbWalkSheet = barbMoveImg; onLoad(); };
 
 const barbAtkImg = new Image();
-barbAtkImg.src = 'attack animations.png';
+barbAtkImg.src = 'Barbarian Animations/attack animations.png';
 barbAtkImg.onload = () => { barbAtkSheet = makeOffscreen(barbAtkImg); onLoad(); };
 
 const barbSlamRImg = new Image();
@@ -659,11 +659,11 @@ barbDeathImg.onload = () => { barbDeathSheet = barbDeathImg; onLoad(); };
 })();
 
 const jpMoveImg = new Image();
-jpMoveImg.src = 'john pork movement.png';
+jpMoveImg.src = 'Monster animations/john pork movement.png';
 jpMoveImg.onload = () => { jpMoveSheet = makeOffscreen(jpMoveImg); onLoad(); };
 
 const jpAtkImg = new Image();
-jpAtkImg.src = 'John pork attack.png';
+jpAtkImg.src = 'Monster animations/John pork attack.png';
 jpAtkImg.onload = () => { jpAtkSheet = makeOffscreen(jpAtkImg); onLoad(); };
 
 // Portraits — loaded raw (no background strip)
