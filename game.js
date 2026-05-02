@@ -599,17 +599,62 @@ const STAGE_PLAY_AREAS = {
 
 let loaded = 0;
 const TOTAL_IMAGES = 106; // +3: abomination/golem master/stage art; +8 transition art; +4 mage skill icons; +9 Stage 2-10 art; +John Pork intro; +hero select bg
+let gameLoopStarted = false;
 const ASSET_VERSION = Date.now();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
 }
 
+function drawLoadingScreen() {
+  const progress = Math.max(0, Math.min(1, loaded / TOTAL_IMAGES));
+  const W = canvas.width;
+  const H = canvas.height;
+  const barW = Math.min(520, W * 0.72);
+  const barH = 16;
+  const barX = (W - barW) / 2;
+  const barY = H * 0.58;
+
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#090706');
+  bg.addColorStop(0.55, '#17110d');
+  bg.addColorStop(1, '#050404');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `900 ${Math.max(32, Math.min(58, Math.round(W / 18)))}px 'Cinzel Decorative', serif`;
+  ctx.fillText('Rendfall Depths', W / 2, H * 0.42);
+
+  ctx.fillStyle = '#d8d0b8';
+  ctx.font = `600 ${Math.max(14, Math.min(20, Math.round(W / 70)))}px 'Cinzel', serif`;
+  ctx.fillText(`Loading assets ${loaded}/${TOTAL_IMAGES}`, W / 2, barY - 18);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.strokeStyle = '#7a512e';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX, barY, barW, barH);
+  ctx.fillStyle = '#d8b45d';
+  ctx.fillRect(barX + 2, barY + 2, Math.max(0, (barW - 4) * progress), barH - 4);
+
+  ctx.fillStyle = '#8f8065';
+  ctx.font = `400 ${Math.max(11, Math.min(14, Math.round(W / 105)))}px 'Cinzel', serif`;
+  ctx.fillText('Preparing the vale...', W / 2, barY + 46);
+}
+
 function onLoad() {
-  if (++loaded === TOTAL_IMAGES) {
+  loaded++;
+  drawLoadingScreen();
+  if (loaded >= TOTAL_IMAGES && !gameLoopStarted) {
+    gameLoopStarted = true;
     tryStartMusic();
     loop();
   }
 }
+
+drawLoadingScreen();
 
 const barbMoveImg = new Image();
 barbMoveImg.src = 'Barbarian Animations/Barbarian Run.png';
