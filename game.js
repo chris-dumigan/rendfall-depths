@@ -608,7 +608,7 @@ const STAGE_PLAY_AREAS = {
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 106; // +3: abomination/golem master/stage art; +8 transition art; +4 mage skill icons; +9 Stage 2-10 art; +John Pork intro; +hero select bg
+const TOTAL_IMAGES = 105; // Required startup assets. Any late optional callback is ignored after the loop starts.
 let gameLoopStarted = false;
 const LOADING_GRACE_MS = 15000;
 const ASSET_VERSION = Date.now();
