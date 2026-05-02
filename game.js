@@ -1412,6 +1412,7 @@ facebookRing.loop = true;
 facebookRing.volume = 0.9;
 let musicStarted = false;
 function tryStartMusic() {
+  warmUpAudio();
   if (gameState === 'johnporkintro' || (gameState === 'playing' && stage >= 11)) return;
   if (musicStarted && !bgMusic.paused) return;
   bgMusic.play()
@@ -1421,6 +1422,7 @@ function tryStartMusic() {
 
 function startJohnPorkIntro() {
   clearMovementKeys();
+  warmUpAudio();
   bgMusic.pause();
   facebookRing.currentTime = 0;
   facebookRing.play().catch(() => {});
@@ -1525,6 +1527,36 @@ startupRegistrationComplete = true;
 drawLoadingScreen();
 if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
 let lastVoiceClass = -1;
+let audioWarmupStarted = false;
+
+function warmAudioElement(audio) {
+  if (!audio || audio.dataset?.warmed === '1') return;
+  const originalVolume = audio.volume;
+  audio.dataset.warmed = '1';
+  audio.muted = true;
+  audio.volume = 0;
+  audio.currentTime = 0;
+  const playPromise = audio.play();
+  if (!playPromise) return;
+  playPromise
+    .then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audio.volume = originalVolume;
+    })
+    .catch(() => {
+      audio.muted = false;
+      audio.volume = originalVolume;
+    });
+}
+
+function warmUpAudio() {
+  if (audioWarmupStarted) return;
+  audioWarmupStarted = true;
+  [bgMusic, facebookRing, ...Object.values(sfx), ...Object.values(charSelectVoice)]
+    .forEach(warmAudioElement);
+}
 
 function playCharVoice(classIdx) {
   const name = CLASSES[classIdx]?.name;
@@ -1537,6 +1569,7 @@ function playCharVoice(classIdx) {
   vo.play().catch(() => {});
 }
 function playsfx(name) {
+  warmUpAudio();
   if (name === 'damage') {
     if (player.className === 'Rogue' && sfx.rogueHit) name = 'rogueHit';
     else if (player.className === 'Mage' && sfx.mageHit) name = 'mageHit';
@@ -1552,6 +1585,7 @@ function playSfxBurst(name, count = 3, delayMs = 150) {
   }
 }
 function startLoopingSfx(name) {
+  warmUpAudio();
   if (!sfx[name]) return null;
   const s = sfx[name].cloneNode();
   s.volume = sfx[name].volume;
