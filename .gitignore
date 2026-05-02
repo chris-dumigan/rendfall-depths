@@ -1,0 +1,6 @@
+Assets/
+*.kra
+*.exe
+*~
+.DS_Store
+Thumbs.db

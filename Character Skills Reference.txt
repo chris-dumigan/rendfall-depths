@@ -1,0 +1,108 @@
+================================================================
+  RENDFALL DEPTHS - CHARACTER SKILLS REFERENCE
+================================================================
+  Base CD  = raw cooldown before INT reduction.
+  Start CD = cooldown with starting INT applied.
+  Damage values are based on the hero's primary stat.
+  Skill upgrades multiply current damage by 1.3, rounded.
+  INT reduces cooldowns by 0.2s per point, minimum 0.5s.
+================================================================
+
+
+BARBARIAN
+Primary stat: STR
+Base stats: STR 10 / AGI 8 / INT 4
+Starting HP: 100
+Starting speed: 3.5
+
+| Skill     | Key | Base CD | Start CD | Formula     | Lv1 | Lv2 | Lv3 | Max |
+|-----------|-----|---------|----------|-------------|-----|-----|-----|-----|
+| Slash     | Q   | 4.0s    | 3.2s     | 1x STR      | 10  | 13  | 17  | 3   |
+| Whirlwind | W   | 8.0s    | 7.2s     | 1.5x STR    | 15  | 20  | 26  | 3   |
+| Slam      | E   | 14.0s   | 13.2s    | 1.75x STR   | 18  | 23  | 30  | 3   |
+| Berserk   | R   | 30.0s   | 29.2s    | buff        | -   | -   | -   | 2   |
+
+Berserk:
+  Lv1: 10s duration, 1.75x damage dealt, 1.5x damage taken, berserk sprites.
+  Lv2: 10s duration, 2.0x damage dealt, 1.5x damage taken, berserk sprites.
+  Berserk does not grow the model, range, or hitboxes.
+
+Notes:
+  Slash is a directional melee hit.
+  Whirlwind is a circular AoE around the hero.
+  Slam is a circular AoE, slows enemies, and grants brief damage immunity.
+
+
+ROGUE
+Primary stat: AGI
+Base stats: STR 6 / AGI 10 / INT 6
+Starting HP: 60
+Starting speed: 3.75
+
+| Skill        | Key | Base CD | Start CD | Formula       | Lv1 | Lv2 | Lv3 | Max |
+|--------------|-----|---------|----------|---------------|-----|-----|-----|-----|
+| Slash        | Q   | 4.0s    | 2.8s     | 1x AGI        | 10  | 13  | 17  | 3   |
+| Throw        | W   | 6.0s    | 4.8s     | 1x AGI        | 10  | 13  | 17  | 3   |
+| Wind Walk    | E   | 14.0s   | 12.8s    | bonus to Slash| 18  | 21  | 24  | 3   |
+| Slice & Dice | R   | 30.0s   | 28.8s    | 3x AGI AoE    | 30  | 39  | -   | 2   |
+
+Wind Walk:
+  Doubles movement speed for 10s and makes enemies lose tracking.
+  Entry animation plays on cast.
+  The first damaging skill breaks Wind Walk and plays the exit animation.
+  If Slash breaks Wind Walk, Slash gains bonus damage:
+    Lv1: +1.75x primary stat
+    Lv2: +2.05x primary stat
+    Lv3: +2.35x primary stat
+
+Notes:
+  Throw fires a fast dagger in the direction the Rogue was facing when cast.
+  Throw plays Knife Throw.mp3 on cast and Knife Throw Impact.wav on hit.
+  Slice & Dice is a long-cooldown AoE ultimate around the Rogue.
+  Slice & Dice plays Rogue Slash.wav 3 times, 0.15s apart.
+
+
+MAGE
+Primary stat: INT
+Base stats: STR 4 / AGI 6 / INT 12
+Starting HP: 40
+Starting speed: 3.25
+
+| Skill      | Key | Base CD | Start CD | Formula       | Lv1 | Lv2 | Lv3 | Max |
+|------------|-----|---------|----------|---------------|-----|-----|-----|-----|
+| Blastwave  | Q   | 4.0s    | 1.6s     | 1x INT        | 12  | 16  | 21  | 3   |
+| Fireball   | W   | 11.0s   | 8.6s     | 1.75x INT     | 21  | 27  | 35  | 3   |
+| Frost Nova | E   | 14.0s   | 11.6s    | 1.75x INT AoE | 21  | 27  | 35  | 3   |
+| Blink      | R   | 20.0s   | 17.6s    | utility       | -   | -   | -   | 2   |
+
+Notes:
+  Blastwave is a short frontal skill and plays Blastwave.wav.
+  Fireball fires in the direction the Mage was facing when cast.
+  Fireball flying sound stops on impact.
+  Fireball impact deals AoE damage in the explosion area.
+  Frost Nova radius is 20% larger than the original value.
+  Frost Nova freezes enemies for 2s: 1s stun, then 1s slow.
+  Frozen/slowed enemies show a blue tint.
+  Blink moves up to 8x hero dimensions forward, stopping at blockers.
+  Blink Lv2 grants a second charge 1s after the first blink; cooldown starts after the second charge.
+
+
+SHARED RULES
+Stats:
+  STR: +10 max HP per point, +5 current HP on allocation.
+  AGI: +5% move speed per point.
+  INT: -0.2s cooldown per point.
+
+Primary stat:
+  Damage scales from the currently selected primary stat.
+  Plasticity lets the hero choose STR, AGI, or INT as primary.
+  Plasticity also gives +3 bonus stat points per level going forward.
+  The portrait border changes color to the selected primary stat.
+
+Level-up:
+  Level-up pauses gameplay.
+  Skill selection shows current and upgraded scaling.
+  Stat selection uses arrow keys.
+  Talent selection opens a confirmation screen before applying.
+
+Last updated: Apr 2026
