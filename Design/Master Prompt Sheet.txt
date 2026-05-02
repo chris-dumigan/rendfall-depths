@@ -1,4 +1,4 @@
-Create a 4096 x 4096 dark fantasy pixel-art master sprite sheet for the following monster:
+Create a 2048 x 2048 dark fantasy pixel-art master sprite sheet for the following monster:
 
 [MONSTER DESCRIPTION GOES HERE]
 
@@ -7,16 +7,16 @@ Do not use transparency.
 
 
 MASTER SHEET FORMAT
-The full image is 4096 x 4096.
-It is divided into four 2048 x 2048 quadrants.
+The full image is 2048 x 2048.
+It is divided into four 1024 x 1024 quadrants.
 Each quadrant contains a 4 column x 4 row animation grid.
-Each individual frame/cell is 512 x 512.
+Each individual frame/cell is 256 x 256.
 
 
 TOP LEFT QUADRANT: RUN / WALK
-Canvas area: x 0-2047, y 0-2047.
+Canvas area: x 0-1023, y 0-1023.
 4 columns x 4 rows.
-Each frame is 512 x 512.
+Each frame is 256 x 256.
 Rows:
   row 1 = facing down
   row 2 = facing up
@@ -27,9 +27,9 @@ Columns:
 
 
 TOP RIGHT QUADRANT: ATTACK
-Canvas area: x 2048-4095, y 0-2047.
+Canvas area: x 1024-2047, y 0-1023.
 4 columns x 4 rows.
-Each frame is 512 x 512.
+Each frame is 256 x 256.
 Rows:
   row 1 = facing down
   row 2 = facing up
@@ -40,9 +40,9 @@ Columns:
 
 
 BOTTOM LEFT QUADRANT: BLOCK / GUARD
-Canvas area: x 0-2047, y 2048-4095.
+Canvas area: x 0-1023, y 1024-2047.
 4 columns x 4 rows.
-Each frame is 512 x 512.
+Each frame is 256 x 256.
 Rows:
   row 1 = facing down
   row 2 = facing up
@@ -53,9 +53,9 @@ Columns:
 
 
 BOTTOM RIGHT QUADRANT: DEATH
-Canvas area: x 2048-4095, y 2048-4095.
+Canvas area: x 1024-2047, y 1024-2047.
 4 columns x 4 rows.
-Each frame is 512 x 512.
+Each frame is 256 x 256.
 Rows:
   row 1 = facing down
   row 2 = facing up
@@ -66,7 +66,7 @@ Columns:
 
 
 IMPORTANT FORMATTING REQUIREMENTS
-- The monster must be centered consistently inside every 512 x 512 frame.
+- The monster must be centered consistently inside every 256 x 256 frame.
 - Keep the monster scale consistent across all quadrants and directions.
 - Do not crop weapons, limbs, hair, horns, shields, chains, projectiles, or effects.
 - Leave enough padding around the monster so every animation fits cleanly.

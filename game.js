@@ -81,9 +81,6 @@ const ORC_CLEAVE_WINDUP = 38;
 const TROLL_RUBBLE_DUR = 300;
 const GHOUL_FEEDING_FRENZY = 150;
 
-// John Pork sprites
-const JP_FW = 256;
-const JP_FH = 256;
 
 // ── Screen-relative sizes (everything scales with window height) ──────────────
 // DISPLAY_SIZE: how large one character tile is on screen
@@ -91,6 +88,20 @@ const DISPLAY_SIZE = Math.min(Math.round(canvas.height / 12), 96);
 const TILE_SIZE    = Math.round(DISPLAY_SIZE / 2);
 const ABILITY_DISP = DISPLAY_SIZE * 2;   // slam / whirlwind animations
 const FIREBALL_EXPLOSION_RADIUS = Math.round(DISPLAY_SIZE * 0.94);
+
+const JP_SIZE = Math.round(DISPLAY_SIZE * 3.0);
+const JP_HP = 4000;
+const JP_SPEED = Math.max(1, Math.round(DISPLAY_SIZE / 55));
+const JP_SLAM_DAMAGE = 78;
+const JP_SLAM_RANGE = Math.round(DISPLAY_SIZE * 2.25);
+const JP_SLAM_WINDUP = 24;
+const JP_SLAM_CD = 115;
+const JP_SUMMON_WINDUP = 54;
+const JP_SUMMON_CD = 285;
+const DARK_SUMMON_FRAMES = 8;
+const DARK_SUMMON_COLS = 4;
+const DARK_SUMMON_ROWS = 2;
+const JOHN_PORK_INTRO_IMAGE_FRAMES = 300;
 
 // Ability animation display sizes — scaled so the character inside each frame
 // matches the walk character size. Slam char fills ~57% of frame height vs ~97%
@@ -242,20 +253,6 @@ for (let r = 0; r < MAP_ROWS; r++) {
 
 // ── John Pork animation tables ────────────────────────────────────────────────
 
-const JP_MOVE = {
-  down:  { row: 0, frames: [0,1,2,3] },
-  left:  { row: 1, frames: [0,1,2,3] },
-  right: { row: 2, frames: [0,1,2,3] },
-  up:    { row: 3, frames: [0,1,2,3] }
-};
-
-const JP_ATKS = [
-  { row: 0, frames: [0,1,2,3], damage: 15 },
-  { row: 1, frames: [0,1,2,3], damage: 25 },
-  { row: 2, frames: [0,1,2,3], damage: 20 },
-  { row: 3, frames: [0,1,2,3], damage: 10 }
-];
-
 // ── Abilities ─────────────────────────────────────────────────────────────────
 
 let abilities = [];
@@ -368,7 +365,11 @@ let transitionPhase = 'fade'; // 'fade' | 'art'
 let transitionNextStage = 0;
 let transitionGatePlayed = false;
 let johnPorkIntroImg = null;
+let demonPigIntroImg = null;
 let johnPorkIntroTimer = 0;
+let johnPorkIntroPhase = 'john';
+let johnPorkIntroRoar = null;
+let johnPorkIntroFallbackTimer = null;
 let mouseX = 0, mouseY = 0;
 
 function devSkillPointsForLevel(level) {
@@ -518,7 +519,7 @@ function makeMonsterSheetKeepDarkPixels(img, cols = 4, rows = 4) {
   return oc;
 }
 
-let barbWalkSheet, barbAtkSheet, jpMoveSheet, jpAtkSheet;
+let barbWalkSheet, barbAtkSheet, jpMasterSheet, darkSummonSheet;
 let barbSlamRSheet, barbSlamLSheet, barbWhirlSheet, barbDeathSheet;
 let barbBerserkWalkSheet, barbBerserkAtkSheet, barbBerserkSkillSheet;
 let barbBerserkSlamRSheet, barbBerserkSlamLSheet, barbBerserkWhirlSheet;
@@ -540,7 +541,7 @@ let orcRunSheet, orcAtkSheet, orcDeathSheet;
 let skelRunSheet, skelAtkSheet, arrowSheet;
 let skeletalChampionSheet;
 let ghoulRunSheet, ghoulAtkSheet, ghoulDeathSheet;
-let trollRunSheet, trollAtkSheet, trollBoulderSheet;
+let trollRunSheet, trollAtkSheet, trollMasterSheet, trollBoulderSheet;
 let guardianRunSheet, guardianAtkSheet, guardianDeathSheet, guardianSpearSheet;
 let ironSentinelRunSheet, ironSentinelAtkSheet, ironSentinelBlockSheet, ironSentinelDeathSheet;
 let chainWardenRunSheet, chainWardenAtkSheet, chainWardenDeathSheet, chainWardenChainSheet;
@@ -609,11 +610,11 @@ const STAGE_PLAY_AREAS = {
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 106;
+const TOTAL_IMAGES = 107;
 let audioAssetCount = 0;
 let gameLoopStarted = false;
 let startupRegistrationComplete = false;
-const ASSET_VERSION = '2026-05-01-v9';
+const ASSET_VERSION = '2026-05-02-v1';
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
@@ -809,13 +810,15 @@ barbDeathImg.onload = () => { barbDeathSheet = barbDeathImg; onLoad(); };
   });
 })();
 
-const jpMoveImg = new Image();
-jpMoveImg.src = 'Monster animations/john pork movement.png';
-jpMoveImg.onload = () => { jpMoveSheet = makeOffscreen(jpMoveImg); onLoad(); };
+const jpMasterImg = new Image();
+jpMasterImg.src = assetUrl('Monster animations/John Pork Master.png');
+jpMasterImg.onload = () => { jpMasterSheet = makeMonsterSheetKeepDarkPixels(jpMasterImg); onLoad(); };
+jpMasterImg.onerror = () => { onLoad(); };
 
-const jpAtkImg = new Image();
-jpAtkImg.src = 'Monster animations/John pork attack.png';
-jpAtkImg.onload = () => { jpAtkSheet = makeOffscreen(jpAtkImg); onLoad(); };
+const darkSummonImg = new Image();
+darkSummonImg.src = assetUrl('Monster animations/Dark Summon.png');
+darkSummonImg.onload = () => { darkSummonSheet = makeMonsterSheetKeepDarkPixels(darkSummonImg, DARK_SUMMON_COLS, DARK_SUMMON_ROWS); onLoad(); };
+darkSummonImg.onerror = () => { onLoad(); };
 
 // Portraits — loaded raw (no background strip)
 (function loadPortraits() {
@@ -930,8 +933,7 @@ jpAtkImg.onload = () => { jpAtkSheet = makeOffscreen(jpAtkImg); onLoad(); };
     ['Monster animations/Ghoul Run.png',                  s => ghoulRunSheet= s],
     ['Monster animations/Ghoul Attack.png',               s => ghoulAtkSheet= s],
     ['Monster animations/Ghoul Death.png',                s => ghoulDeathSheet= s],
-    ['Monster animations/Troll Run.png',                  s => trollRunSheet = s, 'keepDark'],
-    ['Monster animations/Troll attack.png',               s => trollAtkSheet = s, 'keepDark'],
+    ['Monster animations/Troll master sheet.png',         s => trollMasterSheet = s, 'keepDark'],
     ['Monster animations/Troll Boulder.png',              s => trollBoulderSheet = s, 'keepDark'],
     ['Monster animations/Twin Guardian run.png',          s => guardianRunSheet = s],
     ['Monster animations/Twin Guardian Attack.png',       s => guardianAtkSheet = s],
@@ -1028,6 +1030,7 @@ jpAtkImg.onload = () => { jpAtkSheet = makeOffscreen(jpAtkImg); onLoad(); };
     [8, 'Game Art/Stage Art/Stage 8.png'],
     [9, 'Game Art/Stage Art/Stage 9.png'],
     [10, 'Game Art/Stage Art/Stage 10.png'],
+    [11, 'Game Art/Stage Art/Stage 11.png'],
   ].forEach(([stageNum, src]) => {
     const img = new Image();
     img.src = assetUrl(src);
@@ -1044,6 +1047,11 @@ jpAtkImg.onload = () => { jpAtkSheet = makeOffscreen(jpAtkImg); onLoad(); };
   img.src = assetUrl('Game Art/John Pork.png');
   img.onload = () => { johnPorkIntroImg = img; onLoad(); };
   img.onerror = () => { onLoad(); };
+
+  const demon = new Image();
+  demon.src = assetUrl('Game Art/Demon Pig.png');
+  demon.onload = () => { demonPigIntroImg = demon; onLoad(); };
+  demon.onerror = () => { onLoad(); };
 })();
 
 let player = {
@@ -1078,20 +1086,15 @@ let player = {
 // ── Enemies ───────────────────────────────────────────────────────────────────
 
 function spawnEnemy() {
-  let x, y;
-  const topRows = Math.max(3, Math.floor(MAP_ROWS * 0.45));
-  do {
-    x = (1 + Math.floor(Math.random() * (MAP_COLS - 2))) * TILE_SIZE;
-    y = (1 + Math.floor(Math.random() * topRows)) * TILE_SIZE;
-  } while (Math.hypot(x - player.x, y - player.y) < DISPLAY_SIZE * 3 || !canMoveTo(x, y));
+  const pos = stagePointToWorld(0.50, 0.28, JP_SIZE, JP_SIZE, 11);
   return {
-    type: 'johnpork', x, y, direction: 'down',
+    type: 'johnpork', x: pos.x, y: pos.y, direction: 'down',
     frameIndex: 0, frameTick: 0,
     wanderDx: 0, wanderDy: 0, wanderTimer: 0,
-    hp: 150, maxHp: 150, hitFlash: 0,
-    state: 'wander', slowTimer: 0, aliveFrames: 0,
-    attackTimer: 0, currentAttack: 0,
-    attackFrame: 0, atkFrameTick: 0,
+    hp: JP_HP, maxHp: JP_HP, hitFlash: 0,
+    state: 'chase', slowTimer: 0, aliveFrames: 0,
+    slamCooldown: 90, summonCooldown: 210, actionTimer: 0, actionHit: false,
+    attackFrame: 0, atkFrameTick: 0, summonedCount: 0,
     dying: false, deathFrame: 0, deathTick: 0, deathDone: false, corpseTimer: 0
   };
 }
@@ -1385,7 +1388,13 @@ function spawnStage(n) {
   else if (n === 8)  { enemies.push(spawnMimic()); }
   else if (n === 9)  { enemies.push(spawnGuardian(), spawnGuardian()); }
   else if (n === 10) { enemies.push(...spawnTribunal()); }
-  else if (n === 11) { enemies.push(spawnEnemy()); } // John Pork
+  else if (n === 11) {
+    const hero = stagePointToWorld(0.50, 0.77, DISPLAY_SIZE, DISPLAY_SIZE, 11);
+    player.x = hero.x;
+    player.y = hero.y;
+    player.direction = 'up';
+    enemies.push(spawnEnemy());
+  } // John Pork
   else               { for (let i=0;i<Math.min(n+2,8);i++) enemies.push(spawnGoblin()); }
 }
 
@@ -1407,16 +1416,35 @@ function addMarker(x, y, text, color) {
 const bgMusic = new Audio('sounds/Ashes in the Nave (1).mp3');
 bgMusic.loop   = true;
 bgMusic.volume = 0.4;
+const ashenMarchMusic = new Audio('sounds/Ashen March.mp3');
+ashenMarchMusic.loop = true;
+ashenMarchMusic.volume = 0.45;
 const facebookRing = new Audio('sounds/Voice lines/facebook_call.mp3');
 facebookRing.loop = true;
 facebookRing.volume = 0.9;
 let musicStarted = false;
+let ashenMarchStarted = false;
 function tryStartMusic() {
   warmUpAudio();
   if (gameState === 'johnporkintro' || (gameState === 'playing' && stage >= 11)) return;
+  if (!ashenMarchMusic.paused) {
+    ashenMarchMusic.pause();
+    ashenMarchMusic.currentTime = 0;
+    ashenMarchStarted = false;
+  }
   if (musicStarted && !bgMusic.paused) return;
   bgMusic.play()
     .then(() => { musicStarted = true; })
+    .catch(() => {});
+}
+
+function startAshenMarchMusic() {
+  bgMusic.pause();
+  bgMusic.currentTime = 0;
+  musicStarted = false;
+  if (ashenMarchStarted && !ashenMarchMusic.paused) return;
+  ashenMarchMusic.play()
+    .then(() => { ashenMarchStarted = true; })
     .catch(() => {});
 }
 
@@ -1424,19 +1452,51 @@ function startJohnPorkIntro() {
   clearMovementKeys();
   warmUpAudio();
   bgMusic.pause();
+  ashenMarchMusic.pause();
   facebookRing.currentTime = 0;
   facebookRing.play().catch(() => {});
-  johnPorkIntroTimer = 600; // 10 seconds at 60fps
+  johnPorkIntroTimer = JOHN_PORK_INTRO_IMAGE_FRAMES;
+  johnPorkIntroPhase = 'john';
+  johnPorkIntroRoar = null;
+  if (johnPorkIntroFallbackTimer) clearTimeout(johnPorkIntroFallbackTimer);
+  johnPorkIntroFallbackTimer = null;
   gameState = 'johnporkintro';
 }
 
+function startDemonPigIntro() {
+  if (johnPorkIntroPhase === 'demon') return;
+  johnPorkIntroPhase = 'demon';
+  johnPorkIntroTimer = 0;
+  facebookRing.pause();
+  facebookRing.currentTime = 0;
+
+  johnPorkIntroRoar = sfx.demonRoar ? sfx.demonRoar.cloneNode() : null;
+  if (!johnPorkIntroRoar) {
+    finishJohnPorkIntro();
+    return;
+  }
+  johnPorkIntroRoar.volume = sfx.demonRoar.volume;
+  johnPorkIntroRoar.addEventListener('ended', finishJohnPorkIntro, { once: true });
+  johnPorkIntroRoar.play().catch(() => {
+    johnPorkIntroFallbackTimer = setTimeout(finishJohnPorkIntro, 1800);
+  });
+}
+
 function finishJohnPorkIntro() {
+  if (johnPorkIntroFallbackTimer) clearTimeout(johnPorkIntroFallbackTimer);
+  johnPorkIntroFallbackTimer = null;
+  if (johnPorkIntroRoar) {
+    johnPorkIntroRoar.pause();
+    johnPorkIntroRoar.currentTime = 0;
+    johnPorkIntroRoar = null;
+  }
   facebookRing.pause();
   facebookRing.currentTime = 0;
   stage = 11;
   spawnStage(11);
   clearMovementKeys();
   gameState = 'playing';
+  startAshenMarchMusic();
 }
 
 const sfx = {
@@ -1474,6 +1534,7 @@ const sfx = {
   knifeImpact:    new Audio('sounds/fx/Knife Throw Impact.wav'),
   blastwave:      new Audio('sounds/fx/Blastwave.wav'),
   heavyGate:      new Audio('sounds/fx/Heavy Gate.wav'),
+  demonRoar:      new Audio('sounds/fx/Demon Roar.wav'),
   frostNova:      new Audio('sounds/fx/Forst Nova.wav'),
   mageBlink:      new Audio('sounds/fx/Mage Blink.mp3'),
 };
@@ -1511,6 +1572,7 @@ sfx.knifeThrow.volume     = 0.7;
 sfx.knifeImpact.volume    = 0.75;
 sfx.blastwave.volume      = 0.8;
 sfx.heavyGate.volume      = 1.0;
+sfx.demonRoar.volume      = 1.0;
 sfx.frostNova.volume      = 0.8;
 sfx.mageBlink.volume      = 0.8;
 
@@ -1529,33 +1591,32 @@ if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
 let lastVoiceClass = -1;
 let audioWarmupStarted = false;
 
-function warmAudioElement(audio) {
+function warmAudioElement(audio, delayMs = 0) {
   if (!audio || audio.dataset?.warmed === '1') return;
-  const originalVolume = audio.volume;
   audio.dataset.warmed = '1';
-  audio.muted = true;
-  audio.volume = 0;
-  audio.currentTime = 0;
-  const playPromise = audio.play();
-  if (!playPromise) return;
-  playPromise
-    .then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
-      audio.volume = originalVolume;
-    })
-    .catch(() => {
-      audio.muted = false;
-      audio.volume = originalVolume;
-    });
+  audio.load();
+  setTimeout(() => {
+    const warm = audio.cloneNode();
+    warm.muted = true;
+    warm.volume = 0;
+    warm.preload = 'auto';
+    warm.currentTime = 0;
+    const playPromise = warm.play();
+    const cleanup = () => {
+      warm.pause();
+      warm.removeAttribute('src');
+      warm.load();
+    };
+    if (playPromise) playPromise.then(() => setTimeout(cleanup, 80)).catch(cleanup);
+    else setTimeout(cleanup, 80);
+  }, delayMs);
 }
 
 function warmUpAudio() {
   if (audioWarmupStarted) return;
   audioWarmupStarted = true;
-  [bgMusic, facebookRing, ...Object.values(sfx), ...Object.values(charSelectVoice)]
-    .forEach(warmAudioElement);
+  [bgMusic, ashenMarchMusic, facebookRing, ...Object.values(sfx), ...Object.values(charSelectVoice)]
+    .forEach((audio, idx) => warmAudioElement(audio, idx * 25));
 }
 
 function playCharVoice(classIdx) {
@@ -1569,7 +1630,6 @@ function playCharVoice(classIdx) {
   vo.play().catch(() => {});
 }
 function playsfx(name) {
-  warmUpAudio();
   if (name === 'damage') {
     if (player.className === 'Rogue' && sfx.rogueHit) name = 'rogueHit';
     else if (player.className === 'Mage' && sfx.mageHit) name = 'mageHit';
@@ -1585,7 +1645,6 @@ function playSfxBurst(name, count = 3, delayMs = 150) {
   }
 }
 function startLoopingSfx(name) {
-  warmUpAudio();
   if (!sfx[name]) return null;
   const s = sfx[name].cloneNode();
   s.volume = sfx[name].volume;
@@ -2448,6 +2507,7 @@ function enemyHitbox(e) {
     case 'trib_sentinel': return { x: e.x, y: e.y, w: TRIB_SENTINEL_SIZE,      h: TRIB_SENTINEL_SIZE };
     case 'trib_warden':   return { x: e.x, y: e.y, w: TRIB_WARDEN_SIZE,        h: TRIB_WARDEN_SIZE };
     case 'trib_priest':   return { x: e.x, y: e.y, w: TRIB_PRIEST_SIZE,        h: TRIB_PRIEST_SIZE };
+    case 'johnpork':      return { x: e.x, y: e.y, w: JP_SIZE,                 h: JP_SIZE };
     case 'ghoul':        return { x: e.x, y: e.y, w: Math.round(DISPLAY_SIZE*0.8),h: Math.round(DISPLAY_SIZE*0.8) };
     case 'abomination':  return { x: e.x, y: e.y, w: ABOM_SIZE, h: ABOM_SIZE };
     default:         return { x: e.x, y: e.y, w: DISPLAY_SIZE,                h: DISPLAY_SIZE };
@@ -3656,6 +3716,19 @@ function spawnTrollRockImpact(x, y) {
   });
 }
 
+function spawnDarkSummon(x, y, spawnFn) {
+  spellEffects.push({
+    type: 'darkSummon',
+    x, y,
+    frame: 0,
+    tick: 0,
+    life: DARK_SUMMON_FRAMES * 4,
+    size: Math.round(DISPLAY_SIZE * 2.1),
+    spawnFn,
+    spawned: false
+  });
+}
+
 function applyFireballSplash(x, y, damage, directHit = null) {
   enemies.forEach(e => {
     if (e.hp <= 0 || e.dying) return;
@@ -3672,13 +3745,18 @@ function applyFireballSplash(x, y, damage, directHit = null) {
 function updateSpellEffects() {
   for (let i = spellEffects.length - 1; i >= 0; i--) {
     const fx = spellEffects[i];
-    const frameSpeed = fx.type === 'trollRockImpact' ? 2 : 4;
+    const frameSpeed = fx.type === 'trollRockImpact' ? 2 : fx.type === 'darkSummon' ? 4 : 4;
     if (++fx.tick >= frameSpeed) {
       fx.tick = 0;
       fx.frame++;
     }
+    if (fx.type === 'darkSummon' && !fx.spawned && fx.frame >= 4) {
+      fx.spawned = true;
+      if (typeof fx.spawnFn === 'function') fx.spawnFn();
+    }
     const maxFrames = fx.type === 'fireballExplosion' ? FIREBALL_EXPLOSION_FRAMES :
-      fx.type === 'trollRockImpact' ? TROLL_BOULDER_IMPACT_FRAMES : 4;
+      fx.type === 'trollRockImpact' ? TROLL_BOULDER_IMPACT_FRAMES :
+      fx.type === 'darkSummon' ? DARK_SUMMON_FRAMES : 4;
     if (--fx.life <= 0 || fx.frame >= maxFrames) spellEffects.splice(i, 1);
   }
 }
@@ -3777,6 +3855,17 @@ function drawSpellEffects() {
       const row = Math.floor(frame / 4);
       const sz = fx.size;
       drawSheetSprite(trollBoulderSheet, col, row, fx.x - sz / 2, fx.y - sz / 2, sz, sz, 4, 4);
+    } else if (fx.type === 'darkSummon' && darkSummonSheet) {
+      const col = fx.frame % 4;
+      const row = Math.floor(fx.frame / 4);
+      const sz = fx.size;
+      const frameW = darkSummonSheet.width / DARK_SUMMON_COLS;
+      const frameH = darkSummonSheet.height / DARK_SUMMON_ROWS;
+      const h = Math.round(sz * (frameH / frameW));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.25, Math.min(1, fx.life / 12));
+      drawSheetSprite(darkSummonSheet, col, row, fx.x - sz / 2, fx.y - h / 2, sz, h, DARK_SUMMON_COLS, DARK_SUMMON_ROWS);
+      ctx.restore();
     }
   });
 }
@@ -4174,6 +4263,22 @@ function updateTroll(e) {
   e.aliveFrames++;
   if (e.hitFlash > 0) e.hitFlash--;
   if (e.throwTimer > 0) e.throwTimer--;
+
+  if (e.attackAnimTimer > 0) {
+    e.attackAnimTimer--;
+    if (++e.frameTick >= FRAME_SPEED) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (e.attackAnimTimer <= 0) {
+      e.state = 'wander';
+      e.attackFrame = 0;
+      e.frameIndex = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
   const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
   let mx = 0, my = 0;
   if (dist < TROLL_THROW_RANGE) {
@@ -4204,11 +4309,7 @@ function updateTroll(e) {
   if (Math.abs(mx) >= Math.abs(my)) { if (mx > 0) e.direction='right'; else if (mx < 0) e.direction='left'; }
   else { if (my > 0) e.direction='down'; else if (my < 0) e.direction='up'; }
   moveEntityWithSlide(e, mx, my);
-  if (e.attackAnimTimer > 0) {
-    e.attackAnimTimer--;
-    if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.attackFrame = (e.attackFrame + 1) % 4; }
-    if (e.attackAnimTimer <= 0) e.state = 'wander';
-  } else if (mx !== 0 || my !== 0) { if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex=(e.frameIndex+1)%4; } }
+  if (mx !== 0 || my !== 0) { if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex=(e.frameIndex+1)%4; } }
   else { e.frameIndex = 0; e.frameTick = 0; }
 }
 
@@ -4591,6 +4692,135 @@ function updateAbomination(e) {
   if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex = (e.frameIndex + 1) % 4; }
 }
 
+function spawnJohnPorkMinionAt(x, y) {
+  const pool = [
+    () => spawnGoblin(),
+    () => spawnGhoul(),
+    () => spawnOrc(false, false),
+    () => spawnArcher(),
+    () => spawnSkeletalChampion()
+  ];
+  const minion = pool[Math.floor(Math.random() * pool.length)]();
+  const hb = enemyHitbox(minion);
+  minion.x = Math.max(TILE_SIZE, Math.min(canvas.width - hb.w - TILE_SIZE, x - hb.w / 2));
+  minion.y = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - hb.h - TILE_SIZE, y - hb.h / 2));
+  minion.direction = 'down';
+  minion.state = minion.type === 'skeletal_champion' ? 'chase' : 'wander';
+  minion.spawnWarning = 0;
+  minion.aliveFrames = 0;
+  minion.hitFlash = 18;
+  enemies.push(minion);
+  addMarker(minion.x + hb.w / 2, minion.y - 12, 'SUMMONED', '#bb66ff');
+}
+
+function johnPorkSummonPoint() {
+  for (let i = 0; i < 80; i++) {
+    const x = TILE_SIZE * 2 + Math.random() * Math.max(1, canvas.width - TILE_SIZE * 4);
+    const y = TILE_SIZE * 2 + Math.random() * Math.max(1, GAME_HEIGHT - TILE_SIZE * 5);
+    if (Math.hypot(x - (player.x + DISPLAY_SIZE / 2), y - (player.y + DISPLAY_SIZE / 2)) < DISPLAY_SIZE * 2.5) continue;
+    if (canMoveTo(x, y)) return { x, y };
+  }
+  return { x: canvas.width / 2, y: GAME_HEIGHT / 2 };
+}
+
+function updateJohnPork(e) {
+  if (e.dying || e.hp <= 0) return;
+  e.aliveFrames++;
+  if (e.hitFlash > 0) e.hitFlash--;
+  if (e.slowTimer > 0) e.slowTimer--;
+  if (e.slamCooldown > 0) e.slamCooldown--;
+  if (e.summonCooldown > 0) e.summonCooldown--;
+
+  const hb = enemyHitbox(e);
+  const pcx = player.x + DISPLAY_SIZE / 2;
+  const pcy = player.y + DISPLAY_SIZE / 2;
+  const cx = hb.x + hb.w / 2;
+  const cy = hb.y + hb.h / 2;
+  const dx = pcx - cx;
+  const dy = pcy - cy;
+  const dist = Math.hypot(dx, dy);
+  if (Math.abs(dx) >= Math.abs(dy)) e.direction = dx >= 0 ? 'right' : 'left';
+  else e.direction = dy >= 0 ? 'down' : 'up';
+
+  if (e.state === 'slam') {
+    e.actionTimer--;
+    if (++e.frameTick >= Math.max(5, Math.floor(JP_SLAM_WINDUP / 4))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (!e.actionHit && e.actionTimer <= Math.floor(JP_SLAM_WINDUP * 0.35)) {
+      e.actionHit = true;
+      playsfx('slam');
+      addHazard('rubble', cx, cy, JP_SLAM_RANGE * 0.45, 180, { slow: true, color: '#5d3040' });
+      if (Math.hypot(pcx - cx, pcy - cy) <= JP_SLAM_RANGE) {
+        const dmg = damagePlayer(JP_SLAM_DAMAGE, 22);
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${dmg}`, '#ff3366');
+        playsfx('damage');
+      }
+    }
+    if (e.actionTimer <= 0) {
+      e.state = 'chase';
+      e.slamCooldown = JP_SLAM_CD;
+      e.attackFrame = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
+  if (e.state === 'summon') {
+    e.actionTimer--;
+    if (++e.frameTick >= Math.max(6, Math.floor(JP_SUMMON_WINDUP / 4))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (e.actionTimer <= 0) {
+      e.state = 'chase';
+      e.summonCooldown = JP_SUMMON_CD;
+      e.attackFrame = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
+  if (e.summonCooldown <= 0) {
+    e.state = 'summon';
+    e.actionTimer = JP_SUMMON_WINDUP;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    const count = e.hp / e.maxHp <= 0.45 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const pt = johnPorkSummonPoint();
+      spawnDarkSummon(pt.x, pt.y, () => spawnJohnPorkMinionAt(pt.x, pt.y));
+    }
+    addMarker(cx, e.y - 16, 'DARK SUMMON', '#bb66ff');
+    playsfx('heavyGate');
+    return;
+  }
+
+  if (dist <= JP_SLAM_RANGE * 0.72 && e.slamCooldown <= 0) {
+    e.state = 'slam';
+    e.actionTimer = JP_SLAM_WINDUP;
+    e.actionHit = false;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    return;
+  }
+
+  e.state = 'chase';
+  const spd = e.slowTimer > 0 ? JP_SPEED * 0.5 : JP_SPEED;
+  const cv = chaseVec(dx, dy, spd);
+  moveEntityWithSlide(e, cv.mx, cv.my);
+  if (Math.abs(cv.mx) >= Math.abs(cv.my)) {
+    if (cv.mx > 0) e.direction = 'right'; else if (cv.mx < 0) e.direction = 'left';
+  } else {
+    if (cv.my > 0) e.direction = 'down'; else if (cv.my < 0) e.direction = 'up';
+  }
+  if (++e.frameTick >= FRAME_SPEED + 2) {
+    e.frameTick = 0;
+    e.frameIndex = (e.frameIndex + 1) % 4;
+  }
+}
+
 function updateEnemy(e) {
   if (e.dying || e.deathDone) return; // handled in death ticker
   if (e.spawnWarning > 0) {
@@ -4633,82 +4863,8 @@ function updateEnemy(e) {
   if (e.type === 'trib_sentinel') return updateTribunalSentinel(e);
   if (e.type === 'trib_warden')   return updateTribunalWarden(e);
   if (e.type === 'trib_priest')   return updateTribunalPriest(e);
-  if (e.dying || e.hp <= 0) return;
-  e.aliveFrames = (e.aliveFrames || 0) + 1;
-  if (e.hitFlash > 0) e.hitFlash--;
-  if (e.slowTimer > 0) e.slowTimer--;
-
-  if (e.state === 'attacking') {
-    e.atkFrameTick++;
-    if (e.atkFrameTick >= ATK_SPEED) {
-      e.atkFrameTick = 0;
-      e.attackFrame++;
-      const atk = JP_ATKS[e.currentAttack];
-      if (e.attackFrame >= atk.frames.length) {
-        if (Math.hypot(player.x - e.x, player.y - e.y) < ATTACK_RANGE + 40) {
-          const base = player.berserkTimer > 0 ? Math.round(atk.damage * 1.5) : atk.damage;
-          const dmg = damagePlayer(base, 15);
-          addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${dmg}`, '#ff8800');
-          playsfx('damage');
-        }
-        e.attackFrame = 0;
-        e.state = 'cooldown';
-        e.attackTimer = ATK_COOLDOWN;
-      }
-    }
-    return;
-  }
-
-  if (e.state === 'cooldown') {
-    if (--e.attackTimer <= 0) e.state = 'chase';
-  }
-
-  const dx = player.x - e.x, dy = player.y - e.y;
-  const dist = Math.hypot(dx, dy);
-  let moveDx = 0, moveDy = 0;
-
-  if (dist < ATTACK_RANGE && e.state !== 'cooldown') {
-    e.state = 'attacking';
-    e.currentAttack = Math.floor(Math.random() * JP_ATKS.length);
-    e.attackFrame = 0; e.atkFrameTick = 0;
-    return;
-  } else if (dist < CHASE_RANGE) {
-    if (e.state !== 'cooldown') e.state = 'chase';
-    const jpSpeed = e.slowTimer > 0 ? Math.max(1, ENEMY_SPEED * 0.5) : ENEMY_SPEED;
-    const cv = chaseVec(dx, dy, jpSpeed);
-    moveDx = cv.mx; moveDy = cv.my;
-  } else {
-    if (e.state !== 'cooldown') e.state = 'wander';
-    if (--e.wanderTimer <= 0) {
-      const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},{dx:0,dy:0}];
-      const c = dirs[Math.floor(Math.random() * dirs.length)];
-      e.wanderDx = c.dx; e.wanderDy = c.dy;
-      e.wanderTimer = 60 + Math.floor(Math.random() * 120);
-    }
-    const jpSpeed = e.slowTimer > 0 ? Math.max(1, ENEMY_SPEED * 0.5) : ENEMY_SPEED;
-    moveDx = e.wanderDx * jpSpeed;
-    moveDy = e.wanderDy * jpSpeed;
-  }
-
-  if (Math.abs(moveDx) >= Math.abs(moveDy)) {
-    if (moveDx > 0) e.direction = 'right';
-    else if (moveDx < 0) e.direction = 'left';
-  } else {
-    if (moveDy > 0) e.direction = 'down';
-    else if (moveDy < 0) e.direction = 'up';
-  }
-
-  moveEntityWithSlide(e, moveDx, moveDy);
-
-  const moving = moveDx !== 0 || moveDy !== 0;
-  if (moving) {
-    if (++e.frameTick >= FRAME_SPEED) {
-      e.frameTick = 0;
-      e.frameIndex = (e.frameIndex + 1) % 4;
-    }
-  } else {
-    e.frameIndex = 0; e.frameTick = 0;
-  }
+  if (e.type === 'johnpork') return updateJohnPork(e);
+  return updateSimpleMelee(e, e.maxHp || 100, 12, ENEMY_SPEED, ATTACK_RANGE, ATK_COOLDOWN, CHASE_RANGE);
 }
 
 function restartCurrentStageSoftcore() {
@@ -5816,24 +5972,31 @@ function drawSimpleEnemy(e, bodyColor, headColor, eyeColor, W, H) {
 
 function drawTroll(e) {
   const W = DISPLAY_SIZE * 2, H = DISPLAY_SIZE * 2;
+  const row = dirToRow(e.direction);
   if (e.dying) {
-    ctx.globalAlpha = Math.max(0, 1 - e.deathFrame / 3);
-    drawMonSprite(trollRunSheet, Math.min(e.deathFrame, 3), dirToRow(e.direction), e.x, e.y, W, H);
+    const col = Math.min(e.deathFrame, 3);
+    ctx.globalAlpha = Math.max(0.25, 1 - e.deathFrame / 5);
+    if (trollMasterSheet) drawMasterQuadrantSprite(trollMasterSheet, 'death', col, row, e.x, e.y, W, H);
+    else drawMonSprite(trollRunSheet, col, row, e.x, e.y, W, H);
     ctx.globalAlpha = 1;
     return;
   }
   if (e.deathDone) {
     ctx.globalAlpha = 0.5;
-    drawMonSprite(trollRunSheet, 3, dirToRow(e.direction), e.x, e.y, W, H);
+    if (trollMasterSheet) drawMasterQuadrantSprite(trollMasterSheet, 'death', 3, row, e.x, e.y, W, H);
+    else drawMonSprite(trollRunSheet, 3, row, e.x, e.y, W, H);
     ctx.globalAlpha = 1;
     return;
   }
   if (e.hp <= 0) return;
   applyHitFlash(e.hitFlash);
-  const row = dirToRow(e.direction);
   const col = e.state === 'attacking' ? (e.attackFrame || 0) % 4 : e.frameIndex % 4;
-  const sheet = e.state === 'attacking' ? (trollAtkSheet || trollRunSheet) : trollRunSheet;
-  drawMonSprite(sheet, col, row, e.x, e.y, W, H);
+  if (trollMasterSheet) {
+    drawMasterQuadrantSprite(trollMasterSheet, e.state === 'attacking' ? 'attack' : 'run', col, row, e.x, e.y, W, H);
+  } else {
+    const sheet = e.state === 'attacking' ? (trollAtkSheet || trollRunSheet) : trollRunSheet;
+    drawMonSprite(sheet, col, row, e.x, e.y, W, H);
+  }
   ctx.filter = 'none';
   drawEnemyHpBar(e, W, -12);
 }
@@ -6134,6 +6297,68 @@ function drawTribunalEnemy(e) {
   ctx.textAlign = 'left';
 }
 
+function drawJohnPork(e) {
+  const W = JP_SIZE, H = JP_SIZE;
+  const row = dirToRow(e.direction);
+  if (e.dying || e.deathDone) {
+    ctx.save();
+    ctx.globalAlpha = e.deathDone ? 0.55 : 1;
+    if (jpMasterSheet) drawMasterQuadrantSprite(jpMasterSheet, 'death', Math.min(e.deathFrame, 3), row, e.x, e.y, W, H);
+    else {
+      ctx.fillStyle = '#7b2440';
+      ctx.fillRect(e.x, e.y + H * 0.35, W, H * 0.55);
+    }
+    ctx.restore();
+    return;
+  }
+  if (e.hp <= 0) return;
+
+  const hb = enemyHitbox(e);
+  const cx = hb.x + hb.w / 2;
+  const cy = hb.y + hb.h / 2;
+
+  if (e.state === 'slam') {
+    const progress = 1 - Math.max(0, e.actionTimer) / JP_SLAM_WINDUP;
+    ctx.save();
+    ctx.globalAlpha = 0.18 + progress * 0.28;
+    ctx.strokeStyle = '#ff3366';
+    ctx.fillStyle = 'rgba(90, 15, 45, 0.18)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, JP_SLAM_RANGE, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  applyHitFlash(e.hitFlash);
+  ctx.save();
+  if (e.hp / e.maxHp <= 0.35) ctx.filter = 'brightness(1.15) saturate(1.5) hue-rotate(330deg)';
+  const col = (e.state === 'slam' || e.state === 'summon') ? Math.min(e.attackFrame || 0, 3) : e.frameIndex % 4;
+  const quadrant = e.state === 'slam' ? 'attack' : e.state === 'summon' ? 'block' : 'run';
+  if (jpMasterSheet) {
+    drawMasterQuadrantSprite(jpMasterSheet, quadrant, col, row, e.x, e.y, W, H);
+  } else {
+    ctx.fillStyle = e.state === 'summon' ? '#5d248a' : '#9d3f57';
+    ctx.fillRect(e.x + W * 0.2, e.y + H * 0.08, W * 0.6, H * 0.86);
+    ctx.fillStyle = '#d78b9c';
+    ctx.fillRect(e.x + W * 0.28, e.y, W * 0.44, H * 0.32);
+  }
+  ctx.restore();
+  ctx.filter = 'none';
+
+  drawEnemyHpBar(e, W, -12);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ff8fb1';
+  ctx.font = 'bold 12px Arial';
+  ctx.fillText('JOHN PORK', e.x + W / 2, e.y - 18);
+  if (e.state === 'summon') {
+    ctx.fillStyle = '#bb66ff';
+    ctx.fillText('SUMMONING', e.x + W / 2, e.y - 32);
+  }
+  ctx.textAlign = 'left';
+}
+
 function drawEnemy(e) {
   if (e.type === 'golem')    return drawGolem(e);
   if (e.type === 'goblin')   return drawGoblin(e);
@@ -6146,6 +6371,7 @@ function drawEnemy(e) {
   if (e.type === 'troll')        return drawTroll(e);
   if (e.type === 'guardian') return drawGuardian(e);
   if (e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest') return drawTribunalEnemy(e);
+  if (e.type === 'johnpork') return drawJohnPork(e);
   if (e.type === 'mimic') {
     if (e.dying || e.deathDone) {
       const fadeAlpha = e.deathDone ? 0 : Math.max(0, 1 - e.deathFrame / 3);
@@ -6168,24 +6394,8 @@ function drawEnemy(e) {
   }
   if (e.hp <= 0 && !e.dying) return;
   applyHitFlash(e.hitFlash);
-
-  if (e.state === 'attacking') {
-    const atk  = JP_ATKS[e.currentAttack] || JP_ATKS[0];
-    const srcX = atk.frames[Math.min(e.attackFrame, atk.frames.length - 1)] * JP_FW;
-    if (jpAtkSheet) ctx.drawImage(jpAtkSheet, srcX, atk.row * JP_FH, JP_FW, JP_FH, e.x, e.y, DISPLAY_SIZE, DISPLAY_SIZE);
-  } else {
-    const anim = JP_MOVE[e.direction] || JP_MOVE.down;
-    const srcX = anim.frames[e.frameIndex] * JP_FW;
-    if (jpMoveSheet) ctx.drawImage(jpMoveSheet, srcX, anim.row * JP_FH, JP_FW, JP_FH, e.x, e.y, DISPLAY_SIZE, DISPLAY_SIZE);
-  }
-
+  drawSimpleEnemy(e, '#803040', '#d48a9a', '#ffcccc', DISPLAY_SIZE, DISPLAY_SIZE);
   ctx.filter = 'none';
-
-  // HP bar
-  ctx.fillStyle = '#333';
-  ctx.fillRect(e.x, e.y - 10, DISPLAY_SIZE, 5);
-  ctx.fillStyle = '#e74c3c';
-  ctx.fillRect(e.x, e.y - 10, DISPLAY_SIZE * (e.hp / e.maxHp), 5);
 }
 
 function drawFrostTint(e) {
@@ -7721,15 +7931,18 @@ function drawJohnPorkIntro() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (johnPorkIntroImg) {
-    const scale = Math.min(canvas.width / johnPorkIntroImg.width, canvas.height / johnPorkIntroImg.height);
-    const dw = johnPorkIntroImg.width * scale;
-    const dh = johnPorkIntroImg.height * scale;
-    ctx.drawImage(johnPorkIntroImg, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+  const img = johnPorkIntroPhase === 'demon' ? demonPigIntroImg : johnPorkIntroImg;
+  if (img) {
+    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
   }
 
-  johnPorkIntroTimer--;
-  if (johnPorkIntroTimer <= 0) finishJohnPorkIntro();
+  if (johnPorkIntroPhase === 'john') {
+    johnPorkIntroTimer--;
+    if (johnPorkIntroTimer <= 0) startDemonPigIntro();
+  }
 }
 
 function drawGameOver() {
