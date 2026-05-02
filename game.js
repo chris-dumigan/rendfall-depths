@@ -610,11 +610,17 @@ const STAGE_PLAY_AREAS = {
 
 let loaded = 0;
 const TOTAL_IMAGES = 106;
+let audioAssetCount = 0;
 let gameLoopStarted = false;
-const ASSET_VERSION = Date.now();
+let startupRegistrationComplete = false;
+const ASSET_VERSION = '2026-05-01-v9';
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
+}
+
+function totalStartupAssets() {
+  return TOTAL_IMAGES + audioAssetCount;
 }
 
 function cleanAssetLabel(src) {
@@ -648,16 +654,52 @@ window.addEventListener('error', (event) => {
     const label = event.target.assetLabel || event.target.src;
     settleTrackedImage(event.target);
     console.warn('Image failed to load:', label);
-    onLoad();
   }
 }, true);
+
+function trackStartupAudio(audio, src) {
+  const label = cleanAssetLabel(src);
+  audioAssetCount++;
+  audio.assetLabel = label;
+  if (label) pendingAssetLabels.add(label);
+  audio.preload = 'auto';
+
+  let settled = false;
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    if (label) pendingAssetLabels.delete(label);
+    onLoad();
+  };
+
+  audio.addEventListener('loadeddata', settle, { once: true });
+  audio.addEventListener('canplaythrough', settle, { once: true });
+  audio.addEventListener('error', () => {
+    console.warn('Audio failed to load:', label || src);
+    settle();
+  }, { once: true });
+}
+
+const NativeAudio = window.Audio;
+window.Audio = function(src) {
+  const audio = new NativeAudio();
+  if (src) {
+    trackStartupAudio(audio, src);
+    audio.src = src;
+    audio.load();
+  }
+  return audio;
+};
+window.Audio.prototype = NativeAudio.prototype;
+window.Audio.__proto__ = NativeAudio;
 
 function pendingAssetSummary() {
   return Array.from(pendingAssetLabels).slice(0, 3).join(', ');
 }
 
 function drawLoadingScreen() {
-  const progress = Math.max(0, Math.min(1, loaded / TOTAL_IMAGES));
+  const totalAssets = totalStartupAssets();
+  const progress = Math.max(0, Math.min(1, loaded / Math.max(1, totalAssets)));
   const W = canvas.width;
   const H = canvas.height;
   const barW = Math.min(520, W * 0.72);
@@ -680,7 +722,7 @@ function drawLoadingScreen() {
 
   ctx.fillStyle = '#d8d0b8';
   ctx.font = `600 ${Math.max(14, Math.min(20, Math.round(W / 70)))}px 'Cinzel', serif`;
-  ctx.fillText(`Loading assets ${loaded}/${TOTAL_IMAGES}`, W / 2, barY - 18);
+  ctx.fillText(`Loading assets ${loaded}/${totalAssets}`, W / 2, barY - 18);
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(barX, barY, barW, barH);
@@ -694,7 +736,7 @@ function drawLoadingScreen() {
   ctx.font = `400 ${Math.max(11, Math.min(14, Math.round(W / 105)))}px 'Cinzel', serif`;
   ctx.fillText('Preparing the vale...', W / 2, barY + 46);
 
-  if (loadingText) loadingText.textContent = `Loading assets ${loaded}/${TOTAL_IMAGES}`;
+  if (loadingText) loadingText.textContent = `Loading assets ${loaded}/${totalAssets}`;
   if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
 }
 
@@ -702,7 +744,7 @@ function onLoad() {
   loaded++;
   if (gameLoopStarted) return;
   drawLoadingScreen();
-  if (loaded >= TOTAL_IMAGES) startGameLoopFromLoader();
+  if (startupRegistrationComplete && loaded >= totalStartupAssets()) startGameLoopFromLoader();
 }
 
 function startGameLoopFromLoader() {
@@ -1479,6 +1521,9 @@ const charSelectVoice = {
 charSelectVoice.Barbarian.volume = 1.0;
 charSelectVoice.Rogue.volume     = 1.0;
 charSelectVoice.Mage.volume      = 1.0;
+startupRegistrationComplete = true;
+drawLoadingScreen();
+if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
 let lastVoiceClass = -1;
 
 function playCharVoice(classIdx) {
