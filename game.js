@@ -1,5 +1,15 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const loadingText = document.getElementById('loadingText');
+const loadingFill = document.getElementById('loadingFill');
+const loadingHint = document.getElementById('loadingHint');
+
+window.addEventListener('error', (event) => {
+  if (!loadingOverlay || loadingOverlay.classList.contains('hidden')) return;
+  if (loadingText) loadingText.textContent = 'The game hit a loading error.';
+  if (loadingHint) loadingHint.textContent = event.message || 'Check the browser console for details.';
+});
 
 // Full-screen — must happen before any constant derived from canvas.width/height
 canvas.width  = window.innerWidth;
@@ -642,6 +652,9 @@ function drawLoadingScreen() {
   ctx.fillStyle = '#8f8065';
   ctx.font = `400 ${Math.max(11, Math.min(14, Math.round(W / 105)))}px 'Cinzel', serif`;
   ctx.fillText('Preparing the vale...', W / 2, barY + 46);
+
+  if (loadingText) loadingText.textContent = `Loading assets ${loaded}/${TOTAL_IMAGES}`;
+  if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
 }
 
 function onLoad() {
@@ -649,6 +662,7 @@ function onLoad() {
   drawLoadingScreen();
   if (loaded >= TOTAL_IMAGES && !gameLoopStarted) {
     gameLoopStarted = true;
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
     tryStartMusic();
     loop();
   }

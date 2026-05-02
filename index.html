@@ -9,6 +9,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="loadingOverlay" role="status" aria-live="polite">
+    <div class="loading-title">Rendfall Depths</div>
+    <div id="loadingText" class="loading-text">Loading assets 0/106</div>
+    <div class="loading-bar" aria-hidden="true">
+      <div id="loadingFill" class="loading-fill"></div>
+    </div>
+    <div id="loadingHint" class="loading-hint">Preparing the vale...</div>
+  </div>
   <canvas id="gameCanvas"></canvas>
   <script src="game.js"></script>
 </body>
