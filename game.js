@@ -611,7 +611,6 @@ const STAGE_PLAY_AREAS = {
 let loaded = 0;
 const TOTAL_IMAGES = 106;
 let gameLoopStarted = false;
-const LOADING_GRACE_MS = 15000;
 const ASSET_VERSION = Date.now();
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
@@ -649,6 +648,7 @@ window.addEventListener('error', (event) => {
     const label = event.target.assetLabel || event.target.src;
     settleTrackedImage(event.target);
     console.warn('Image failed to load:', label);
+    onLoad();
   }
 }, true);
 
@@ -714,18 +714,11 @@ function startGameLoopFromLoader() {
 }
 
 drawLoadingScreen();
-setTimeout(() => {
+setInterval(() => {
   if (gameLoopStarted) return;
   const pending = pendingAssetSummary();
-  if (pending) {
-    console.warn('Starting with pending image assets:', Array.from(pendingAssetLabels));
-    if (loadingHint) loadingHint.textContent = `Still waiting for: ${pending}`;
-    setTimeout(startGameLoopFromLoader, 3000);
-  } else {
-    if (loadingHint) loadingHint.textContent = 'Some assets are still arriving. Starting anyway...';
-    startGameLoopFromLoader();
-  }
-}, LOADING_GRACE_MS);
+  if (pending && loadingHint) loadingHint.textContent = `Still waiting for: ${pending}`;
+}, 3000);
 
 const barbMoveImg = new Image();
 barbMoveImg.src = 'Barbarian Animations/Barbarian Run.png';
