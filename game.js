@@ -610,6 +610,7 @@ const STAGE_PLAY_AREAS = {
 let loaded = 0;
 const TOTAL_IMAGES = 106; // +3: abomination/golem master/stage art; +8 transition art; +4 mage skill icons; +9 Stage 2-10 art; +John Pork intro; +hero select bg
 let gameLoopStarted = false;
+const LOADING_GRACE_MS = 15000;
 const ASSET_VERSION = Date.now();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
@@ -659,16 +660,25 @@ function drawLoadingScreen() {
 
 function onLoad() {
   loaded++;
+  if (gameLoopStarted) return;
   drawLoadingScreen();
-  if (loaded >= TOTAL_IMAGES && !gameLoopStarted) {
-    gameLoopStarted = true;
-    if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    tryStartMusic();
-    loop();
-  }
+  if (loaded >= TOTAL_IMAGES) startGameLoopFromLoader();
+}
+
+function startGameLoopFromLoader() {
+  if (gameLoopStarted) return;
+  gameLoopStarted = true;
+  if (loadingOverlay) loadingOverlay.classList.add('hidden');
+  tryStartMusic();
+  loop();
 }
 
 drawLoadingScreen();
+setTimeout(() => {
+  if (gameLoopStarted) return;
+  if (loadingHint) loadingHint.textContent = 'Some assets are still arriving. Starting anyway...';
+  startGameLoopFromLoader();
+}, LOADING_GRACE_MS);
 
 const barbMoveImg = new Image();
 barbMoveImg.src = 'Barbarian Animations/Barbarian Run.png';
