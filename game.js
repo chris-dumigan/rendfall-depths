@@ -6,6 +6,7 @@ const loadingFill = document.getElementById('loadingFill');
 const loadingHint = document.getElementById('loadingHint');
 
 window.addEventListener('error', (event) => {
+  if (event.target instanceof HTMLImageElement) return;
   if (!loadingOverlay || loadingOverlay.classList.contains('hidden')) return;
   if (loadingText) loadingText.textContent = 'The game hit a loading error.';
   if (loadingHint) loadingHint.textContent = event.message || 'Check the browser console for details.';
@@ -608,12 +609,51 @@ const STAGE_PLAY_AREAS = {
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 105; // Required startup assets. Any late optional callback is ignored after the loop starts.
+const TOTAL_IMAGES = 106;
 let gameLoopStarted = false;
 const LOADING_GRACE_MS = 15000;
 const ASSET_VERSION = Date.now();
+const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
+}
+
+function cleanAssetLabel(src) {
+  return String(src || '')
+    .replace(window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/'), '')
+    .replace(/\?.*$/, '');
+}
+
+const nativeImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+Object.defineProperty(HTMLImageElement.prototype, 'src', {
+  get() {
+    return nativeImageSrc.get.call(this);
+  },
+  set(value) {
+    this.assetLabel = cleanAssetLabel(value);
+    if (this.assetLabel) pendingAssetLabels.add(this.assetLabel);
+    nativeImageSrc.set.call(this, value);
+  }
+});
+
+function settleTrackedImage(img) {
+  if (img?.assetLabel) pendingAssetLabels.delete(img.assetLabel);
+}
+
+window.addEventListener('load', (event) => {
+  if (event.target instanceof HTMLImageElement) settleTrackedImage(event.target);
+}, true);
+
+window.addEventListener('error', (event) => {
+  if (event.target instanceof HTMLImageElement) {
+    const label = event.target.assetLabel || event.target.src;
+    settleTrackedImage(event.target);
+    console.warn('Image failed to load:', label);
+  }
+}, true);
+
+function pendingAssetSummary() {
+  return Array.from(pendingAssetLabels).slice(0, 3).join(', ');
 }
 
 function drawLoadingScreen() {
@@ -676,8 +716,15 @@ function startGameLoopFromLoader() {
 drawLoadingScreen();
 setTimeout(() => {
   if (gameLoopStarted) return;
-  if (loadingHint) loadingHint.textContent = 'Some assets are still arriving. Starting anyway...';
-  startGameLoopFromLoader();
+  const pending = pendingAssetSummary();
+  if (pending) {
+    console.warn('Starting with pending image assets:', Array.from(pendingAssetLabels));
+    if (loadingHint) loadingHint.textContent = `Still waiting for: ${pending}`;
+    setTimeout(startGameLoopFromLoader, 3000);
+  } else {
+    if (loadingHint) loadingHint.textContent = 'Some assets are still arriving. Starting anyway...';
+    startGameLoopFromLoader();
+  }
 }, LOADING_GRACE_MS);
 
 const barbMoveImg = new Image();
