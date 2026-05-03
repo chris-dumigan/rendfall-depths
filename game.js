@@ -154,6 +154,11 @@ const MINOTAUR_CHARGE_SPEED = Math.round(DISPLAY_SIZE / 7);
 const MINOTAUR_CHARGE_DUR   = 45;
 const MINOTAUR_CHARGE_CD       = 300;
 const MINOTAUR_ENRAGE_SPEED    = Math.round(DISPLAY_SIZE / 4);
+const MINOTAUR_MELEE_DAMAGE    = 34;
+const MINOTAUR_MELEE_RANGE     = Math.round(DISPLAY_SIZE * 1.65);
+const MINOTAUR_MELEE_WINDUP    = 24;
+const MINOTAUR_MELEE_CD        = 135;
+const MINOTAUR_BOTTOM_MARGIN   = Math.round(DISPLAY_SIZE * 0.75);
 
 const ARCHER_HP          = 20;
 const ARCHER_DAMAGE      = 25;
@@ -219,6 +224,7 @@ const GUARDIAN_WINDUP_DUR  = 32;
 const GUARDIAN_SPEAR_EFFECT_DUR = 14;
 const GUARDIAN_ATK_CD      = 95;
 const GUARDIAN_CHASE       = DISPLAY_SIZE * 999; // always chase
+const RESUME_COUNTDOWN_FRAMES = 180;
 
 const TRIB_SENTINEL_HP = 900;
 const TRIB_WARDEN_HP   = 650;
@@ -283,7 +289,7 @@ const TALENT_TREE = [
   {
     path: 'Utility', color: '#2ecc71',
     tiers: [
-      { label: 'Plasticity',         desc: '+3 to all stats now' },
+      { label: 'Plasticity',         desc: '+3 to all stats now and lets you choose your hero primary stat' },
       { label: 'Assassin',           desc: 'Every 15s, next hit deals +1.5x primary stat' },
       { label: 'Eternal Focus',      desc: 'Every third skill cast refunds 50% of that skill cooldown' },
     ]
@@ -359,6 +365,7 @@ let pendingLevelup  = false;
 let talentConfirmData = null; // { mode, pathIdx, tierIdx, name, desc, color }
 let doorOpen = false;         // true when all enemies dead and exit door is unlocked
 let ghoulWaveIndex = 0;       // stage 7 wave tracker
+let resumeCountdown = 0;
 // Stage transition (fade → art reveal → key to continue)
 let transitionFade = 0;
 let transitionPhase = 'fade'; // 'fade' | 'art'
@@ -1158,6 +1165,7 @@ function spawnMinotaur() {
     type: 'minotaur', x, y, direction: 'down',
     hp: MINOTAUR_HP, maxHp: MINOTAUR_HP, hitFlash: 0,
     state: 'wander', chargeTimer: 0, chargeCooldown: 0,
+    meleeCooldown: 0, meleeHit: false,
     chargeDx: 0, chargeDy: 0, chargeHit: false, slowTimer: 0,
     aliveFrames: 0, wanderDx: 0, wanderDy: 0, wanderTimer: 0,
     frameIndex: 0, frameTick: 0,
@@ -1352,6 +1360,7 @@ function spawnStage(n) {
   hazards.length = 0;
   telegraphs.length = 0;
   doorOpen = false;
+  resumeCountdown = 0;
   abilities.forEach(ab => { ab.timer = 0; });
   refreshBulwarkShield();
   if      (n === 1)  { for (let i=0;i<6;i++)  enemies.push(spawnGoblin()); }
@@ -1946,14 +1955,17 @@ document.addEventListener('keydown', (e) => {
 
   if (gameState === 'levelup') {
     const numKey = parseInt(e.key) - 1;
+    const lowerKey = e.key.toLowerCase();
 
     if (levelupPhase === 'skill') {
       const levelable = getLevelableSkills();
-      if (numKey >= 0 && numKey < levelable.length) {
-        levelSkill(levelable[numKey]);
+      const chosenSkill = levelable.find(ab => ab.key === lowerKey);
+      if (chosenSkill) {
+        levelSkill(chosenSkill);
         levelupStatsLeft = 3 + (player.bonusStatPoints || 0);
         levelupStatCursor = 0;
         levelupPhase = 'stats';
+        clearMovementKeys();
       }
       return;
     }
@@ -2005,8 +2017,7 @@ document.addEventListener('keydown', (e) => {
       } else if (e.key === 'Enter' || e.key === ' ') {
         talentConfirmData = null;
         levelupPhase = 'skill';
-        clearMovementKeys();
-        gameState = 'playing';
+        resumeAfterLevelup();
       }
       return;
     }
@@ -2187,7 +2198,7 @@ function isSolid(x, y) {
   // Door tiles at top wall — passable only when open
   if (!getStageDoorRect(stage) && row === 0 && col >= DOOR_COL && col < DOOR_COL + 3) return !doorOpen;
   const stageDoor = getStageDoorRect(stage);
-  if (stageDoor && stage === 2 && x >= stageDoor.x && x <= stageDoor.x + stageDoor.w &&
+  if (stageDoor && x >= stageDoor.x && x <= stageDoor.x + stageDoor.w &&
       y >= stageDoor.y && y <= stageDoor.y + stageDoor.h) {
     return !doorOpen;
   }
@@ -2211,6 +2222,12 @@ function canRectMoveTo(x, y, w, h) {
 
 function minotaurHitsSideWall(x, w) {
   return x <= TILE_SIZE || x + w >= canvas.width - TILE_SIZE;
+}
+
+function minotaurHitsArenaWall(x, y, w, h) {
+  if (x <= TILE_SIZE || x + w >= canvas.width - TILE_SIZE) return true;
+  if (y + h >= GAME_HEIGHT - MINOTAUR_BOTTOM_MARGIN) return true;
+  return false;
 }
 
 function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -2262,9 +2279,26 @@ function getStageDoorRect(stageNum = stage) {
 
 function isStageArtBlocked(x, y) {
   const stageDoor = getStageDoorRect(stage);
-  if (stageDoor && x >= stageDoor.x && x <= stageDoor.x + stageDoor.w &&
-      y >= stageDoor.y && y <= stageDoor.y + stageDoor.h + TILE_SIZE) {
-    return false;
+  if (stageDoor) {
+    const doorPadX = stage <= 2 ? DISPLAY_SIZE * 0.9 : DISPLAY_SIZE * 0.35;
+    const doorPadBelow = stage <= 2 ? DISPLAY_SIZE * 2.1 : TILE_SIZE;
+    if (x >= stageDoor.x - doorPadX && x <= stageDoor.x + stageDoor.w + doorPadX &&
+        y >= stageDoor.y && y <= stageDoor.y + stageDoor.h + doorPadBelow) {
+      return false;
+    }
+  }
+
+  if (stage === 3) {
+    const bgRect = getStageBgRect(3);
+    if (bgRect) {
+      const ny = (y - bgRect.y) / bgRect.h;
+      if (ny >= 0.82 || y >= GAME_HEIGHT - DISPLAY_SIZE * 1.2) return false;
+    }
+  }
+
+  if (stage === 9) {
+    const edgePad = DISPLAY_SIZE * 1.35;
+    if (x <= edgePad || x >= canvas.width - edgePad) return false;
   }
 
   const playArea = STAGE_PLAY_AREAS[stage];
@@ -2969,6 +3003,12 @@ function triggerLevelUp() {
   gameState = 'levelup';
 }
 
+function resumeAfterLevelup() {
+  clearMovementKeys();
+  resumeCountdown = RESUME_COUNTDOWN_FRAMES;
+  gameState = 'playing';
+}
+
 function getLevelableSkills() {
   return orderedAbilities(abilities).filter(a => {
     if (a.level >= a.maxLevel) return false;
@@ -3089,8 +3129,7 @@ function finishLevelupStatsIfDone() {
     levelupTalentCursor = 0;
     levelupPhase = 'talent';
   } else {
-    clearMovementKeys();
-    gameState = 'playing';
+    resumeAfterLevelup();
   }
 }
 
@@ -3517,10 +3556,12 @@ function updateGoblin(e) {
 function updateMinotaur(e) {
   if (e.dying || e.hp <= 0) return;
   const size = DISPLAY_SIZE * 2;
+  const bottomLimit = GAME_HEIGHT - size - MINOTAUR_BOTTOM_MARGIN;
   e.aliveFrames++;
   if (e.hitFlash > 0) e.hitFlash--;
   if (e.slowTimer > 0) e.slowTimer--;
   if (e.chargeCooldown > 0) e.chargeCooldown--;
+  if (e.meleeCooldown > 0) e.meleeCooldown--;
   const spd = e.slowTimer > 0 ? 1 : ENEMY_SPEED;
 
   const dx = player.x - e.x, dy = player.y - e.y;
@@ -3540,6 +3581,36 @@ function updateMinotaur(e) {
     return;
   }
 
+  if (e.state === 'melee') {
+    e.attackTimer--;
+    if (++e.frameTick >= Math.max(4, Math.floor(MINOTAUR_MELEE_WINDUP / 4))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (!e.meleeHit && e.attackTimer <= Math.floor(MINOTAUR_MELEE_WINDUP * 0.45)) {
+      e.meleeHit = true;
+      const hb = enemyHitbox(e);
+      const pcx = player.x + DISPLAY_SIZE / 2;
+      const pcy = player.y + DISPLAY_SIZE / 2;
+      const ecx = hb.x + hb.w / 2;
+      const ecy = hb.y + hb.h / 2;
+      if (Math.hypot(pcx - ecx, pcy - ecy) <= MINOTAUR_MELEE_RANGE) {
+        const base = player.berserkTimer > 0 ? Math.round(MINOTAUR_MELEE_DAMAGE * 1.5) : MINOTAUR_MELEE_DAMAGE;
+        const dmg = damagePlayer(base, 16);
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${dmg}`, '#ff8844');
+        playsfx('damage');
+      }
+      playsfx('swing');
+    }
+    if (e.attackTimer <= 0) {
+      e.state = 'chase';
+      e.meleeCooldown = MINOTAUR_MELEE_CD;
+      e.attackFrame = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
   if (e.state === 'charging') {
     const enraged = e.hp / e.maxHp <= 0.5;
     const chargeSpd = enraged ? MINOTAUR_ENRAGE_SPEED : MINOTAUR_CHARGE_SPEED;
@@ -3547,10 +3618,11 @@ function updateMinotaur(e) {
     const cdy = e.chargeDy * chargeSpd;
     const nx = e.x + cdx;
     const ny = e.y + cdy;
-    if (stage === 3 && minotaurHitsSideWall(nx, size)) {
+    if (stage === 3 && minotaurHitsArenaWall(nx, ny, size, size)) {
       e.state = 'stunned';
       e.stunTimer = MINOTAUR_WALL_STUN;
       e.hitFlash = 30;
+      e.y = Math.min(e.y, bottomLimit);
       addMarker(e.x + size / 2, e.y - 10, 'STUNNED!', '#ffd700');
       playsfx('stoneCrash');
       return;
@@ -3564,7 +3636,7 @@ function updateMinotaur(e) {
       return;
     }
     e.x = stage === 3 ? Math.max(TILE_SIZE, Math.min(canvas.width - size - TILE_SIZE, nx)) : nx;
-    e.y = stage === 3 ? Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - size, ny)) : ny;
+    e.y = stage === 3 ? Math.max(TILE_SIZE, Math.min(bottomLimit, ny)) : ny;
     if (!e.chargeHit && rectsOverlap(e.x, e.y, size, size, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
       e.chargeHit = true;
       const base = player.berserkTimer > 0 ? Math.round(MINOTAUR_CHARGE_DMG * 1.5) : MINOTAUR_CHARGE_DMG;
@@ -3577,6 +3649,16 @@ function updateMinotaur(e) {
   }
 
   let moveDx = 0, moveDy = 0;
+  if (dist <= MINOTAUR_MELEE_RANGE && e.meleeCooldown <= 0) {
+    e.state = 'melee';
+    e.attackTimer = MINOTAUR_MELEE_WINDUP;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    e.meleeHit = false;
+    e.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    return;
+  }
+
   if (dist < DISPLAY_SIZE * 3.5 && e.chargeCooldown <= 0) {
     e.state = 'windup';
     e.chargeTimer = MINOTAUR_WINDUP_DUR;
@@ -3597,7 +3679,15 @@ function updateMinotaur(e) {
   } else {
     if (moveDy > 0) e.direction = 'down'; else if (moveDy < 0) e.direction = 'up';
   }
-  moveEntityWithSlide(e, moveDx, moveDy);
+  const moved = moveEntityWithSlide(e, moveDx, moveDy);
+  if (stage === 3 && e.y > bottomLimit) {
+    e.y = bottomLimit;
+    e.wanderDy = -1;
+    e.chargeCooldown = Math.max(e.chargeCooldown, 60);
+  } else if (stage === 3 && !moved && e.y >= bottomLimit - TILE_SIZE * 0.5) {
+    moveEntityWithSlide(e, 0, -Math.max(1, spd));
+    e.wanderDy = -1;
+  }
   if (moveDx !== 0 || moveDy !== 0) {
     if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex = (e.frameIndex + 1) % 4; }
   } else { e.frameIndex = 0; e.frameTick = 0; }
@@ -4181,6 +4271,31 @@ function updateOrc(e) {
   else { e.frameIndex = 0; e.frameTick = 0; }
 }
 
+function guardianAimDir(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (ax > DISPLAY_SIZE * 0.45 && ay > DISPLAY_SIZE * 0.45) {
+    return `${dy > 0 ? 'down' : 'up'}-${dx > 0 ? 'right' : 'left'}`;
+  }
+  return ax > ay ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+}
+
+function guardianDirVector(dir) {
+  const x = dir.includes('right') ? 1 : dir.includes('left') ? -1 : 0;
+  const y = dir.includes('down') ? 1 : dir.includes('up') ? -1 : 0;
+  const mag = Math.hypot(x, y) || 1;
+  return { x: x / mag, y: y / mag };
+}
+
+function pointNearGuardianSpear(gx, gy, px, py, dir, range, width) {
+  const v = guardianDirVector(dir);
+  const dx = px - gx;
+  const dy = py - gy;
+  const along = dx * v.x + dy * v.y;
+  if (along < 0 || along > range) return false;
+  const perp = Math.abs(dx * v.y - dy * v.x);
+  return perp < width;
+}
+
 function updateGuardian(e) {
   if (e.dying || e.hp <= 0) return;
   e.aliveFrames++;
@@ -4202,17 +4317,11 @@ function updateGuardian(e) {
   if (e.state === 'windup') {
     if (--e.attackTimer <= 0) {
       // Spear lunge hits in a long rectangle forward from the guardian
-      const spearHit = (() => {
-        const gCx = e.x + DISPLAY_SIZE / 2, gCy = e.y + DISPLAY_SIZE / 2;
-        const pCx = player.x + DISPLAY_SIZE / 2, pCy = player.y + DISPLAY_SIZE / 2;
-        const SR = e.enraged ? GUARDIAN_SPEAR_RANGE * 1.2 : GUARDIAN_SPEAR_RANGE;
-        const SW = e.enraged ? DISPLAY_SIZE * 1.25 : DISPLAY_SIZE * 0.55;
-        if (e.windupDir === 'right' && pCx > gCx && pCx < gCx + SR && Math.abs(pCy - gCy) < SW) return true;
-        if (e.windupDir === 'left'  && pCx < gCx && pCx > gCx - SR && Math.abs(pCy - gCy) < SW) return true;
-        if (e.windupDir === 'down'  && pCy > gCy && pCy < gCy + SR && Math.abs(pCx - gCx) < SW) return true;
-        if (e.windupDir === 'up'    && pCy < gCy && pCy > gCy - SR && Math.abs(pCx - gCx) < SW) return true;
-        return false;
-      })();
+      const gCx = e.x + DISPLAY_SIZE / 2, gCy = e.y + DISPLAY_SIZE / 2;
+      const pCx = player.x + DISPLAY_SIZE / 2, pCy = player.y + DISPLAY_SIZE / 2;
+      const SR = e.enraged ? GUARDIAN_SPEAR_RANGE * 1.2 : GUARDIAN_SPEAR_RANGE;
+      const SW = e.enraged ? DISPLAY_SIZE * 1.25 : DISPLAY_SIZE * 0.55;
+      const spearHit = pointNearGuardianSpear(gCx, gCy, pCx, pCy, e.windupDir || e.direction, SR, SW);
       if (spearHit) {
         const base = player.berserkTimer > 0 ? Math.round(dmg * 1.5) : dmg;
         const hit = damagePlayer(base, 15);
@@ -4233,8 +4342,8 @@ function updateGuardian(e) {
     e.state = 'windup';
     e.attackTimer = GUARDIAN_WINDUP_DUR;
     // Lock direction toward player at windup start
-    e.windupDir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-    e.direction = e.windupDir;
+    e.windupDir = guardianAimDir(dx, dy);
+    e.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     return;
   }
 
@@ -4253,7 +4362,10 @@ function updateGuardian(e) {
   }
   if (Math.abs(mx) >= Math.abs(my)) { if (mx > 0) e.direction='right'; else if (mx < 0) e.direction='left'; }
   else { if (my > 0) e.direction='down'; else if (my < 0) e.direction='up'; }
-  moveEntityWithSlide(e, mx, my);
+  const moved = moveEntityWithSlide(e, mx, my);
+  if (!moved && e.x > canvas.width - GUARDIAN_SIZE - DISPLAY_SIZE * 1.3) {
+    moveEntityWithSlide(e, -Math.max(1, spd * 0.6), Math.sign(dy || 1) * Math.max(1, spd * 0.6));
+  }
   if (mx !== 0 || my !== 0) { if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex=(e.frameIndex+1)%4; } }
   else { e.frameIndex = 0; e.frameTick = 0; }
 }
@@ -5600,7 +5712,7 @@ function drawMinotaur(e) {
   }
   if (e.hp <= 0) return;
 
-  const winding = e.state === 'windup', charging = e.state === 'charging';
+  const winding = e.state === 'windup', charging = e.state === 'charging', melee = e.state === 'melee';
   if (e.state === 'stunned') {
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -5617,8 +5729,8 @@ function drawMinotaur(e) {
     ctx.filter = 'sepia(0.45) saturate(1.85) hue-rotate(315deg) brightness(1.12)';
   }
   const row = dirToRow(e.direction);
-  const col = (e.state === 'attacking' || e.state === 'charge') ? (e.attackFrame ?? e.frameIndex ?? 0) % 4 : e.frameIndex % 4;
-  const useAtk = charging || winding;
+  const col = melee ? (e.attackFrame ?? 0) % 4 : e.frameIndex % 4;
+  const useAtk = charging || winding || melee;
   const sheet = useAtk ? (minotaurAtkSheet || minotaurRunSheet) : minotaurRunSheet;
   drawMonSprite(sheet, col, row, e.x, e.y, W, H);
   ctx.filter = 'none';
@@ -6020,12 +6132,10 @@ function drawGuardian(e) {
     ctx.globalAlpha = 0.2 + 0.5 * progress;
     ctx.strokeStyle = '#ff3300'; ctx.lineWidth = 3;
     // Draw a line in the windup direction showing spear reach
-    let ex = gx, ey = gy;
     const reach = GUARDIAN_SPEAR_RANGE * progress;
-    if (e.windupDir === 'right') ex = gx + reach;
-    else if (e.windupDir === 'left')  ex = gx - reach;
-    else if (e.windupDir === 'down')  ey = gy + reach;
-    else if (e.windupDir === 'up')    ey = gy - reach;
+    const v = guardianDirVector(e.windupDir || e.direction);
+    const ex = gx + v.x * reach;
+    const ey = gy + v.y * reach;
     ctx.setLineDash([8, 5]);
     ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(ex, ey); ctx.stroke();
     ctx.setLineDash([]);
@@ -6037,11 +6147,9 @@ function drawGuardian(e) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.7, progress * 0.7);
     ctx.strokeStyle = '#ffdd88'; ctx.lineWidth = 6;
-    let ex = gx, ey = gy;
-    if (e.windupDir === 'right') ex = gx + GUARDIAN_SPEAR_RANGE;
-    else if (e.windupDir === 'left')  ex = gx - GUARDIAN_SPEAR_RANGE;
-    else if (e.windupDir === 'down')  ey = gy + GUARDIAN_SPEAR_RANGE;
-    else if (e.windupDir === 'up')    ey = gy - GUARDIAN_SPEAR_RANGE;
+    const v = guardianDirVector(e.windupDir || e.direction);
+    const ex = gx + v.x * GUARDIAN_SPEAR_RANGE;
+    const ey = gy + v.y * GUARDIAN_SPEAR_RANGE;
     ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(ex, ey); ctx.stroke();
     ctx.restore();
   };
@@ -6054,8 +6162,8 @@ function drawGuardian(e) {
     const gy = e.y + H / 2;
     const spearW = Math.round(DISPLAY_SIZE * 1.55);
     const spearH = Math.round(GUARDIAN_SPEAR_RANGE * (e.enraged ? 1.2 : 1.05));
-    const angles = { down: 0, right: -Math.PI / 2, up: Math.PI, left: Math.PI / 2 };
-    const angle = angles[e.windupDir] ?? 0;
+    const v = guardianDirVector(e.windupDir || e.direction);
+    const angle = Math.atan2(-v.x, v.y);
     ctx.save();
     ctx.globalAlpha = Math.min(1, 0.35 + progress * 0.75);
     drawGuardianSpearFrame(
@@ -7694,7 +7802,7 @@ function drawLevelupSkill() {
   ctx.fillStyle = '#d8b45d'; ctx.font = `700 28px 'Cinzel Decorative', serif`;
   ctx.fillText(`LEVEL UP!  —  Level ${player.level}`, canvas.width/2, 55);
   ctx.fillStyle = '#d8c29a'; ctx.font = `600 14px 'Cinzel', serif`;
-  ctx.fillText('Choose a skill to upgrade  ·  press 1  2  3 …', canvas.width/2, 82);
+  ctx.fillText('Choose a skill to upgrade  -  press Q W E R', canvas.width/2, 82);
 
   const levelable = getLevelableSkills();
   const gap = 24;
@@ -7722,7 +7830,7 @@ function drawLevelupSkill() {
       const tW = cardW - iconSize - 42;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 17px 'Cinzel', serif`;
-      ctx.fillText(`[${i+1}] ${ab.label} — ${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)}`, tx, cy + 22);
+      ctx.fillText(`[${ab.key.toUpperCase()}] ${ab.label} — ${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)}`, tx, cy + 22);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 13px 'Cinzel', serif`;
       ctx.fillText(`Lv ${ab.level} → ${ab.level+1}  (max ${ab.maxLevel})`, tx, cy + 38);
       if (ab.damage > 0) {
@@ -7748,7 +7856,7 @@ function drawLevelupSkill() {
     } else {
       // Fallback: centred layout (no icon)
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 20px 'Cinzel', serif`;
-      ctx.fillText(`[${i+1}]  ${ab.label}`, cx + cardW/2, cy + 28);
+      ctx.fillText(`[${ab.key.toUpperCase()}]  ${ab.label}`, cx + cardW/2, cy + 28);
       ctx.fillStyle = '#f2e3bd'; ctx.font = `700 14px 'Cinzel', serif`;
       ctx.fillText(ab.name.charAt(0).toUpperCase() + ab.name.slice(1), cx + cardW/2, cy + 54);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 12px 'Cinzel', serif`;
@@ -7968,6 +8076,24 @@ function drawGameOver() {
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
 
+function drawResumeCountdown() {
+  if (resumeCountdown <= 0) return;
+  const seconds = Math.max(1, Math.ceil(resumeCountdown / 60));
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.42)';
+  ctx.fillRect(0, 0, canvas.width, GAME_HEIGHT);
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0,0,0,0.95)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#f1d27a';
+  ctx.font = `900 ${Math.round(canvas.height * 0.12)}px 'Cinzel Decorative', serif`;
+  ctx.fillText(String(seconds), canvas.width / 2, GAME_HEIGHT / 2);
+  ctx.fillStyle = '#ead9b9';
+  ctx.font = `700 ${Math.round(canvas.height * 0.028)}px 'Cinzel', serif`;
+  ctx.fillText('GET READY', canvas.width / 2, GAME_HEIGHT / 2 + Math.round(canvas.height * 0.07));
+  ctx.restore();
+}
+
 function loop() {
   if (gameState === 'title') {
     drawTitle();
@@ -7984,7 +8110,10 @@ function loop() {
   } else if (gameState === 'johnporkintro') {
     drawJohnPorkIntro();
   } else {
-    if (gameState === 'playing') update();
+    if (gameState === 'playing') {
+      if (resumeCountdown > 0) resumeCountdown--;
+      else update();
+    }
     drawMap();
     drawHazards();
     enemies.forEach(drawEnemy);
@@ -8005,6 +8134,7 @@ function loop() {
     if (gameState === 'stagechoice') drawStageChoice();
     if (gameState === 'stageclear') drawStageStats();
     if (gameState === 'gameover')   drawGameOver();
+    if (gameState === 'playing')    drawResumeCountdown();
   }
   requestAnimationFrame(loop);
 }
