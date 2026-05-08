@@ -74,7 +74,7 @@ const BARB_BERSERK_SKILL_FRAMES = 5;
 const FIREBALL_EXPLOSION_ROW_START = 0;
 const FIREBALL_EXPLOSION_FRAMES = 8;
 
-const GOBLIN_SCATTER_DUR = 70;
+const GOBLIN_SCATTER_DUR = 42;
 const MINOTAUR_WALL_STUN = 90;
 const ARCHER_VOLLEY_WINDUP = 45;
 const ORC_CLEAVE_WINDUP = 38;
@@ -91,7 +91,7 @@ const FIREBALL_EXPLOSION_RADIUS = Math.round(DISPLAY_SIZE * 0.94);
 
 const JP_SIZE = Math.round(DISPLAY_SIZE * 3.0);
 const JP_HP = 4000;
-const JP_SPEED = Math.max(1, Math.round(DISPLAY_SIZE / 55));
+const JP_SPEED = Math.max(1.1, DISPLAY_SIZE / 55 * 1.1);
 const JP_SLAM_DAMAGE = 78;
 const JP_SLAM_RANGE = Math.round(DISPLAY_SIZE * 2.25);
 const JP_SLAM_WINDUP = 24;
@@ -101,7 +101,7 @@ const JP_SUMMON_CD = 285;
 const DARK_SUMMON_FRAMES = 8;
 const DARK_SUMMON_COLS = 4;
 const DARK_SUMMON_ROWS = 2;
-const JOHN_PORK_INTRO_IMAGE_FRAMES = 300;
+const JOHN_PORK_INTRO_IMAGE_FRAMES = 180;
 
 // Ability animation display sizes — scaled so the character inside each frame
 // matches the walk character size. Slam char fills ~57% of frame height vs ~97%
@@ -128,8 +128,8 @@ const ATTACK_RANGE = Math.round(DISPLAY_SIZE * 1.1);
 const ENEMY_SPEED  = Math.max(1, Math.round(DISPLAY_SIZE / 48));
 const ENEMY_COUNT  = 4;
 const ATK_COOLDOWN = 180;
-const SLOT_SIZE    = 76;
-const SLOT_GAP     = 14;
+const SLOT_SIZE    = Math.floor((UI_HEIGHT - 4) * 0.9);
+const SLOT_GAP     = 8;
 
 const GOLEM_SLAM_RANGE    = Math.round(DISPLAY_SIZE * 2.2);
 const GOLEM_SLAM_START_RANGE = Math.round(DISPLAY_SIZE * 1.25);
@@ -142,14 +142,14 @@ const GOLEM_SPEED         = Math.max(2, Math.round(DISPLAY_SIZE / 34));
 
 const GOBLIN_HP        = 10;
 const GOBLIN_DAMAGE    = 10;
-const GOBLIN_SPEED     = Math.max(2, Math.round(DISPLAY_SIZE / 30));
-const GOBLIN_ATK_RANGE = Math.round(DISPLAY_SIZE * 0.9);
-const GOBLIN_ATK_CD    = 120;
-const GOBLIN_CHASE     = Math.round(DISPLAY_SIZE * 4.7);
+const GOBLIN_SPEED     = Math.max(2.4, DISPLAY_SIZE / 24);
+const GOBLIN_ATK_RANGE = Math.round(DISPLAY_SIZE * 1.02);
+const GOBLIN_ATK_CD    = 82;
+const GOBLIN_CHASE     = DISPLAY_SIZE * 999;
 
-const MINOTAUR_HP           = 500;
+const MINOTAUR_HP           = 375;
 const MINOTAUR_CHARGE_DMG   = 60;
-const MINOTAUR_WINDUP_DUR   = 90;
+const MINOTAUR_WINDUP_DUR   = 60;
 const MINOTAUR_CHARGE_SPEED = Math.round(DISPLAY_SIZE / 7);
 const MINOTAUR_CHARGE_DUR   = 45;
 const MINOTAUR_CHARGE_CD       = 300;
@@ -159,6 +159,13 @@ const MINOTAUR_MELEE_RANGE     = Math.round(DISPLAY_SIZE * 1.65);
 const MINOTAUR_MELEE_WINDUP    = 24;
 const MINOTAUR_MELEE_CD        = 135;
 const MINOTAUR_BOTTOM_MARGIN   = Math.round(DISPLAY_SIZE * 0.75);
+const MINOTAUR_STOMP_DAMAGE    = 20;
+const MINOTAUR_STOMP_RANGE     = Math.round(DISPLAY_SIZE * 2.05);
+const MINOTAUR_STOMP_START_RANGE = Math.round(DISPLAY_SIZE * 2.15);
+const MINOTAUR_STOMP_WINDUP    = 72;
+const MINOTAUR_STOMP_CD        = 360;
+const MINOTAUR_STOMP_STUN      = 60;
+const MINOTAUR_STOMP_SLOW      = 180;
 
 const ARCHER_HP          = 20;
 const ARCHER_DAMAGE      = 25;
@@ -167,7 +174,7 @@ const ARCHER_FLEE_RANGE  = Math.round(DISPLAY_SIZE * 2.2);
 const ARCHER_SHOOT_RANGE = Math.round(DISPLAY_SIZE * 4.5);
 const ARROW_SPEED        = Math.max(3, Math.round(DISPLAY_SIZE * 0.1));
 
-const SKELETAL_CHAMPION_HP       = 260;
+const SKELETAL_CHAMPION_HP       = 230;
 const SKELETAL_CHAMPION_DAMAGE   = 32;
 const SKELETAL_CHAMPION_SPEED    = Math.max(1, Math.round(DISPLAY_SIZE / 74));
 const SKELETAL_CHAMPION_SIZE     = Math.round(DISPLAY_SIZE * 1.15);
@@ -184,13 +191,21 @@ const ORC_ATK_RANGE    = Math.round(DISPLAY_SIZE * 1.3);
 const ORC_ATK_CD       = 80;
 const ORC_CHASE        = Math.round(DISPLAY_SIZE * 5);
 
-const TROLL_HP         = 200;
-const TROLL_DAMAGE     = 20;
-const TROLL_SPEED      = Math.max(1, Math.round(DISPLAY_SIZE / 80));
+const TROLL_HP         = 320;
+const TROLL_DAMAGE     = 26;
+const TROLL_KICK_DAMAGE = 18;
+const TROLL_SPEED      = Math.max(1, Math.round(DISPLAY_SIZE / 72));
 const TROLL_THROW_CD   = 300;
 const TROLL_THROW_RANGE = DISPLAY_SIZE * 999;
+const TROLL_KEEP_DISTANCE = Math.round(DISPLAY_SIZE * 3.0);
+const TROLL_KICK_RANGE = Math.round(DISPLAY_SIZE * 1.15);
+const TROLL_KICK_WINDUP = 28;
+const TROLL_KICK_CD = 120;
+const TROLL_KNOCKBACK_DIST = Math.round(DISPLAY_SIZE * 2.2);
+const TROLL_KNOCKBACK_DUR = 12;
+const TROLL_EDGE_STUN = 120;
 const ROCK_SPEED       = Math.max(2, Math.round(DISPLAY_SIZE * 0.07));
-const ROCK_AOE         = Math.round(DISPLAY_SIZE * 2.8);
+const ROCK_AOE         = Math.round(DISPLAY_SIZE * 2.38);
 
 const GHOUL_HP        = 20;
 const GHOUL_DAMAGE    = 15;
@@ -201,8 +216,8 @@ const GHOUL_CHASE     = DISPLAY_SIZE * 999; // always chase — ghouls swarm the
 
 const GHOUL_WAVES     = [8, 12, 16, 22];
 
-const ABOM_HP              = 900;
-const ABOM_HP_CAP          = 1800;  // max HP after feeding
+const ABOM_HP              = 700;
+const ABOM_HP_CAP          = 1500;  // max HP after feeding
 const ABOM_SPEED           = Math.max(2, Math.round(DISPLAY_SIZE / 32));
 const ABOM_DAMAGE          = 40;
 const ABOM_ATK_CD          = 80;
@@ -224,6 +239,26 @@ const GUARDIAN_WINDUP_DUR  = 32;
 const GUARDIAN_SPEAR_EFFECT_DUR = 14;
 const GUARDIAN_ATK_CD      = 95;
 const GUARDIAN_CHASE       = DISPLAY_SIZE * 999; // always chase
+
+const SPELLBLADE_HP        = 750;
+const SPELLBLADE_DAMAGE    = 30;
+const SPELLBLADE_DASH_DMG  = 30;
+const SPELLBLADE_SIZE      = Math.round(DISPLAY_SIZE * 1.25);
+const SPELLBLADE_SPEED     = Math.max(2.42, DISPLAY_SIZE / 34 * 1.1);
+const SPELLBLADE_ATK_RANGE = Math.round(DISPLAY_SIZE * 1.25);
+const SPELLBLADE_ATK_CD    = 82;
+const SPELLBLADE_WINDUP    = 22;
+const SPELLBLADE_DASH_RANGE = Math.round(DISPLAY_SIZE * 4.0);
+const SPELLBLADE_DASH_SPEED = Math.max(6, DISPLAY_SIZE / 9);
+const SPELLBLADE_DASH_DUR   = 18;
+const SPELLBLADE_DASH_CD    = 210;
+const SPELLBLADE_BLOCK_DUR  = 26;
+const SPELLBLADE_TRIPLE_DAMAGE = 60;
+const SPELLBLADE_TRIPLE_RANGE  = Math.round(DISPLAY_SIZE * 1.65);
+const SPELLBLADE_TRIPLE_WIDTH  = Math.round(DISPLAY_SIZE * 1.0);
+const SPELLBLADE_TRIPLE_DUR    = 42;
+const SPELLBLADE_TRIPLE_DASH_RANGE = Math.round(DISPLAY_SIZE * 4.0);
+const SPELLBLADE_TRIPLE_DASH_DUR = 18;
 const RESUME_COUNTDOWN_FRAMES = 180;
 
 const TRIB_SENTINEL_HP = 900;
@@ -234,6 +269,8 @@ const TRIB_WARDEN_SIZE   = Math.round(DISPLAY_SIZE * 1.25);
 const TRIB_PRIEST_SIZE   = Math.round(DISPLAY_SIZE * 1.05);
 const TRIB_SENTINEL_WINDUP = 34;
 const TRIB_WARDEN_WINDUP   = 20;
+const TRIB_WARDEN_CHAIN_RANGE = DISPLAY_SIZE * 3.35;
+const TRIB_WARDEN_CHAIN_WIDTH = DISPLAY_SIZE * 0.82;
 const TRIB_PRIEST_HEAL_CD  = 210;
 const TRIB_PRIEST_HEAL     = 100;
 const ROGUE_SLICE_DICE_RADIUS = Math.round(DISPLAY_SIZE * 2.15);
@@ -259,6 +296,54 @@ for (let r = 0; r < MAP_ROWS; r++) {
 
 // ── John Pork animation tables ────────────────────────────────────────────────
 
+// ── Dragonkin Stage (Stage 98 — dev test only) ───────────────────────────────
+const DRAGONKIN_HP         = 450;
+const DRAGONKIN_SIZE       = Math.round(DISPLAY_SIZE * 2.2);
+const DRAGONKIN_SPEED      = 1.9;
+const DRAGONKIN_DMG        = 28;
+const DRAGONKIN_SPIN_DMG   = 30;
+const DRAGONKIN_ATK_RANGE  = DISPLAY_SIZE * 1.8;
+const DRAGONKIN_SPIN_RANGE = DISPLAY_SIZE * 3.2;
+const DRAGONKIN_ATK_WINDUP = 22;
+const DRAGONKIN_ATK_DUR    = 20;
+const DRAGONKIN_ATK_CD     = 60;
+const DRAGONKIN_SPIN_DUR   = 36;
+const DRAGONKIN_SPIN_CD         = 240;
+const DRAGONKIN_SPIN_TELEGRAPH  = 45;
+const DRAGONKIN_FIRE_RANGE      = Math.round(DISPLAY_SIZE * 6);
+const DRAGONKIN_FIRE_DMG        = 22;
+const DRAGONKIN_FIRE_CD         = 200;
+
+// ── Dragon Boss (Stage 99 — dev test only) ───────────────────────────────────
+
+const DRAGON_HP            = 2000;
+const DRAGON_FIREBALL_DMG  = 20;
+const DRAGON_BITE_DMG      = 38;
+const DRAGON_CLAW_DMG      = 26;
+const DRAGON_BREATH_DMG    = 10; // per 20-frame tick
+
+const DRAGON_ATTACKS    = ['fireball', 'bite', 'claw', 'breath'];
+const DRAGON_TELEGRAPH  = { fireball: 60, bite: 80, claw: 48, breath: 90 };
+const DRAGON_ATTACK_DUR = { fireball: 12, bite: 32, claw: 26, breath: 120 };
+
+function dragonPositions() {
+  const bodyW  = DISPLAY_SIZE * 5;
+  const bodyH  = DISPLAY_SIZE * 2.2;
+  const bx     = canvas.width  / 2;
+  const by     = canvas.height * 0.15;
+  const headR  = DISPLAY_SIZE  * 1.05;
+  const headX  = bx;
+  const headY  = by + bodyH * 0.55 + headR * 0.4;
+  const clawW  = DISPLAY_SIZE  * 1.1;
+  const clawH  = DISPLAY_SIZE  * 1.9;
+  const lClawX = bx - bodyW   * 0.42;
+  const lClawY = by + bodyH   * 0.1;
+  const rClawX = bx + bodyW   * 0.42;
+  const rClawY = by + bodyH   * 0.1;
+  return { bx, by, bodyW, bodyH, headX, headY, headR, clawW, clawH, lClawX, lClawY, rClawX, rClawY,
+           x: bx - bodyW * 0.5, y: by - bodyH * 0.5 };
+}
+
 // ── Abilities ─────────────────────────────────────────────────────────────────
 
 let abilities = [];
@@ -274,7 +359,7 @@ const TALENT_TREE = [
     path: 'Offensive', color: '#e94560',
     tiers: [
       { label: 'Haste',      desc: 'Cooldowns recover 15% faster' },
-      { label: 'Bloodlust',  desc: '8% lifesteal, doubled for 2s after kills' },
+      { label: 'Bloodlust',  desc: '5% lifesteal, doubled for 2s after kills' },
       { label: 'Executioner', desc: '+25% damage vs enemies below 35% HP' },
     ]
   },
@@ -282,8 +367,8 @@ const TALENT_TREE = [
     path: 'Defensive', color: '#3498db',
     tiers: [
       { label: 'Stoneskin',          desc: '15% less damage taken' },
-      { label: 'Lifeblood',          desc: 'Regen 1% max HP every 3s when not surrounded' },
-      { label: 'Ancient Bulwark',    desc: '+50% max HP, stage-start shield' },
+      { label: 'Lifeblood',          desc: 'Regen 2% max HP every 3s when not surrounded' },
+      { label: 'Ancient Bulwark',    desc: '+50% max HP' },
     ]
   },
   {
@@ -291,7 +376,7 @@ const TALENT_TREE = [
     tiers: [
       { label: 'Plasticity',         desc: '+3 to all stats now and lets you choose your hero primary stat' },
       { label: 'Assassin',           desc: 'Every 15s, next hit deals +1.5x primary stat' },
-      { label: 'Eternal Focus',      desc: 'Every third skill cast refunds 50% of that skill cooldown' },
+      { label: 'Eternal Focus',      desc: 'Every fourth skill cast refunds 50% of that skill cooldown' },
     ]
   }
 ];
@@ -351,7 +436,7 @@ const DEV_PENDANTS = [
     apply: p => { p.str+=10; p.maxHp+=100; p.hp=Math.min(p.hp+100,p.maxHp); p.atkRange=Math.round(p.atkRange*1.25); p.mightBonus=true; } },
   { name: 'the Assassin',  color: '#27ae60', desc: '+10 AGI · proc dmg',
     apply: p => { p.agi+=10; p.baseSpeed=Math.round(2.5*(1+p.agi*0.05)*10)/10; p.speed=p.baseSpeed; p.assassinProc=true; p.assassinProcCD=0; } },
-  { name: 'Enlightenment', color: '#2980b9', desc: '+10 INT · damage shield',
+  { name: 'Enlightenment', color: '#2980b9', desc: '+10 INT · damage shield (15s CD)',
     apply: p => { p.int+=10; abilities.forEach(a=>{a.cooldown=Math.max(30,a.cooldown-150);}); p.enlightenShield=true; p.enlightenShieldCD=0; } },
 ];
 let devSelectedPendants = [false, false, false, false, false, false];
@@ -372,12 +457,13 @@ let transitionPhase = 'fade'; // 'fade' | 'art'
 let transitionNextStage = 0;
 let transitionGatePlayed = false;
 let johnPorkIntroImg = null;
-let demonPigIntroImg = null;
 let johnPorkIntroTimer = 0;
-let johnPorkIntroPhase = 'john';
-let johnPorkIntroRoar = null;
-let johnPorkIntroFallbackTimer = null;
 let mouseX = 0, mouseY = 0;
+let gameVolume  = 1.0; // SFX
+let musicVolume = 1.0; // BGM only
+let volDragging = false;  // 'sfx' | 'music' | false
+let _volSliderBounds   = null; // SFX slider bounds, set each frame by drawUI
+let _musicSliderBounds = null; // Music slider bounds, set each frame by drawUI
 
 function devSkillPointsForLevel(level) {
   return Math.max(0, level - 1);
@@ -388,7 +474,8 @@ function devSkillBaseLevel(skillIdx) {
 }
 
 function devSkillMaxLevel(skillIdx) {
-  return skillIdx === 3 ? 2 : 3;
+  if (skillIdx === 3) return devSetupLevel >= 8 ? 2 : devSetupLevel >= 6 ? 1 : 0;
+  return 3;
 }
 
 function isDevSkillUnlocked(skillIdx) {
@@ -534,6 +621,7 @@ let barbBerserkSlamRSheet, barbBerserkSlamLSheet, barbBerserkWhirlSheet;
 let barbPortrait, roguePortrait, magePortrait;
 // Skill icons — keyed by ability name matching the mkab 'name' field
 const skillIcons = {};
+const pendantIcons = {};
 // Class confirm splash art (fullscreen selected images — optional per class)
 let barbSelectedImg = null, rogueSelectedImg = null, mageSelectedImg = null;
 // Rogue sheets
@@ -543,19 +631,25 @@ let mageRunSheet, mageAtkSheet, mageDeathSheet, mageFireballCastSheet, mageFireb
 // Monster sprite sheets
 let goblinRunSheet, goblinAtkSheet, goblinDeathSheet;
 let golemRunSheet,  golemAtkSheet,  golemDeathSheet, golemSheet;
-let minotaurRunSheet, minotaurAtkSheet, minotaurDeathSheet;
+let minotaurRunSheet, minotaurAtkSheet, minotaurDeathSheet, minotaurStompSheet;
 let orcRunSheet, orcAtkSheet, orcDeathSheet;
 let skelRunSheet, skelAtkSheet, arrowSheet;
 let skeletalChampionSheet;
 let ghoulRunSheet, ghoulAtkSheet, ghoulDeathSheet;
-let trollRunSheet, trollAtkSheet, trollMasterSheet, trollBoulderSheet;
+let trollRunSheet, trollAtkSheet, trollKickSheet, trollMasterSheet, trollBoulderSheet;
+let spellBladeSheet, spellBladeTripleSheet;
 let guardianRunSheet, guardianAtkSheet, guardianDeathSheet, guardianSpearSheet;
 let ironSentinelRunSheet, ironSentinelAtkSheet, ironSentinelBlockSheet, ironSentinelDeathSheet;
 let chainWardenRunSheet, chainWardenAtkSheet, chainWardenDeathSheet, chainWardenChainSheet;
 let ashPriestRunSheet, ashPriestHealSheet, ashPriestDeathSheet;
-let titleBgImg = null, heroSelectBgImg = null, hudBgImg = null;
+let titleBgImg = null, victoryBgImg = null, heroSelectBgImg = null, hudBgImg = null;
 let abominationSheet = null;
-let golemTransitionArt = null, minotaurTransitionArt = null, skeletonCryptTransitionArt = null, orcTransitionArt = null, trollTransitionArt = null, ghoulPitTransitionArt = null, tribunalTransitionArt = null, twinGuardianTransitionArt = null;
+// Dragonkin sheets
+let dragonkinSheet = null, dragonkinSpinSheet = null;
+// Dragon Boss sheets (1 col × 4 rows, top-to-bottom)
+let dragonIdleSheet = null, dragonBiteSheet = null;
+let dragonLeftClawSheet = null, dragonRightClawSheet = null, dragonSteamSheet = null;
+let golemTransitionArt = null, minotaurTransitionArt = null, skeletonCryptTransitionArt = null, orcTransitionArt = null, trollTransitionArt = null, ghoulPitTransitionArt = null, spellBladeTransitionArt = null, tribunalTransitionArt = null, twinGuardianTransitionArt = null;
 const stageBgImgs = {};
 // Master sprite sheet layout constants (2048×2048, each quadrant 1024×1024, frames 256×256)
 const MASTER_FRAME = 256;
@@ -563,6 +657,13 @@ const MASTER_QUAD  = 1024;
 const STAGE_BLOCKERS = {
   1: [], // Stage 1 uses STAGE_PLAY_AREAS instead of rectangular blockers.
   2: [] // Stage 2 uses STAGE_PLAY_AREAS instead of rectangular blockers.
+};
+const STAGE_POLYGON_BLOCKERS = {
+  3: [
+    // Normalized from Game Art/Stage Art/Stage 3 blockers2.png.
+    [[0.000, 0.000], [0.038, 0.000], [0.038, 1.000], [0.000, 1.000]],
+    [[0.963, 0.000], [1.000, 0.000], [1.000, 1.000], [0.963, 1.000]],
+  ],
 };
 const STAGE_DOORS = {
   1: { x: 0.728, y: 0.045, w: 0.095, h: 0.205 },
@@ -602,25 +703,19 @@ const STAGE_PLAY_AREAS = {
     [1.000, 0.502], [1.000, 0.329], [0.948, 0.351], [0.928, 0.343],
     [0.876, 0.284], [0.821, 0.215], [0.779, 0.156], [0.735, 0.132],
     [0.690, 0.126], [0.667, 0.109], [0.649, 0.000],
-  ],
-  3: [
-    // Normalized from Game Art/Stage Art/Stage 3 blockers.png.
-    // The blue line traces the arena wall/prop edge; outside this polygon is blocked.
-    [0.115, 0.145], [0.157, 0.136], [0.311, 0.136], [0.452, 0.134],
-    [0.454, 0.000], [0.577, 0.000], [0.585, 0.127], [0.723, 0.128],
-    [0.735, 0.139], [0.825, 0.136], [0.894, 0.145], [0.900, 0.282],
-    [0.982, 0.308], [0.977, 0.461], [0.959, 0.480], [0.941, 0.758],
-    [0.944, 0.853], [1.000, 1.000], [0.000, 1.000], [0.118, 0.855],
-    [0.117, 0.692], [0.041, 0.674], [0.041, 0.286], [0.099, 0.271],
-    [0.116, 0.244],
   ]
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 107;
+const TOTAL_IMAGES = 125;
 let audioAssetCount = 0;
 let gameLoopStarted = false;
 let startupRegistrationComplete = false;
+const FIXED_STEP_MS = 1000 / 60;
+const MAX_FRAME_CATCHUP_MS = 100;
+const MAX_STEPS_PER_RAF = 5;
+let fixedLoopLastTime = 0;
+let fixedLoopAccumulator = 0;
 const ASSET_VERSION = '2026-05-02-v1';
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
@@ -760,7 +855,9 @@ function startGameLoopFromLoader() {
   gameLoopStarted = true;
   if (loadingOverlay) loadingOverlay.classList.add('hidden');
   tryStartMusic();
-  loop();
+  fixedLoopLastTime = 0;
+  fixedLoopAccumulator = FIXED_STEP_MS;
+  requestAnimationFrame(loop);
 }
 
 drawLoadingScreen();
@@ -880,6 +977,30 @@ darkSummonImg.onerror = () => { onLoad(); };
   });
 })();
 
+function pendantIconKey(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/^the\s+/, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+(function loadPendantIcons() {
+  const icons = [
+    ['Game Art/Game Icons/Pendants/Pendant of Vitality.png',      'Vitality'],
+    ['Game Art/Game Icons/Pendants/Pendant of Swiftness.png',     'Swiftness'],
+    ['Game Art/Game Icons/Pendants/Pendant of Acuity.png',        'Acuity'],
+    ['Game Art/Game Icons/Pendants/Pendant of Might.png',         'Might'],
+    ['Game Art/Game Icons/Pendants/Pendant of the Assassin.png',  'the Assassin'],
+    ['Game Art/Game Icons/Pendants/Pendant of Enlightenment.png', 'Enlightenment'],
+  ];
+  icons.forEach(([src, name]) => {
+    const img = new Image();
+    img.src = assetUrl(src);
+    img.onload = () => { pendantIcons[pendantIconKey(name)] = img; onLoad(); };
+    img.onerror = () => { onLoad(); };
+  });
+})();
+
 // Rogue sheets (same black-bg removal as monster sheets)
 (function loadRogueSheets() {
   const sheets = [
@@ -929,6 +1050,7 @@ darkSummonImg.onerror = () => { onLoad(); };
     ['Monster animations/Golem Death.png',                s => golemDeathSheet  = s],
     ['Monster animations/Minotaur run.png',               s => minotaurRunSheet   = s],
     ['Monster animations/Minotaur attack charge.png',     s => minotaurAtkSheet   = s],
+    ['Monster animations/Minotaur stomp.png',             s => minotaurStompSheet = s, 'keepDark'],
     ['Monster animations/Minotaur death.png',             s => minotaurDeathSheet = s],
     ['Monster animations/Orc Run.png',                    s => orcRunSheet  = s],
     ['Monster animations/Orc Attack.png',                 s => orcAtkSheet  = s],
@@ -941,7 +1063,10 @@ darkSummonImg.onerror = () => { onLoad(); };
     ['Monster animations/Ghoul Attack.png',               s => ghoulAtkSheet= s],
     ['Monster animations/Ghoul Death.png',                s => ghoulDeathSheet= s],
     ['Monster animations/Troll master sheet.png',         s => trollMasterSheet = s, 'keepDark'],
+    ['Monster animations/Troll Kick Animation.png',       s => trollKickSheet = s, 'keepDark'],
     ['Monster animations/Troll Boulder.png',              s => trollBoulderSheet = s, 'keepDark'],
+    ['Monster animations/Spell Blade Master.png',         s => spellBladeSheet = s, 'keepDark'],
+    ['Monster animations/Spell Blade Triple Attack.png',  s => spellBladeTripleSheet = s, 'keepDark'],
     ['Monster animations/Twin Guardian run.png',          s => guardianRunSheet = s],
     ['Monster animations/Twin Guardian Attack.png',       s => guardianAtkSheet = s],
     ['Monster animations/Twin Guardian death.png',        s => guardianDeathSheet = s],
@@ -973,6 +1098,14 @@ darkSummonImg.onerror = () => { onLoad(); };
   const img = new Image();
   img.src = assetUrl('Game Art/Intro Art 3.png');
   img.onload = () => { titleBgImg = img; onLoad(); };
+})();
+
+// Victory background
+(function loadVictoryBg() {
+  const img = new Image();
+  img.src = assetUrl('Game Art/Intro Art.png');
+  img.onload = () => { victoryBgImg = img; onLoad(); };
+  img.onerror = () => { onLoad(); };
 })();
 
 // Hero selection background
@@ -1007,6 +1140,37 @@ darkSummonImg.onerror = () => { onLoad(); };
   img.onerror = () => { onLoad(); };
 })();
 
+// Dragonkin sheets
+(function loadDragonkinSheets() {
+  const sheets = [
+    ['Monster animations/Dragonkin Master.png', s => dragonkinSheet    = s],
+    ['Monster animations/Dragonkin spin.png',   s => dragonkinSpinSheet = s],
+  ];
+  for (const [src, assign] of sheets) {
+    const img = new Image();
+    img.src = assetUrl(src);
+    img.onload = () => { assign(makeMonsterSheetKeepDarkPixels(img)); onLoad(); };
+    img.onerror = () => { onLoad(); };
+  }
+})();
+
+// Dragon Boss sheets
+(function loadDragonSheets() {
+  const sheets = [
+    ['Monster animations/Dragon Idle.png',       s => dragonIdleSheet      = s],
+    ['Monster animations/Dragon Bite.png',       s => dragonBiteSheet      = s],
+    ['Monster animations/Dragon Left Claw.png',  s => dragonLeftClawSheet  = s],
+    ['Monster animations/Dragon Right Claw.png', s => dragonRightClawSheet = s],
+    ['Monster animations/Dragon steam.png',      s => dragonSteamSheet     = s],
+  ];
+  for (const [src, assign] of sheets) {
+    const img = new Image();
+    img.src = assetUrl(src);
+    img.onload = () => { assign(makeMonsterSheetKeepDarkPixels(img, 1, 4)); onLoad(); };
+    img.onerror = () => { onLoad(); };
+  }
+})();
+
 // Stage transition art
 (function loadTransitionArt() {
   [['Game Art/Golem Art.png',          i => golemTransitionArt        = i],
@@ -1015,6 +1179,7 @@ darkSummonImg.onerror = () => { onLoad(); };
    ['Game Art/Orc Art.png',            i => orcTransitionArt          = i],
    ['Game Art/Troll art.png',          i => trollTransitionArt        = i],
    ['Game Art/Ghoul Pit Art.png',      i => ghoulPitTransitionArt     = i],
+   ['Game Art/Spell Blade Art.png',    i => spellBladeTransitionArt   = i],
    ['Game Art/Iron Tribunal Art.png',  i => tribunalTransitionArt     = i],
    ['Game Art/Twin Guardian Art.png',  i => twinGuardianTransitionArt = i]].forEach(([src, assign]) => {
     const img = new Image();
@@ -1051,14 +1216,9 @@ darkSummonImg.onerror = () => { onLoad(); };
 // John Pork stage intro splash
 (function loadJohnPorkIntro() {
   const img = new Image();
-  img.src = assetUrl('Game Art/John Pork.png');
+  img.src = assetUrl('Game Art/John Pork Art.png');
   img.onload = () => { johnPorkIntroImg = img; onLoad(); };
   img.onerror = () => { onLoad(); };
-
-  const demon = new Image();
-  demon.src = assetUrl('Game Art/Demon Pig.png');
-  demon.onload = () => { demonPigIntroImg = demon; onLoad(); };
-  demon.onerror = () => { onLoad(); };
 })();
 
 let player = {
@@ -1073,7 +1233,8 @@ let player = {
   level: 1, exp: 0, expToNext: 100, atkRange: 90,
   str: 10, agi: 8, int: 4,
   className: 'Barbarian', primaryStat: 'str',
-  slowTimer: 0, berserkTimer: 0,
+  slowTimer: 0, stunTimer: 0, berserkTimer: 0,
+  knockbackTimer: 0, knockbackDx: 0, knockbackDy: 0,
   berserkCasting: false, berserkCastFrame: 0, berserkCastTick: 0,
   windwalkActive: false, windwalkTimer: 0, windwalkDmg: 0,
   windwalkEntering: false, windwalkEnterFrame: 0, windwalkEnterTick: 0,
@@ -1085,12 +1246,50 @@ let player = {
   lifesteal: 0, lifeRegenActive: false, lifeRegenTimer: 0,
   bloodlustKillTimer: 0, executionerActive: false,
   avatarActive: false, damageReduction: 0,
-  cooldownRegenMult: 1, bulwarkActive: false, bulwarkShield: 0,
+  cooldownRegenMult: 1,
   assassinTalent: false, eternalFocusActive: false, eternalFocusCasts: 0,
   pendants: [],
 };
 
 // ── Enemies ───────────────────────────────────────────────────────────────────
+
+function spawnDragonkin(x, y, spinOffset = 0) {
+  return {
+    type: 'dragonkin', x, y, direction: 'down',
+    hp: DRAGONKIN_HP, maxHp: DRAGONKIN_HP, hitFlash: 0,
+    state: 'chase',
+    attackTimer: 0, spinCooldown: spinOffset,
+    frameIndex: 0, frameTick: 0,
+    attackFrame: 0, attackTick: 0,
+    spinning: false, spinFrame: 0, spinTick: 0, spinHit: false,
+    spinTelegraphing: false, spinTelegraphTimer: 0,
+    fireCooldown: Math.floor(Math.random() * 120),
+    enraged: false,
+    dying: false, deathFrame: 0, deathTick: 0, dead: false,
+  };
+}
+
+function spawnDragon() {
+  return {
+    type: 'dragon',
+    hp: DRAGON_HP, maxHp: DRAGON_HP,
+    hitFlash: 0,
+    dying: false, deathFrame: 0, deathTick: 0, deathDone: false,
+    state: 'idle',
+    attack: null,
+    stateTimer: 150, // long initial pause — let player orient
+    attackQueue: [],
+    lastAttack: null,
+    telegraphData: null,
+    breathAngle: 0,
+    breathTick: 0,
+    enraged: false,
+    headLunge: 0,
+    animFrame: 0, animTick: 0,
+    sz: Math.round(DISPLAY_SIZE * 9),
+    ...dragonPositions(),
+  };
+}
 
 function spawnEnemy() {
   const pos = stagePointToWorld(0.50, 0.28, JP_SIZE, JP_SIZE, 11);
@@ -1165,7 +1364,7 @@ function spawnMinotaur() {
     type: 'minotaur', x, y, direction: 'down',
     hp: MINOTAUR_HP, maxHp: MINOTAUR_HP, hitFlash: 0,
     state: 'wander', chargeTimer: 0, chargeCooldown: 0,
-    meleeCooldown: 0, meleeHit: false,
+    meleeCooldown: 0, meleeHit: false, stompCooldown: 120, stompHit: false,
     chargeDx: 0, chargeDy: 0, chargeHit: false, slowTimer: 0,
     aliveFrames: 0, wanderDx: 0, wanderDy: 0, wanderTimer: 0,
     frameIndex: 0, frameTick: 0,
@@ -1220,7 +1419,8 @@ function spawnTroll() {
   const { x, y } = spawnAt(DISPLAY_SIZE * 3);
   return { type:'troll', x, y, direction:'down',
     hp: TROLL_HP, maxHp: TROLL_HP, hitFlash: 0,
-    state: 'wander', throwTimer: 0, slowTimer: 0, aliveFrames: 0,
+    state: 'wander', throwTimer: 0, kickTimer: 0, kickCooldown: 40, kickHit: false,
+    slowTimer: 0, aliveFrames: 0,
     wanderDx: 0, wanderDy: 0, wanderTimer: 0, frameIndex: 0, frameTick: 0 };
 }
 
@@ -1322,11 +1522,8 @@ function spawnMimic() {
   const primaryVal = ps === 'str' ? str : ps === 'agi' ? agi : int;
   const hp    = Math.round(str * 10 * 2);
   const speed = Math.round(2.5 * (1 + agi * 0.05) * 10) / 10;
-  const ranked = abilities.filter(a => a.level > 0).sort((a, b) =>
-    b.level - a.level || ['q','w','e','r'].indexOf(a.key) - ['q','w','e','r'].indexOf(b.key));
-  const opener = ranked.find(a => a.key !== 'q')?.key || ranked[0]?.key || 'q';
-  const mimicSkills = orderedAbilities(abilities.filter(a => a.level > 0)).map(a => a.key);
-  if (player.className === 'Barbarian' && !mimicSkills.includes('r')) mimicSkills.push('r');
+  const opener = player.className === 'Barbarian' ? 'r' : player.className === 'Rogue' ? 'e' : 'w';
+  const mimicSkills = ['q', 'w', 'e', 'r'];
   // Random extra-leveled ability (Q/W/E — same as a real level-up would give)
   const extraAbility = ['q', 'w', 'e'][Math.floor(Math.random() * 3)];
   return {
@@ -1342,8 +1539,25 @@ function spawnMimic() {
     mimicLevel:     player.level + 1,
     mimicExtra:     extraAbility,
     mimicOpener: opener, mimicSkills, mimicSkillCursor: 0, mimicCooldowns: { q: 0, w: 0, e: 0, r: 0 }, mimicGlobalCooldown: 0,
+    avoidSign: Math.random() < 0.5 ? 1 : -1,
     echoKey: null, echoTimer: 0,
     activeAbility: null, atkFrame: 0,
+    dying: false, deathFrame: 0, deathTick: 0, deathDone: false, corpseTimer: 0
+  };
+}
+
+function spawnSpellBlade() {
+  const pt = stagePointToWorld(0.50, 0.28, SPELLBLADE_SIZE, SPELLBLADE_SIZE, 8);
+  return {
+    type: 'spellblade', x: pt.x, y: pt.y, direction: 'down',
+    hp: SPELLBLADE_HP, maxHp: SPELLBLADE_HP, hitFlash: 0,
+    state: 'chase', attackTimer: 0, slowTimer: 0, aliveFrames: 0,
+    dashCooldown: 80, dashTimer: 0, dashHit: false, dashDx: 0, dashDy: 0,
+    tripleDashTimer: 0, tripleTimer: 0, tripleHits: [false, false, false], tripleFrame: 0,
+    pendingTriple: false,
+    blockTimer: 0, blockCounter: 0,
+    wanderDx: 0, wanderDy: 0, wanderTimer: 0,
+    frameIndex: 0, frameTick: 0, attackFrame: 0,
     dying: false, deathFrame: 0, deathTick: 0, deathDone: false, corpseTimer: 0
   };
 }
@@ -1362,12 +1576,9 @@ function spawnStage(n) {
   doorOpen = false;
   resumeCountdown = 0;
   abilities.forEach(ab => { ab.timer = 0; });
-  refreshBulwarkShield();
   if      (n === 1)  { for (let i=0;i<6;i++)  enemies.push(spawnGoblin()); }
   else if (n === 2)  {
-    const hero = stagePointToWorld(0.50, 0.705, DISPLAY_SIZE, DISPLAY_SIZE);
-    player.x = hero.x;
-    player.y = hero.y;
+    placePlayerAt(0.50, 0.705);
     player.direction = 'up';
     enemies.push(
       spawnGolemAt(0.365, 0.315),
@@ -1376,9 +1587,7 @@ function spawnStage(n) {
     );
   }
   else if (n === 3)  {
-    const hero = stagePointToWorld(0.50, 0.805, DISPLAY_SIZE, DISPLAY_SIZE);
-    player.x = hero.x;
-    player.y = hero.y;
+    placePlayerAt(0.50, 0.805);
     player.direction = 'up';
     const minotaur = spawnMinotaur();
     const pos = stagePointToWorld(0.50, 0.380, DISPLAY_SIZE * 2, DISPLAY_SIZE * 2);
@@ -1394,16 +1603,31 @@ function spawnStage(n) {
   else if (n === 5)  { for (let i=0;i<4;i++)  enemies.push(spawnOrc(i === 0)); enemies.push(spawnOrc(false, true)); }
   else if (n === 6)  { enemies.push(spawnTroll(), spawnTroll()); }
   else if (n === 7)  { ghoulWaveIndex = 0; spawnGhoulWave(ghoulWaveIndex); }
-  else if (n === 8)  { enemies.push(spawnMimic()); }
+  else if (n === 8)  { enemies.push(spawnSpellBlade()); }
   else if (n === 9)  { enemies.push(spawnGuardian(), spawnGuardian()); }
   else if (n === 10) { enemies.push(...spawnTribunal()); }
   else if (n === 11) {
-    const hero = stagePointToWorld(0.50, 0.77, DISPLAY_SIZE, DISPLAY_SIZE, 11);
-    player.x = hero.x;
-    player.y = hero.y;
+    placePlayerAt(0.50, 0.77, 11);
     player.direction = 'up';
     enemies.push(spawnEnemy());
   } // John Pork
+  else if (n === 98) {
+    stageBgImgs[98] = stageBgImgs[8];
+    const dkPositions = [[0.25, 0.15], [0.50, 0.15], [0.75, 0.15]];
+    const spinOffsets = [0, 80, 160];
+    dkPositions.forEach(([nx, ny], i) => {
+      const pt = stagePointToWorld(nx, ny, DRAGONKIN_SIZE, DRAGONKIN_SIZE, 98);
+      enemies.push(spawnDragonkin(pt.x, pt.y, spinOffsets[i]));
+    });
+    placePlayerAt(0.50, 0.80, 98);
+    player.direction = 'up';
+  }
+  else if (n === 99) {
+    stageBgImgs[99] = stageBgImgs[10];
+    placePlayerAt(0.50, 0.72, 99);
+    player.direction = 'up';
+    enemies.push(spawnDragon());
+  }
   else               { for (let i=0;i<Math.min(n+2,8);i++) enemies.push(spawnGoblin()); }
 }
 
@@ -1422,12 +1646,18 @@ function addMarker(x, y, text, color) {
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
 
+const BGMUSIC_BASE_VOL  = 0.4;
+const ASHEN_BASE_VOL    = 0.45;
 const bgMusic = new Audio('sounds/Ashes in the Nave (1).mp3');
 bgMusic.loop   = true;
-bgMusic.volume = 0.4;
+bgMusic.volume = BGMUSIC_BASE_VOL;
 const ashenMarchMusic = new Audio('sounds/Ashen March.mp3');
 ashenMarchMusic.loop = true;
-ashenMarchMusic.volume = 0.45;
+ashenMarchMusic.volume = ASHEN_BASE_VOL;
+function applyGameVolume() {
+  bgMusic.volume = BGMUSIC_BASE_VOL * musicVolume;
+  ashenMarchMusic.volume = ASHEN_BASE_VOL * musicVolume;
+}
 const facebookRing = new Audio('sounds/Voice lines/facebook_call.mp3');
 facebookRing.loop = true;
 facebookRing.volume = 0.9;
@@ -1435,7 +1665,10 @@ let musicStarted = false;
 let ashenMarchStarted = false;
 function tryStartMusic() {
   warmUpAudio();
-  if (gameState === 'johnporkintro' || (gameState === 'playing' && stage >= 11)) return;
+  if (gameState === 'johnporkintro' || (stage >= 11 && gameState !== 'title' && gameState !== 'menu' && gameState !== 'classconfirm')) {
+    if (!ashenMarchStarted || ashenMarchMusic.paused) startAshenMarchMusic();
+    return;
+  }
   if (!ashenMarchMusic.paused) {
     ashenMarchMusic.pause();
     ashenMarchMusic.currentTime = 0;
@@ -1462,43 +1695,14 @@ function startJohnPorkIntro() {
   warmUpAudio();
   bgMusic.pause();
   ashenMarchMusic.pause();
-  facebookRing.currentTime = 0;
-  facebookRing.play().catch(() => {});
   johnPorkIntroTimer = JOHN_PORK_INTRO_IMAGE_FRAMES;
-  johnPorkIntroPhase = 'john';
-  johnPorkIntroRoar = null;
-  if (johnPorkIntroFallbackTimer) clearTimeout(johnPorkIntroFallbackTimer);
-  johnPorkIntroFallbackTimer = null;
+  transitionGatePlayed = true;
+  playsfx('heavyGate');
+  startAshenMarchMusic();
   gameState = 'johnporkintro';
 }
 
-function startDemonPigIntro() {
-  if (johnPorkIntroPhase === 'demon') return;
-  johnPorkIntroPhase = 'demon';
-  johnPorkIntroTimer = 0;
-  facebookRing.pause();
-  facebookRing.currentTime = 0;
-
-  johnPorkIntroRoar = sfx.demonRoar ? sfx.demonRoar.cloneNode() : null;
-  if (!johnPorkIntroRoar) {
-    finishJohnPorkIntro();
-    return;
-  }
-  johnPorkIntroRoar.volume = sfx.demonRoar.volume;
-  johnPorkIntroRoar.addEventListener('ended', finishJohnPorkIntro, { once: true });
-  johnPorkIntroRoar.play().catch(() => {
-    johnPorkIntroFallbackTimer = setTimeout(finishJohnPorkIntro, 1800);
-  });
-}
-
 function finishJohnPorkIntro() {
-  if (johnPorkIntroFallbackTimer) clearTimeout(johnPorkIntroFallbackTimer);
-  johnPorkIntroFallbackTimer = null;
-  if (johnPorkIntroRoar) {
-    johnPorkIntroRoar.pause();
-    johnPorkIntroRoar.currentTime = 0;
-    johnPorkIntroRoar = null;
-  }
   facebookRing.pause();
   facebookRing.currentTime = 0;
   stage = 11;
@@ -1531,6 +1735,7 @@ const sfx = {
   orcDeath:       new Audio('sounds/fx/Orc Death.wav'),
   orcHit:         new Audio('sounds/fx/Orc hit.wav'),
   shieldBlock:    new Audio('sounds/fx/Shield block.wav'),
+  forceField:     new Audio('sounds/fx/Force field.mp3'),
   ghoulIntro:     new Audio('sounds/fx/Ghoul pit intro.wav'),
   ghoulAttack:    new Audio('sounds/fx/Ghoul attack.wav'),
   ghoulDeath:     new Audio('sounds/fx/Ghoul death.wav'),
@@ -1541,6 +1746,10 @@ const sfx = {
   fireballImpact: new Audio('sounds/fx/Fireball impact.wav'),
   knifeThrow:     new Audio('sounds/fx/Knife Throw.mp3'),
   knifeImpact:    new Audio('sounds/fx/Knife Throw Impact.wav'),
+  trollKick:      new Audio('sounds/fx/Troll Kick.mp3'),
+  trollKickImpact:new Audio('sounds/fx/Troll Kick impact.mp3'),
+  spellBladeHit:  new Audio('sounds/fx/Spellblade hit.wav'),
+  spellBladeAnger:new Audio("sounds/fx/you've angered me for the last time!.mp3"),
   blastwave:      new Audio('sounds/fx/Blastwave.wav'),
   heavyGate:      new Audio('sounds/fx/Heavy Gate.wav'),
   demonRoar:      new Audio('sounds/fx/Demon Roar.wav'),
@@ -1569,6 +1778,7 @@ sfx.bruteDeath.volume     = 0.8;
 sfx.orcDeath.volume       = 0.9;
 sfx.orcHit.volume         = 0.7;
 sfx.shieldBlock.volume    = 0.75;
+sfx.forceField.volume     = 0.85;
 sfx.ghoulIntro.volume     = 0.8;
 sfx.ghoulAttack.volume    = 0.6;
 sfx.ghoulDeath.volume     = 0.7;
@@ -1579,6 +1789,10 @@ sfx.fireballFly.volume    = 0.45;
 sfx.fireballImpact.volume = 0.85;
 sfx.knifeThrow.volume     = 0.7;
 sfx.knifeImpact.volume    = 0.75;
+sfx.trollKick.volume      = 0.85;
+sfx.trollKickImpact.volume= 0.85;
+sfx.spellBladeHit.volume  = 0.85;
+sfx.spellBladeAnger.volume= 0.95;
 sfx.blastwave.volume      = 0.8;
 sfx.heavyGate.volume      = 1.0;
 sfx.demonRoar.volume      = 1.0;
@@ -1645,7 +1859,7 @@ function playsfx(name) {
   }
   if (!sfx[name]) return;
   const s = sfx[name].cloneNode();
-  s.volume = sfx[name].volume;
+  s.volume = sfx[name].volume * gameVolume;
   s.play().catch(() => {});
 }
 function playSfxBurst(name, count = 3, delayMs = 150) {
@@ -1656,7 +1870,7 @@ function playSfxBurst(name, count = 3, delayMs = 150) {
 function startLoopingSfx(name) {
   if (!sfx[name]) return null;
   const s = sfx[name].cloneNode();
-  s.volume = sfx[name].volume;
+  s.volume = sfx[name].volume * gameVolume;
   s.loop = true;
   s.play().catch(() => {});
   return s;
@@ -1691,7 +1905,7 @@ function setupAbilitiesForClass(cls) {
     abilities.push(
       mkab('q','Q','slash',     '#2ecc71', 240,  ps,                 qTooltipText('slash', ps, cls.primaryStat, cls[cls.primaryStat])),
       mkab('w','W','throw',     '#27ae60', 360,  ps,                  `Throw dagger. ${ps} dmg in the direction you face.`),
-      mkab('e','E','windwalk',  '#d8d0b8', 840,  0,                   windwalkTooltipText(1, cls.primaryStat, cls[cls.primaryStat])),
+      mkab('e','E','windwalk',  '#1abc9c', 840,  0,                   windwalkTooltipText(1, cls.primaryStat, cls[cls.primaryStat])),
       mkab('r','R','slicedice', '#16a085', 1800, Math.round(ps*3),   `Slice and Dice. ${Math.round(ps*3)} AoE damage around you (3x ${primaryStatLabel(cls.primaryStat)} base).`)
     );
   } else {
@@ -1730,7 +1944,8 @@ function startGame(classIdx) {
   player.str = cls.str; player.agi = cls.agi; player.int = cls.int;
   player.className = cls.name; player.primaryStat = cls.primaryStat;
   player.dying = false; player.deathFrame = 0; player.deathTick = 0; player.deathTimer = 0;
-  player.slowTimer = 0; player.berserkTimer = 0;
+  player.slowTimer = 0; player.stunTimer = 0; player.berserkTimer = 0;
+  player.knockbackTimer = 0; player.knockbackDx = 0; player.knockbackDy = 0;
   player.berserkCasting = false; player.berserkCastFrame = 0; player.berserkCastTick = 0;
   player.windwalkActive = false; player.windwalkTimer = 0; player.windwalkDmg = 0;
   player.windwalkEntering = false; player.windwalkEnterFrame = 0; player.windwalkEnterTick = 0;
@@ -1742,7 +1957,7 @@ function startGame(classIdx) {
   player.lifesteal = 0; player.lifeRegenActive = false; player.lifeRegenTimer = 0;
   player.bloodlustKillTimer = 0; player.executionerActive = false;
   player.avatarActive = false; player.damageReduction = 0;
-  player.cooldownRegenMult = 1; player.bulwarkActive = false; player.bulwarkShield = 0;
+  player.cooldownRegenMult = 1;
   player.undyingRage = false; player.undyingRageUsed = false;
   player.pendants = [];
   player.bonusStatPoints = 0;
@@ -1765,21 +1980,23 @@ function expForEnemy(e) {
     golem:    45,  // ×3  → up to 135 fresh
     minotaur: 180, // ×1  → boss reward
     archer:   25,  // ×6  → up to 150 fresh (ranged, easy to ignore)
-    skeletal_champion: 45,
-    orc:      55,  // ×4  → up to 220 fresh
-    troll:    70,  // ×2  → up to 140 fresh
-    ghoul:        2,
-    abomination:  250,
-    mimic:        230,
-    guardian: 75,  // ×2  → up to 150 fresh
-    trib_sentinel: 85,
-    trib_warden:   85,
-    trib_priest:   85,
+    skeletal_champion: 35,
+    orc:      40,  // ×4  → up to 160 fresh
+    troll:    60,  // ×2  → up to 120 fresh
+    ghoul:        1,
+    abomination:  75,
+    mimic:        100,
+    spellblade:   100,
+    guardian: 70,  // ×2  → up to 140 fresh
+    trib_sentinel: 30,
+    trib_warden:   30,
+    trib_priest:   30,
     johnpork: 150,
   }[e.type] ?? 150;
 
   // Decay: XP halves every 45 seconds (2700 frames). Fast kills rewarded.
   // Formula: base * 0.5^(aliveFrames/2700), floored to 1.
+  if (base <= 0) return 0;
   const frames = e.aliveFrames || 0;
   const decayed = Math.max(1, Math.round(base * Math.pow(0.5, frames / 2700)));
   return decayed;
@@ -1887,7 +2104,7 @@ document.addEventListener('keydown', (e) => {
 
     } else { // ── Stage (section 5) ──
       if (e.key === 'ArrowLeft')  devSetupStage = Math.max(1, devSetupStage - 1);
-      if (e.key === 'ArrowRight') devSetupStage = Math.min(11, devSetupStage + 1);
+      if (e.key === 'ArrowRight') devSetupStage = Math.min(13, devSetupStage + 1);
       if (e.key === 'Enter') applyDevConfig();
     }
     return;
@@ -1917,7 +2134,7 @@ document.addEventListener('keydown', (e) => {
       spawnStage(stage);
       gameState = 'playing';
     } else if (devMode && e.key.toLowerCase() === 's') {
-      stage = Math.min(stage + 1, 11);
+      stage = Math.min(stage + 1, 13);
       player.hp = player.maxHp;
       player.state = 'idle';
       player.dying = false; player.deathFrame = 0; player.deathTick = 0; player.deathTimer = 0;
@@ -1934,9 +2151,12 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (gameState === 'win') {
-    devMode = false;
-    gameMode = 'normal';
-    gameState = 'title';
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      devMode = false;
+      gameMode = 'normal';
+      titleSelected = 0;
+      gameState = 'title';
+    }
     return;
   }
 
@@ -1955,13 +2175,11 @@ document.addEventListener('keydown', (e) => {
 
   if (gameState === 'levelup') {
     const numKey = parseInt(e.key) - 1;
-    const lowerKey = e.key.toLowerCase();
 
     if (levelupPhase === 'skill') {
       const levelable = getLevelableSkills();
-      const chosenSkill = levelable.find(ab => ab.key === lowerKey);
-      if (chosenSkill) {
-        levelSkill(chosenSkill);
+      if (numKey >= 0 && numKey < levelable.length) {
+        levelSkill(levelable[numKey]);
         levelupStatsLeft = 3 + (player.bonusStatPoints || 0);
         levelupStatCursor = 0;
         levelupPhase = 'stats';
@@ -2142,7 +2360,37 @@ document.addEventListener('mousemove', (ev) => {
   const rect = canvas.getBoundingClientRect();
   mouseX = ev.clientX - rect.left;
   mouseY = ev.clientY - rect.top;
+  if (volDragging === 'sfx' && _volSliderBounds) {
+    const { trackX0, trackX1 } = _volSliderBounds;
+    gameVolume = Math.max(0, Math.min(1, (mouseX - trackX0) / (trackX1 - trackX0)));
+  }
+  if (volDragging === 'music' && _musicSliderBounds) {
+    const { trackX0, trackX1 } = _musicSliderBounds;
+    musicVolume = Math.max(0, Math.min(1, (mouseX - trackX0) / (trackX1 - trackX0)));
+    applyGameVolume();
+  }
 });
+document.addEventListener('mousedown', (ev) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+  if (_volSliderBounds) {
+    const { x: sx, w: sw, trackX0, trackX1, trackY } = _volSliderBounds;
+    if (x >= sx && x <= sx + sw && y >= trackY - 10 && y <= trackY + 20) {
+      volDragging = 'sfx';
+      gameVolume = Math.max(0, Math.min(1, (x - trackX0) / (trackX1 - trackX0)));
+    }
+  }
+  if (_musicSliderBounds) {
+    const { x: sx, w: sw, trackX0, trackX1, trackY } = _musicSliderBounds;
+    if (x >= sx && x <= sx + sw && y >= trackY - 10 && y <= trackY + 20) {
+      volDragging = 'music';
+      musicVolume = Math.max(0, Math.min(1, (x - trackX0) / (trackX1 - trackX0)));
+      applyGameVolume();
+    }
+  }
+});
+document.addEventListener('mouseup', () => { volDragging = false; });
 document.addEventListener('click', (ev) => {
   tryStartMusic();
   const rect = canvas.getBoundingClientRect();
@@ -2195,13 +2443,9 @@ function isSolid(x, y) {
   const col = Math.floor(x / TILE_SIZE);
   const row = Math.floor(y / TILE_SIZE);
   if (row < 0 || row >= MAP_ROWS || col < 0 || col >= MAP_COLS) return true;
-  // Door tiles at top wall — passable only when open
-  if (!getStageDoorRect(stage) && row === 0 && col >= DOOR_COL && col < DOOR_COL + 3) return !doorOpen;
-  const stageDoor = getStageDoorRect(stage);
-  if (stageDoor && x >= stageDoor.x && x <= stageDoor.x + stageDoor.w &&
-      y >= stageDoor.y && y <= stageDoor.y + stageDoor.h) {
-    return !doorOpen;
-  }
+  if (stage === 7 && col >= MAP_COLS - 2) return false;
+  // Door tiles stay walkable; doorOpen controls stage transition, not collision.
+  if (!getStageDoorRect(stage) && row === 0 && col >= DOOR_COL && col < DOOR_COL + 3) return false;
   if (isStageArtBlocked(x, y)) return true;
   return map[row][col] === WALL;
 }
@@ -2265,6 +2509,32 @@ function stagePointToWorld(nx, ny, w = DISPLAY_SIZE, h = DISPLAY_SIZE, stageNum 
   };
 }
 
+function findNearestPlayerSpawn(x, y) {
+  if (canPlayerMoveTo(x, y)) return { x, y };
+  const step = Math.max(4, Math.round(TILE_SIZE * 0.5));
+  for (let ring = 1; ring <= 18; ring++) {
+    for (let ox = -ring; ox <= ring; ox++) {
+      for (let oy = -ring; oy <= ring; oy++) {
+        if (Math.abs(ox) !== ring && Math.abs(oy) !== ring) continue;
+        const px = Math.max(TILE_SIZE, Math.min(canvas.width - DISPLAY_SIZE - TILE_SIZE, x + ox * step));
+        const py = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - DISPLAY_SIZE - TILE_SIZE, y + oy * step));
+        if (canPlayerMoveTo(px, py)) return { x: px, y: py };
+      }
+    }
+  }
+  return {
+    x: Math.max(TILE_SIZE, Math.min(canvas.width - DISPLAY_SIZE - TILE_SIZE, x)),
+    y: Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - DISPLAY_SIZE - TILE_SIZE, y)),
+  };
+}
+
+function placePlayerAt(nx, ny, stageNum = stage) {
+  const pt = stagePointToWorld(nx, ny, DISPLAY_SIZE, DISPLAY_SIZE, stageNum);
+  const safe = findNearestPlayerSpawn(pt.x, pt.y);
+  player.x = safe.x;
+  player.y = safe.y;
+}
+
 function getStageDoorRect(stageNum = stage) {
   const door = STAGE_DOORS[stageNum];
   const bgRect = door && getStageBgRect(stageNum);
@@ -2280,25 +2550,22 @@ function getStageDoorRect(stageNum = stage) {
 function isStageArtBlocked(x, y) {
   const stageDoor = getStageDoorRect(stage);
   if (stageDoor) {
-    const doorPadX = stage <= 2 ? DISPLAY_SIZE * 0.9 : DISPLAY_SIZE * 0.35;
-    const doorPadBelow = stage <= 2 ? DISPLAY_SIZE * 2.1 : TILE_SIZE;
+    const doorPadX = stage <= 2 ? DISPLAY_SIZE * 2.0 : DISPLAY_SIZE * 1.65;
+    const doorPadAbove = DISPLAY_SIZE * 0.55;
+    const doorPadBelow = stage <= 2 ? DISPLAY_SIZE * 3.2 : DISPLAY_SIZE * 2.5;
     if (x >= stageDoor.x - doorPadX && x <= stageDoor.x + stageDoor.w + doorPadX &&
-        y >= stageDoor.y && y <= stageDoor.y + stageDoor.h + doorPadBelow) {
+        y >= stageDoor.y - doorPadAbove && y <= stageDoor.y + stageDoor.h + doorPadBelow) {
       return false;
-    }
-  }
-
-  if (stage === 3) {
-    const bgRect = getStageBgRect(3);
-    if (bgRect) {
-      const ny = (y - bgRect.y) / bgRect.h;
-      if (ny >= 0.82 || y >= GAME_HEIGHT - DISPLAY_SIZE * 1.2) return false;
     }
   }
 
   if (stage === 9) {
     const edgePad = DISPLAY_SIZE * 1.35;
     if (x <= edgePad || x >= canvas.width - edgePad) return false;
+  }
+  if (stage === 7 && x >= canvas.width - DISPLAY_SIZE * 1.5) return false;
+  if (stage === 99) {
+    if (y < canvas.height * 0.38) return false; // dragon zone at top
   }
 
   const playArea = STAGE_PLAY_AREAS[stage];
@@ -2307,6 +2574,14 @@ function isStageArtBlocked(x, y) {
     const nx = (x - playAreaBgRect.x) / playAreaBgRect.w;
     const ny = (y - playAreaBgRect.y) / playAreaBgRect.h;
     if (!pointInPoly(nx, ny, playArea)) return true;
+  }
+
+  const polygonBlockers = STAGE_POLYGON_BLOCKERS[stage];
+  const polygonBgRect = polygonBlockers && getStageBgRect(stage);
+  if (polygonBgRect) {
+    const nx = (x - polygonBgRect.x) / polygonBgRect.w;
+    const ny = (y - polygonBgRect.y) / polygonBgRect.h;
+    if (polygonBlockers.some(poly => pointInPoly(nx, ny, poly))) return true;
   }
 
   const blockers = STAGE_BLOCKERS[stage];
@@ -2510,6 +2785,29 @@ function moveEntityWithSlide(e, dx, dy) {
     e.y += dy;
     moved = true;
   }
+  if (!moved && (dx !== 0 || dy !== 0)) {
+    const mag = Math.hypot(dx, dy) || 1;
+    const spd = Math.min(Math.max(1, mag), Math.max(Math.abs(dx), Math.abs(dy), 1));
+    const avoidSign = e.avoidSign || (Math.random() < 0.5 ? 1 : -1);
+    e.avoidSign = avoidSign;
+    const attempts = [
+      { x: -dy / mag * spd * avoidSign, y: dx / mag * spd * avoidSign },
+      { x: dy / mag * spd * avoidSign, y: -dx / mag * spd * avoidSign },
+      { x: (dx - dy * avoidSign) / mag * spd * 0.7, y: (dy + dx * avoidSign) / mag * spd * 0.7 },
+      { x: (dx + dy * avoidSign) / mag * spd * 0.7, y: (dy - dx * avoidSign) / mag * spd * 0.7 },
+      { x: -dx / mag * spd, y: -dy / mag * spd },
+      { x: dx / mag * spd * 0.5, y: dy / mag * spd * 0.5 },
+    ];
+    for (const a of attempts) {
+      if (canEntityMoveTo(e, e.x + a.x, e.y + a.y)) {
+        e.x += a.x;
+        e.y += a.y;
+        e.avoidTimer = 12;
+        return true;
+      }
+    }
+    e.avoidSign *= -1;
+  }
   return moved;
 }
 
@@ -2538,10 +2836,13 @@ function enemyHitbox(e) {
     case 'minotaur': return { x: e.x, y: e.y, w: DISPLAY_SIZE*2,              h: DISPLAY_SIZE*2 };
     case 'troll':    return { x: e.x, y: e.y, w: DISPLAY_SIZE*2,              h: DISPLAY_SIZE*2 };
     case 'guardian': return { x: e.x, y: e.y, w: GUARDIAN_SIZE,               h: GUARDIAN_SIZE };
+    case 'spellblade': return { x: e.x, y: e.y, w: SPELLBLADE_SIZE,            h: SPELLBLADE_SIZE };
     case 'trib_sentinel': return { x: e.x, y: e.y, w: TRIB_SENTINEL_SIZE,      h: TRIB_SENTINEL_SIZE };
     case 'trib_warden':   return { x: e.x, y: e.y, w: TRIB_WARDEN_SIZE,        h: TRIB_WARDEN_SIZE };
     case 'trib_priest':   return { x: e.x, y: e.y, w: TRIB_PRIEST_SIZE,        h: TRIB_PRIEST_SIZE };
     case 'johnpork':      return { x: e.x, y: e.y, w: JP_SIZE,                 h: JP_SIZE };
+    case 'dragonkin':     return { x: e.x, y: e.y, w: DRAGONKIN_SIZE,         h: DRAGONKIN_SIZE };
+    case 'dragon':        return { x: e.x, y: e.y, w: e.bodyW,                h: e.bodyH + e.headR * 2 };
     case 'ghoul':        return { x: e.x, y: e.y, w: Math.round(DISPLAY_SIZE*0.8),h: Math.round(DISPLAY_SIZE*0.8) };
     case 'abomination':  return { x: e.x, y: e.y, w: ABOM_SIZE, h: ABOM_SIZE };
     default:         return { x: e.x, y: e.y, w: DISPLAY_SIZE,                h: DISPLAY_SIZE };
@@ -2569,18 +2870,13 @@ function getHitbox() {
 function damagePlayer(baseDmg, flashDur) {
   if (player.slamImmunity > 0) return 0;
   if (player.enlightenShield && player.enlightenShieldCD <= 0) {
-    player.enlightenShieldCD = 600;
+    player.enlightenShieldCD = 900;
     player.hitFlash = flashDur || 15;
     addMarker(player.x + DISPLAY_SIZE / 2, player.y, 'ABSORBED!', '#3498db');
     return 0;
   }
   let d = Math.round(baseDmg * (1 - (player.damageReduction || 0)));
-  if ((player.bulwarkShield || 0) > 0) {
-    const absorbed = Math.min(player.bulwarkShield, d);
-    player.bulwarkShield -= absorbed;
-    d -= absorbed;
-    addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${absorbed} SHIELD`, '#8fc8f4');
-  }
+
   player.hp = Math.max(0, player.hp - d);
   if (player.hp === 0 && player.undyingRage && !player.undyingRageUsed) {
     player.hp = 15;
@@ -2611,6 +2907,26 @@ function applyDamageToEnemy(e, baseDmg, color) {
   let dmg = baseDmg * berserkDamageMultiplier();
   if (e.type === 'mimic' && e.state === 'mimicCast') {
     dmg *= 0.7;
+  }
+  if (e.type === 'spellblade') {
+    if (e.state === 'block' && e.blockTimer > 0) {
+      addMarker(e.x + SPELLBLADE_SIZE / 2, e.y - 20, 'BLOCK', '#d9f2ff');
+      playsfx('forceField');
+      return;
+    }
+    e.blockCounter = (e.blockCounter || 0) + 1;
+    if (e.blockCounter >= 3) {
+      e.blockCounter = 0;
+      e.blockTimer = SPELLBLADE_BLOCK_DUR;
+      e.state = 'block';
+      e.attackTimer = SPELLBLADE_BLOCK_DUR;
+      e.dashTimer = 0;
+      e.dashHit = false;
+      e.pendingTriple = true;
+      addMarker(e.x + SPELLBLADE_SIZE / 2, e.y - 20, 'COMBO BREAK', '#8fd8ff');
+      playsfx('forceField');
+      return;
+    }
   }
   if (player.executionerActive && e.hp / e.maxHp <= 0.35) {
     dmg *= 1.25;
@@ -2655,7 +2971,7 @@ function applyDamageToEnemy(e, baseDmg, color) {
     // Pick a random death animation row from this enemy's death sheet
     const deathRowCounts = { minotaur: 4, orc: 4 };
     const deathRows = { goblin: [1, 2, 3] };
-    const directionalDeath = e.type === 'ghoul' || e.type === 'golem' || e.type === 'skeletal_champion' || e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest';
+    const directionalDeath = e.type === 'ghoul' || e.type === 'golem' || e.type === 'skeletal_champion' || e.type === 'spellblade' || e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest';
     const hasCorpse = e.type in deathRowCounts || e.type in deathRows || directionalDeath;
     const rows = deathRowCounts[e.type] || 1;
     e.dying = true; e.deathFrame = 0; e.deathTick = 0; e.deathDone = false;
@@ -2695,7 +3011,7 @@ function applyDamageToEnemy(e, baseDmg, color) {
     }
     if (player.lifesteal > 0) player.bloodlustKillTimer = 120;
     if (e.type === 'minotaur') tryDropPendant(e, STAGE3_PENDANTS);
-    if (e.type === 'mimic')    tryDropPendant(e, STAGE8_PENDANTS);
+    if (e.type === 'mimic' || e.type === 'spellblade') tryDropPendant(e, STAGE8_PENDANTS);
     if      (e.type === 'goblin')      playsfx('goblinDeath');
     else if (e.type === 'golem')       playsfx('golemDeath');
     else if (e.type === 'archer' || e.type === 'skeletal_champion') playsfx('skeletonDeath');
@@ -2704,6 +3020,7 @@ function applyDamageToEnemy(e, baseDmg, color) {
     else if (e.type === 'ghoul')       playsfx('ghoulDeath');
     else if (e.type === 'guardian')    playsfx('guardianDeath');
     else if (e.type === 'abomination') playsfx('golemDeath');
+    else if (e.type === 'spellblade')  playsfx('bruteDeath');
     else if (e.type === 'mimic') {
       const mc = e.mimicClass || player.className;
       if (mc === 'Barbarian') playsfx('barbarianDeath');
@@ -2712,8 +3029,10 @@ function applyDamageToEnemy(e, baseDmg, color) {
     }
     else if (e.type === 'johnpork')    playsfx('bruteDeath');
     const xp = expForEnemy(e);
-    grantExp(xp);
-    addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+    if (xp > 0) {
+      grantExp(xp);
+      addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+    }
   }
 }
 
@@ -2745,7 +3064,7 @@ const STAGE8_PENDANTS = [
     }
   },
   { name: 'Enlightenment',  color: '#2980b9',
-    desc: '+10 INT · absorbs 1 hit every 10s',
+    desc: '+10 INT · absorbs 1 hit every 15s',
     apply: p => {
       p.int += 10;
       abilities.forEach(a => { a.cooldown = Math.max(30, a.cooldown - 150); });
@@ -2813,7 +3132,7 @@ function startMageBlink() {
 function registerSkillCast(ab) {
   if (!player.eternalFocusActive || !ab) return;
   player.eternalFocusCasts = (player.eternalFocusCasts || 0) + 1;
-  if (player.eternalFocusCasts % 3 !== 0) return;
+  if (player.eternalFocusCasts % 4 !== 0) return;
   ab.timer = Math.max(0, Math.round(ab.timer * 0.5));
   addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, 'ETERNAL FOCUS', '#2ecc71');
 }
@@ -2886,7 +3205,6 @@ function fireAbility() {
     player.windwalkActive = true;
     player.windwalkTimer  = 600;  // 10 seconds
     player.windwalkDmg    = windwalkBonusDamage(ab);
-    player.speed          = player.baseSpeed * 2;
     player.windwalkEntering = true;
     player.windwalkEnterFrame = 0;
     player.windwalkEnterTick = 0;
@@ -2928,7 +3246,7 @@ function fireAbility() {
   if (ab.name === 'frostnova') {
     const cx = player.x + DISPLAY_SIZE / 2;
     const cy = player.y + DISPLAY_SIZE / 2;
-    const r = DISPLAY_SIZE * 2.4 * 1.2 * (player.mightBonus ? 1.25 : 1);
+    const r = DISPLAY_SIZE * 2.4 * 1.2 * 0.85 * (player.mightBonus ? 1.25 : 1);
     spellEffects.push({ type: 'frostnova', x: cx, y: cy, frame: 0, tick: 0, life: 32, size: r * 2.2 });
     enemies.forEach(e => {
       if (e.hp <= 0) return;
@@ -3012,7 +3330,8 @@ function resumeAfterLevelup() {
 function getLevelableSkills() {
   return orderedAbilities(abilities).filter(a => {
     if (a.level >= a.maxLevel) return false;
-    if (a.key === 'r' && player.level < 6) return false;
+    if (a.key === 'r' && a.level === 0 && player.level < 6) return false;
+    if (a.key === 'r' && a.level >= 1 && player.level < 8) return false;
     // W/E can be selected from level 2 onward even if still at level 0
     return true;
   });
@@ -3078,7 +3397,7 @@ function windwalkTooltipText(levelOrAb = abilities.find(a => a.name === 'windwal
   const lvl = typeof levelOrAb === 'number' ? levelOrAb : (levelOrAb?.level || 1);
   const mult = windwalkBonusMult(lvl);
   const value = statValue || player[stat] || 1;
-  return `Wind Walk. Double speed + invisible for 10s. First damaging hit adds ${mult.toFixed(2)}x ${primaryStatLabel(stat)} (${Math.round(value * mult)} bonus dmg) to Slash damage.`;
+  return `Wind Walk. Enemies lose tracking for 10s. First damaging hit adds ${mult.toFixed(2)}x ${primaryStatLabel(stat)} (${Math.round(value * mult)} bonus dmg) to Slash damage.`;
 }
 
 function refreshWindwalkTooltip() {
@@ -3120,7 +3439,6 @@ function applyStatPoint(stat) {
   refreshWindwalkTooltip();
   refreshSliceDiceTooltip();
   refreshMageSkillTooltips();
-  refreshBulwarkShield();
 }
 
 function finishLevelupStatsIfDone() {
@@ -3211,9 +3529,15 @@ function primaryStatLabel(stat = player.primaryStat) {
   return stat === 'str' ? 'STR' : stat === 'agi' ? 'AGI' : 'INT';
 }
 
-function refreshBulwarkShield() {
-  if (!player.bulwarkActive) return;
-  player.bulwarkShield = Math.max(player.bulwarkShield || 0, Math.round(player.maxHp * 0.20));
+
+function stunPlayerAgainstEdge() {
+  player.stunTimer = Math.max(player.stunTimer || 0, TROLL_EDGE_STUN);
+  player.knockbackTimer = 0;
+  player.knockbackDx = 0;
+  player.knockbackDy = 0;
+  player.hitFlash = Math.max(player.hitFlash || 0, 30);
+  addMarker(player.x + DISPLAY_SIZE / 2, player.y - 10, 'STUNNED!', '#ffd700');
+  playsfx('stoneCrash');
 }
 
 function applyTalentEffect(pi, ti) {
@@ -3221,7 +3545,7 @@ function applyTalentEffect(pi, ti) {
     if (ti === 0) {     // Haste
       player.cooldownRegenMult = Math.max(player.cooldownRegenMult || 1, 1.15);
     } else if (ti === 1) { // Bloodlust
-      player.lifesteal = Math.max(player.lifesteal || 0, 0.08);
+      player.lifesteal = Math.max(player.lifesteal || 0, 0.05);
     } else {            // Executioner
       player.executionerActive = true;
     }
@@ -3232,9 +3556,6 @@ function applyTalentEffect(pi, ti) {
       player.lifeRegenActive = true;
     } else {            // Ancient Bulwark
       player.maxHp = Math.round(player.maxHp * 1.5);
-      player.hp = player.maxHp;
-      player.bulwarkActive = true;
-      refreshBulwarkShield();
     }
   } else {              // Utility
     if (ti === 0) {     // Plasticity — primary attr choice handled in keydown after this
@@ -3255,8 +3576,26 @@ function applyTalentEffect(pi, ti) {
 function updatePlayer() {
   if (player.dying) return;
   if (player.slowTimer > 0)    player.slowTimer--;
+  if (player.stunTimer > 0)    player.stunTimer--;
   if (player.berserkTimer > 0) player.berserkTimer--;
   if (player.bloodlustKillTimer > 0) player.bloodlustKillTimer--;
+  if (player.knockbackTimer > 0) {
+    const nx = player.x + player.knockbackDx;
+    const ny = player.y + player.knockbackDy;
+    if (canPlayerMoveTo(nx, ny)) {
+      player.x = nx;
+      player.y = ny;
+      player.knockbackTimer--;
+    } else {
+      stunPlayerAgainstEdge();
+    }
+    const c = playerCollisionCircleAt(player.x, player.y);
+    if (player.knockbackTimer > 0 &&
+        (c.x - c.r <= TILE_SIZE || c.x + c.r >= canvas.width - TILE_SIZE ||
+         c.y - c.r <= TILE_SIZE || c.y + c.r >= GAME_HEIGHT - TILE_SIZE)) {
+      stunPlayerAgainstEdge();
+    }
+  }
   if (player.berserkCasting) {
     if (++player.berserkCastTick >= ATK_SPEED) {
       player.berserkCastTick = 0;
@@ -3283,7 +3622,7 @@ function updatePlayer() {
         return Math.hypot((eb.x + eb.w / 2) - pcx, (eb.y + eb.h / 2) - pcy) < DISPLAY_SIZE * 1.65;
       });
       if (!surrounded) {
-        const heal = Math.max(1, Math.round(player.maxHp * 0.01));
+        const heal = Math.max(1, Math.round(player.maxHp * 0.02));
         player.hp = Math.min(player.maxHp, player.hp + heal);
       }
     }
@@ -3308,10 +3647,17 @@ function updatePlayer() {
   const spd = (player.slowTimer > 0 ? Math.max(1, player.speed * 0.5) : player.speed) * hazardSlow;
 
   let dx = 0, dy = 0;
-  if (keys['ArrowUp'])    { dy = -spd; player.direction = 'up'; }
-  if (keys['ArrowDown'])  { dy =  spd; player.direction = 'down'; }
-  if (keys['ArrowLeft'])  { dx = -spd; player.direction = 'left'; }
-  if (keys['ArrowRight']) { dx =  spd; player.direction = 'right'; }
+  if (player.stunTimer <= 0 && player.knockbackTimer <= 0) {
+    if (keys['ArrowUp'])    { dy = -spd; player.direction = 'up'; }
+    if (keys['ArrowDown'])  { dy =  spd; player.direction = 'down'; }
+    if (keys['ArrowLeft'])  { dx = -spd; player.direction = 'left'; }
+    if (keys['ArrowRight']) { dx =  spd; player.direction = 'right'; }
+  }
+  if (dx !== 0 && dy !== 0) {
+    const invSqrt2 = Math.SQRT1_2;
+    dx *= invSqrt2;
+    dy *= invSqrt2;
+  }
 
   player.moving = movePlayerWithSlide(dx, dy);
 
@@ -3553,6 +3899,11 @@ function updateGoblin(e) {
   } else { e.frameIndex = 0; e.frameTick = 0; }
 }
 
+function minotaurStompFrame(timer) {
+  const elapsed = MINOTAUR_STOMP_WINDUP - Math.max(0, timer || 0);
+  return Math.min(3, Math.max(0, Math.floor(elapsed / Math.max(1, MINOTAUR_STOMP_WINDUP / 4))));
+}
+
 function updateMinotaur(e) {
   if (e.dying || e.hp <= 0) return;
   const size = DISPLAY_SIZE * 2;
@@ -3562,6 +3913,8 @@ function updateMinotaur(e) {
   if (e.slowTimer > 0) e.slowTimer--;
   if (e.chargeCooldown > 0) e.chargeCooldown--;
   if (e.meleeCooldown > 0) e.meleeCooldown--;
+  if (e.stompCooldown > 0) e.stompCooldown--;
+  if (e.stompEffect > 0) e.stompEffect--;
   const spd = e.slowTimer > 0 ? 1 : ENEMY_SPEED;
 
   const dx = player.x - e.x, dy = player.y - e.y;
@@ -3611,6 +3964,40 @@ function updateMinotaur(e) {
     return;
   }
 
+  if (e.state === 'stomp') {
+    const stompFrame = minotaurStompFrame(e.stompTimer);
+    e.attackFrame = stompFrame;
+    if (!e.stompHit && stompFrame >= 2) {
+      e.stompHit = true;
+      const hb = enemyHitbox(e);
+      const ecx = hb.x + hb.w / 2;
+      const ecy = hb.y + hb.h / 2;
+      const pcx = player.x + DISPLAY_SIZE / 2;
+      const pcy = player.y + DISPLAY_SIZE / 2;
+      if (Math.hypot(pcx - ecx, pcy - ecy) <= MINOTAUR_STOMP_RANGE) {
+        const base = player.berserkTimer > 0 ? Math.round(MINOTAUR_STOMP_DAMAGE * 1.5) : MINOTAUR_STOMP_DAMAGE;
+        const dmg = damagePlayer(base, 18);
+        if (dmg > 0) {
+          player.stunTimer = Math.max(player.stunTimer || 0, MINOTAUR_STOMP_STUN);
+          player.slowTimer = Math.max(player.slowTimer || 0, MINOTAUR_STOMP_SLOW);
+        }
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${dmg} STOMP`, '#d8a03a');
+        playsfx('damage');
+      }
+      e.stompEffect = 32;
+      addHazard('cracked', e.x + size / 2, e.y + size / 2, MINOTAUR_STOMP_RANGE * 0.75, 150, { slow: true, color: '#b06a25' });
+      playsfx('slam');
+    }
+    if (--e.stompTimer <= 0) {
+      e.state = 'chase';
+      e.stompCooldown = MINOTAUR_STOMP_CD;
+      e.stompHit = false;
+      e.attackFrame = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
   if (e.state === 'charging') {
     const enraged = e.hp / e.maxHp <= 0.5;
     const chargeSpd = enraged ? MINOTAUR_ENRAGE_SPEED : MINOTAUR_CHARGE_SPEED;
@@ -3649,6 +4036,17 @@ function updateMinotaur(e) {
   }
 
   let moveDx = 0, moveDy = 0;
+  if (dist <= MINOTAUR_STOMP_START_RANGE && e.stompCooldown <= 0) {
+    e.state = 'stomp';
+    e.stompTimer = MINOTAUR_STOMP_WINDUP;
+    e.stompHit = false;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    e.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    playsfx('minotaurRoar');
+    return;
+  }
+
   if (dist <= MINOTAUR_MELEE_RANGE && e.meleeCooldown <= 0) {
     e.state = 'melee';
     e.attackTimer = MINOTAUR_MELEE_WINDUP;
@@ -3735,6 +4133,11 @@ function updateProjectiles() {
         spawnFireballExplosion(p.x, p.y);
         playsfx('fireballImpact');
       }
+      if (p.type === 'dragonfire') {
+        if (p.flySound) stopSfxInstance(p.flySound);
+        spawnFireballExplosion(p.x, p.y);
+        playsfx('fireballImpact');
+      }
       projectiles.splice(i, 1);
       continue;
     }
@@ -3767,6 +4170,22 @@ function updateProjectiles() {
         }
       });
       if (hit) { projectiles.splice(i, 1); }
+      continue;
+    }
+    if (p.type === 'dragonfire') {
+      if (!p.hit) {
+        const dist = Math.hypot(p.x - (player.x + DISPLAY_SIZE/2), p.y - (player.y + DISPLAY_SIZE/2));
+        if (dist < DISPLAY_SIZE * 0.65) {
+          p.hit = true;
+          if (p.flySound) stopSfxInstance(p.flySound);
+          spawnFireballExplosion(p.x, p.y);
+          playsfx('fireballImpact');
+          const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+          const dmg = damagePlayer(base, 15);
+          if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800');
+          projectiles.splice(i, 1);
+        }
+      }
       continue;
     }
     if (!p.hit) {
@@ -3913,6 +4332,21 @@ function drawProjectiles() {
     if (p.type === 'rock' && trollBoulderSheet) {
       const sz = Math.round(DISPLAY_SIZE * 0.8);
       drawSheetSprite(trollBoulderSheet, 0, 0, p.x - sz / 2, p.y - sz / 2, sz, sz, 4, 4);
+      return;
+    }
+    if (p.type === 'dragonfire') {
+      if (mageFireballProjSheet) {
+        const row = arrowSpriteRow(p);
+        const col = p.frame || 0;
+        const sz  = Math.round(DISPLAY_SIZE * 0.72);
+        drawMonSprite(mageFireballProjSheet, col, row, p.x - sz / 2, p.y - sz / 2, sz, sz);
+      } else {
+        const fsize = DISPLAY_SIZE * 0.5;
+        const grad  = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, fsize);
+        grad.addColorStop(0, '#fff5cc'); grad.addColorStop(0.4, '#ff8800'); grad.addColorStop(1, 'rgba(200,50,0,0)');
+        ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, fsize, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
       return;
     }
     ctx.fillStyle = p.type === 'dagger' ? '#bbb' : '#888';
@@ -4240,7 +4674,9 @@ function updateOrc(e) {
   if (e.state === 'cooldown') { if (--e.attackTimer <= 0) e.state = 'chase'; }
 
   let mx = 0, my = 0;
-  const spd = e.slowTimer > 0 ? Math.max(1, Math.round(ORC_SPEED * 0.5)) : ORC_SPEED;
+  const baseSpeed = e.brute ? ORC_SPEED * 1.3 : ORC_SPEED;
+  const chaseRange = e.brute ? DISPLAY_SIZE * 999 : ORC_CHASE;
+  const spd = e.slowTimer > 0 ? Math.max(1, Math.round(baseSpeed * 0.5)) : baseSpeed;
   if (dist < orcAtkRange && e.state !== 'cooldown') {
     e.state = 'attacking';
     e.attackTimer = ORC_CLEAVE_WINDUP;
@@ -4248,7 +4684,7 @@ function updateOrc(e) {
     e.frameTick = 0;
     e.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     return;
-  } else if (dist < ORC_CHASE && e.state !== 'cooldown') {
+  } else if (dist < chaseRange && e.state !== 'cooldown') {
     e.state = 'chase';
     const cv = chaseVec(dx, dy, spd);
     mx = cv.mx; my = cv.my;
@@ -4370,11 +4806,55 @@ function updateGuardian(e) {
   else { e.frameIndex = 0; e.frameTick = 0; }
 }
 
+function knockPlayerFromTroll(e) {
+  const pcx = player.x + DISPLAY_SIZE / 2;
+  const pcy = player.y + DISPLAY_SIZE / 2;
+  const tcx = e.x + DISPLAY_SIZE;
+  const tcy = e.y + DISPLAY_SIZE;
+  const dx = pcx - tcx;
+  const dy = pcy - tcy;
+  const mag = Math.hypot(dx, dy) || 1;
+  const ux = dx / mag;
+  const uy = dy / mag;
+  const step = TROLL_KNOCKBACK_DIST / TROLL_KNOCKBACK_DUR;
+  player.knockbackTimer = TROLL_KNOCKBACK_DUR;
+  player.knockbackDx = ux * step;
+  player.knockbackDy = uy * step;
+}
+
 function updateTroll(e) {
   if (e.dying || e.hp <= 0) return;
   e.aliveFrames++;
   if (e.hitFlash > 0) e.hitFlash--;
   if (e.throwTimer > 0) e.throwTimer--;
+  if (e.kickCooldown > 0) e.kickCooldown--;
+
+  const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
+
+  if (e.state === 'kick') {
+    e.kickTimer--;
+    if (++e.frameTick >= Math.max(4, Math.floor(TROLL_KICK_WINDUP / 4))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (!e.kickHit && e.kickTimer <= Math.floor(TROLL_KICK_WINDUP * 0.45)) {
+      e.kickHit = true;
+      const hb = rectInFrontOf(e, TROLL_KICK_RANGE, DISPLAY_SIZE * 1.2, DISPLAY_SIZE * 2);
+      if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+        const hit = damagePlayer(TROLL_KICK_DAMAGE, 16);
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit} KICK`, '#b88a45');
+        playsfx('trollKickImpact');
+        knockPlayerFromTroll(e);
+      }
+    }
+    if (e.kickTimer <= 0) {
+      e.state = 'wander';
+      e.attackFrame = 0;
+      e.frameIndex = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
 
   if (e.attackAnimTimer > 0) {
     e.attackAnimTimer--;
@@ -4391,7 +4871,6 @@ function updateTroll(e) {
     return;
   }
 
-  const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
   let mx = 0, my = 0;
   if (dist < TROLL_THROW_RANGE) {
     if (e.throwTimer <= 0) {
@@ -4409,20 +4888,222 @@ function updateTroll(e) {
       }
       e.throwTimer = TROLL_THROW_CD;
     }
-    // Troll slowly wanders even while in range
-    if (--e.wanderTimer <= 0) {
-      const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},{dx:0,dy:0}];
-      const c = dirs[Math.floor(Math.random() * dirs.length)];
-      e.wanderDx = c.dx; e.wanderDy = c.dy;
-      e.wanderTimer = 90 + Math.floor(Math.random() * 120);
+    if (dist < TROLL_KEEP_DISTANCE) {
+      const keep = chaseVec(-dx, -dy, TROLL_SPEED * 1.35);
+      mx = keep.mx;
+      my = keep.my;
+      e.closePressure = dist < TROLL_KICK_RANGE ? (e.closePressure || 0) + 1 : Math.max(0, (e.closePressure || 0) - 2);
+      if (e.closePressure >= 18 && e.kickCooldown <= 0) {
+        e.state = 'kick';
+        e.kickTimer = TROLL_KICK_WINDUP;
+        e.kickCooldown = TROLL_KICK_CD;
+        e.kickHit = false;
+        e.closePressure = 0;
+        e.attackFrame = 0;
+        e.frameTick = 0;
+        e.direction = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up');
+        playsfx('trollKick');
+        return;
+      }
+    } else {
+      e.closePressure = Math.max(0, (e.closePressure || 0) - 1);
+      if (--e.wanderTimer <= 0) {
+        const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},{dx:0,dy:0}];
+        const c = dirs[Math.floor(Math.random() * dirs.length)];
+        e.wanderDx = c.dx; e.wanderDy = c.dy;
+        e.wanderTimer = 90 + Math.floor(Math.random() * 120);
+      }
+      mx = e.wanderDx * TROLL_SPEED; my = e.wanderDy * TROLL_SPEED;
     }
-    mx = e.wanderDx * TROLL_SPEED; my = e.wanderDy * TROLL_SPEED;
   }
   if (Math.abs(mx) >= Math.abs(my)) { if (mx > 0) e.direction='right'; else if (mx < 0) e.direction='left'; }
   else { if (my > 0) e.direction='down'; else if (my < 0) e.direction='up'; }
   moveEntityWithSlide(e, mx, my);
   if (mx !== 0 || my !== 0) { if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex=(e.frameIndex+1)%4; } }
   else { e.frameIndex = 0; e.frameTick = 0; }
+}
+
+function spellBladeHitPlayer(e, dmg, label = '') {
+  const hb = rectInFrontOf(e, SPELLBLADE_ATK_RANGE * 1.2, SPELLBLADE_SIZE * 0.82, SPELLBLADE_SIZE);
+  if (!rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) return false;
+  const hit = damagePlayer(player.berserkTimer > 0 ? Math.round(dmg * 1.5) : dmg, 15);
+  addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit}${label}`, '#8fd8ff');
+  playsfx('damage');
+  return true;
+}
+
+function startSpellBladeTriple(e) {
+  const dx = player.x - e.x;
+  const dy = player.y - e.y;
+  const mag = Math.hypot(dx, dy) || 1;
+  e.direction = dx >= 0 ? 'right' : 'left';
+  e.state = 'tripleDash';
+  e.tripleDashTimer = SPELLBLADE_TRIPLE_DASH_DUR;
+  e.tripleTimer = SPELLBLADE_TRIPLE_DUR;
+  e.attackTimer = SPELLBLADE_TRIPLE_DUR;
+  e.tripleHits = [false, false, false];
+  e.tripleFrame = 0;
+  e.attackFrame = 0;
+  e.frameTick = 0;
+  e.dashDx = dx / mag;
+  e.dashDy = dy / mag;
+  e.pendingTriple = false;
+  playsfx('spellBladeAnger');
+}
+
+function spellBladeTripleHitPlayer(e, idx) {
+  playsfx('spellBladeHit');
+  const hb = rectInFrontOf(e, SPELLBLADE_TRIPLE_RANGE, SPELLBLADE_TRIPLE_WIDTH, SPELLBLADE_SIZE);
+  if (!rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) return;
+  const hit = damagePlayer(player.berserkTimer > 0 ? Math.round(SPELLBLADE_TRIPLE_DAMAGE * 1.5) : SPELLBLADE_TRIPLE_DAMAGE, 12);
+  addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit}`, idx === 2 ? '#ff5555' : '#ff9a9a');
+  playsfx('damage');
+}
+
+function updateSpellBlade(e) {
+  if (e.dying || e.hp <= 0) return;
+  e.aliveFrames = (e.aliveFrames || 0) + 1;
+  if (e.hitFlash > 0) e.hitFlash--;
+  if (e.slowTimer > 0) e.slowTimer--;
+  if (e.blockTimer > 0) e.blockTimer--;
+  if (e.dashCooldown > 0) e.dashCooldown--;
+  const dx = player.x - e.x;
+  const dy = player.y - e.y;
+  const dist = Math.hypot(dx, dy);
+  const spd = e.slowTimer > 0 ? Math.max(1, SPELLBLADE_SPEED * 0.5) : SPELLBLADE_SPEED;
+
+  if (e.state === 'block') {
+    if (++e.frameTick >= Math.max(4, Math.floor(ATK_SPEED * 0.75))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min(3, (e.attackFrame || 0) + 1);
+    }
+    if (--e.attackTimer <= 0 && e.blockTimer <= 0) {
+      if (e.pendingTriple) {
+        startSpellBladeTriple(e);
+        return;
+      }
+      e.state = 'chase';
+      e.attackFrame = 0;
+    }
+    return;
+  }
+
+  if (e.state === 'tripleDash') {
+    if (Math.abs(dx) >= Math.abs(dy)) e.direction = dx >= 0 ? 'right' : 'left';
+    else e.direction = dy >= 0 ? 'down' : 'up';
+    if (++e.frameTick >= 3) {
+      e.frameTick = 0;
+      e.attackFrame = ((e.attackFrame || 0) + 1) % 4;
+    }
+    const step = SPELLBLADE_TRIPLE_DASH_RANGE / SPELLBLADE_TRIPLE_DASH_DUR;
+    moveEntityWithSlide(e, e.dashDx * step, e.dashDy * step);
+    if (--e.tripleDashTimer <= 0) {
+      e.state = 'triple';
+      e.attackFrame = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
+  if (e.state === 'triple') {
+    const elapsed = SPELLBLADE_TRIPLE_DUR - e.tripleTimer;
+    e.tripleFrame = Math.min(7, Math.floor(elapsed / (SPELLBLADE_TRIPLE_DUR / 8)));
+    e.attackFrame = e.tripleFrame;
+    const hitFrames = [2, 4, 6];
+    hitFrames.forEach((frame, idx) => {
+      if (!e.tripleHits[idx] && e.tripleFrame >= frame) {
+        e.tripleHits[idx] = true;
+        spellBladeTripleHitPlayer(e, idx);
+      }
+    });
+    if (--e.tripleTimer <= 0) {
+      e.state = 'cooldown';
+      e.attackTimer = SPELLBLADE_ATK_CD;
+      e.attackFrame = 0;
+    }
+    return;
+  }
+
+  if (e.state === 'dash') {
+    if (++e.frameTick >= 3) {
+      e.frameTick = 0;
+      e.attackFrame = ((e.attackFrame || 0) + 1) % 4;
+    }
+    moveEntityWithSlide(e, e.dashDx * SPELLBLADE_DASH_SPEED, e.dashDy * SPELLBLADE_DASH_SPEED);
+    if (!e.dashHit) {
+      const hitDist = Math.hypot(player.x - e.x, player.y - e.y);
+      if (hitDist < SPELLBLADE_ATK_RANGE + DISPLAY_SIZE * 0.45) {
+        playsfx('spellBladeHit');
+        spellBladeHitPlayer(e, SPELLBLADE_DASH_DMG, ' DASH');
+        e.dashHit = true;
+      }
+    }
+    if (--e.dashTimer <= 0) {
+      e.state = 'cooldown';
+      e.attackTimer = SPELLBLADE_ATK_CD;
+      e.dashCooldown = SPELLBLADE_DASH_CD;
+    }
+    return;
+  }
+
+  if (e.state === 'attacking') {
+    if (++e.frameTick >= Math.max(4, Math.floor(ATK_SPEED * 0.75))) {
+      e.frameTick = 0;
+      e.attackFrame = ((e.attackFrame || 0) + 1) % 4;
+    }
+    if (--e.attackTimer <= 0) {
+      playsfx('spellBladeHit');
+      spellBladeHitPlayer(e, SPELLBLADE_DAMAGE);
+      e.state = 'cooldown';
+      e.attackTimer = SPELLBLADE_ATK_CD;
+    }
+    return;
+  }
+
+  if (e.state === 'cooldown') {
+    if (--e.attackTimer <= 0) e.state = 'chase';
+    return;
+  }
+
+  if (Math.abs(dx) >= Math.abs(dy)) e.direction = dx >= 0 ? 'right' : 'left';
+  else e.direction = dy >= 0 ? 'down' : 'up';
+
+  if (e.pendingTriple) {
+    startSpellBladeTriple(e);
+    return;
+  }
+
+  if (dist > SPELLBLADE_ATK_RANGE * 1.7 && dist < SPELLBLADE_DASH_RANGE && e.dashCooldown <= 0) {
+    const mag = dist || 1;
+    e.dashDx = dx / mag;
+    e.dashDy = dy / mag;
+    e.dashTimer = SPELLBLADE_DASH_DUR;
+    e.dashHit = false;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    e.state = 'dash';
+    return;
+  }
+
+  if (dist < SPELLBLADE_ATK_RANGE) {
+    e.state = 'attacking';
+    e.attackTimer = SPELLBLADE_WINDUP;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    return;
+  }
+
+  const cv = chaseVec(dx, dy, spd);
+  moveEntityWithSlide(e, cv.mx, cv.my);
+  if (cv.mx !== 0 || cv.my !== 0) {
+    if (++e.frameTick >= FRAME_SPEED) {
+      e.frameTick = 0;
+      e.frameIndex = (e.frameIndex + 1) % 4;
+    }
+  } else {
+    e.frameIndex = 0;
+    e.frameTick = 0;
+  }
 }
 
 function mimicUseAbility(e, key) {
@@ -4432,9 +5113,168 @@ function mimicUseAbility(e, key) {
   if (Math.abs(faceDx) >= Math.abs(faceDy)) e.direction = faceDx >= 0 ? 'right' : 'left';
   else e.direction = faceDy >= 0 ? 'down' : 'up';
   const cx = e.x + DISPLAY_SIZE / 2, cy = e.y + DISPLAY_SIZE / 2;
+  const pcx = player.x + DISPLAY_SIZE / 2, pcy = player.y + DISPLAY_SIZE / 2;
+  const pDist = Math.hypot(pcx - cx, pcy - cy);
+
+  if (e.mimicClass === 'Barbarian') {
+    if (key === 'r') {
+      e.enraged = true;
+      e.mimicBerserkTimer = Math.max(e.mimicBerserkTimer || 0, 420);
+      e.forceSkillKey = 'e';
+      addMarker(cx, e.y - 14, 'ECHO BERSERK', '#bb66ff');
+      return;
+    }
+    if (key === 'e') {
+      const r = DISPLAY_SIZE * 2.05;
+      if (pDist < r) {
+        const hit = damagePlayer(Math.round(dmg * 1.75 * (e.mimicBerserkTimer > 0 ? 1.35 : 1)), 18);
+        player.slowTimer = Math.max(player.slowTimer || 0, 120);
+        addMarker(pcx, player.y, `-${hit} SLAM`, '#f1c40f');
+        playsfx('damage');
+      }
+      e.spearEffect = 24;
+      e.forceSkillKey = 'w';
+      addHazard('cracked', cx, cy, r * 0.55, 90, { slow: true, color: '#d08a30' });
+      playsfx('slam');
+      return;
+    }
+    if (key === 'w') {
+      const r = DISPLAY_SIZE * 1.85;
+      if (pDist < r) {
+        const hit = damagePlayer(Math.round(dmg * 1.5 * (e.mimicBerserkTimer > 0 ? 1.35 : 1)), 15);
+        addMarker(pcx, player.y, `-${hit} WHIRL`, '#e67e22');
+        playsfx('damage');
+      }
+      e.spearEffect = 18;
+      e.forceSkillKey = 'q';
+      playsfx('whirlwind');
+      return;
+    }
+    const hb = rectInFrontOf(e, DISPLAY_SIZE * 1.8, DISPLAY_SIZE * 1.35, DISPLAY_SIZE);
+    if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+      const hit = damagePlayer(e.mimicBerserkTimer > 0 ? Math.round(dmg * 1.5) : dmg, 15);
+      addMarker(pcx, player.y, `-${hit}`, '#bb66ff');
+      playsfx('damage');
+    }
+    return;
+  }
+
+  if (e.mimicClass === 'Rogue') {
+    if (key === 'e') {
+      e.mimicWindwalkTimer = 600;
+      e.mimicWindwalkStrikeReady = true;
+      e.retreatTimer = 0;
+      addMarker(cx, e.y - 14, 'ECHO WINDWALK', '#1abc9c');
+      return;
+    }
+    if (key === 'r') {
+      const r = ROGUE_SLICE_DICE_RADIUS;
+      if (pDist < r) {
+        const hit = damagePlayer(Math.round(dmg * 3), 18);
+        addMarker(pcx, player.y, `-${hit} SLICE`, '#16a085');
+        playsfx('damage');
+      }
+      e.retreatTimer = 90;
+      e.forceSkillKey = 'w';
+      e.spearEffect = 24;
+      addMarker(cx, e.y - 14, 'ECHO SLICE', '#16a085');
+      return;
+    }
+    if (key === 'w') {
+      const vx = pcx - cx, vy = pcy - cy, mag = Math.hypot(vx, vy) || 1;
+      projectiles.push({ x: cx, y: cy, dx: vx / mag * ARROW_SPEED * 1.15, dy: vy / mag * ARROW_SPEED * 1.15,
+        damage: dmg, type: 'arrow', life: 260, hit: false });
+      playsfx('knifeThrow');
+      return;
+    }
+    const hb = rectInFrontOf(e, DISPLAY_SIZE * 1.75, DISPLAY_SIZE * 1.2, DISPLAY_SIZE);
+    if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+      const bonus = e.mimicWindwalkStrikeReady ? Math.round(dmg * 1.25) : 0;
+      const hit = damagePlayer(dmg + bonus, 15);
+      addMarker(pcx, player.y, `-${hit}`, '#2ecc71');
+      playsfx('damage');
+      if (e.mimicWindwalkStrikeReady) {
+        e.mimicWindwalkStrikeReady = false;
+        e.mimicWindwalkTimer = 0;
+        e.forceSkillKey = 'r';
+      }
+    }
+    return;
+  }
+
+  if (e.mimicClass === 'Mage') {
+    if (key === 'w') {
+      const vx = pcx - cx, vy = pcy - cy, mag = Math.hypot(vx, vy) || 1;
+      projectiles.push({ x: cx, y: cy, dx: vx / mag * Math.max(3, DISPLAY_SIZE * 0.09), dy: vy / mag * Math.max(3, DISPLAY_SIZE * 0.09),
+        damage: Math.round(dmg * 1.75), type: 'dragonfire', life: 300, hit: false, frame: 0, frameTick: 0 });
+      playsfx('fireballCast');
+      return;
+    }
+    if (key === 'e') {
+      const r = DISPLAY_SIZE * 2.45 * 0.85;
+      if (pDist < r) {
+        const hit = damagePlayer(Math.round(dmg * 1.75), 15);
+        player.stunTimer = Math.max(player.stunTimer || 0, 60);
+        player.slowTimer = Math.max(player.slowTimer || 0, 120);
+        addMarker(pcx, player.y, `-${hit} FROZEN`, '#1abc9c');
+        playsfx('damage');
+      }
+      addHazard('frost', cx, cy, r * 0.55, 80, { slow: true, color: '#1abc9c' });
+      e.forceSkillKey = 'r';
+      playsfx('frostNova');
+      return;
+    }
+    if (key === 'r') {
+      const awayX = cx - pcx;
+      const awayY = cy - pcy;
+      const mag = Math.hypot(awayX, awayY) || 1;
+      let tx = e.x + (awayX / mag) * DISPLAY_SIZE * 4.2;
+      let ty = e.y + (awayY / mag) * DISPLAY_SIZE * 4.2;
+      tx = Math.max(TILE_SIZE, Math.min(canvas.width - DISPLAY_SIZE - TILE_SIZE, tx));
+      ty = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - DISPLAY_SIZE - TILE_SIZE, ty));
+      if (canEntityMoveTo(e, tx, ty)) { e.x = tx; e.y = ty; }
+      e.forceSkillKey = 'w';
+      addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, 'ECHO BLINK', '#8e44ad');
+      playsfx('mageBlink');
+      return;
+    }
+    if (pDist < DISPLAY_SIZE * 1.55) {
+      const hit = damagePlayer(dmg, 15);
+      addMarker(pcx, player.y, `-${hit} BLAST`, '#3498db');
+      e.forceSkillKey = 'e';
+      playsfx('blastwave');
+    }
+    return;
+  }
+
   if (key === 'r') {
-    e.enraged = true;
-    addMarker(cx, e.y - 14, 'ECHO R', '#bb66ff');
+    if (e.mimicClass === 'Rogue') {
+      const r = ROGUE_SLICE_DICE_RADIUS;
+      if (Math.hypot((player.x + DISPLAY_SIZE / 2) - cx, (player.y + DISPLAY_SIZE / 2) - cy) < r) {
+        const hit = damagePlayer(Math.round(dmg * 3), 18);
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit}`, '#16a085');
+        playsfx('damage');
+      }
+      e.spearEffect = 24;
+      addMarker(cx, e.y - 14, 'ECHO SLICE', '#16a085');
+    } else if (e.mimicClass === 'Mage') {
+      const awayX = cx - (player.x + DISPLAY_SIZE / 2);
+      const awayY = cy - (player.y + DISPLAY_SIZE / 2);
+      const mag = Math.hypot(awayX, awayY) || 1;
+      let tx = e.x + (awayX / mag) * DISPLAY_SIZE * 4.2;
+      let ty = e.y + (awayY / mag) * DISPLAY_SIZE * 4.2;
+      tx = Math.max(TILE_SIZE, Math.min(canvas.width - DISPLAY_SIZE - TILE_SIZE, tx));
+      ty = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - DISPLAY_SIZE - TILE_SIZE, ty));
+      const safe = canEntityMoveTo(e, tx, ty) ? { x: tx, y: ty } : { x: e.x, y: e.y };
+      e.x = safe.x;
+      e.y = safe.y;
+      addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, 'ECHO BLINK', '#8e44ad');
+      playsfx('mageBlink');
+    } else {
+      e.enraged = true;
+      e.mimicBerserkTimer = Math.max(e.mimicBerserkTimer || 0, 420);
+      addMarker(cx, e.y - 14, 'ECHO BERSERK', '#bb66ff');
+    }
     return;
   }
   if (key === 'w') {
@@ -4460,7 +5300,7 @@ function mimicUseAbility(e, key) {
   }
   const hb = rectInFrontOf(e, DISPLAY_SIZE * 1.8, DISPLAY_SIZE * 1.35, DISPLAY_SIZE);
   if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
-    const hit = damagePlayer(dmg, 15);
+    const hit = damagePlayer(e.mimicBerserkTimer > 0 ? Math.round(dmg * 1.5) : dmg, 15);
     addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${hit}`, '#bb66ff');
     playsfx('damage');
   }
@@ -4478,23 +5318,120 @@ function startMimicCast(e, key, windup = 30) {
   e.activeAbility = key || 'q';
   if (!e.mimicCooldowns) e.mimicCooldowns = { q: 0, w: 0, e: 0, r: 0 };
   e.mimicCooldowns[e.activeAbility] = mimicCooldownFrames(e.activeAbility);
-  e.mimicGlobalCooldown = mimicCooldownFrames(e.activeAbility);
+  e.mimicGlobalCooldown = 34;
 }
 
-function mimicCastRange(key) {
-  if (key === 'w') return DISPLAY_SIZE * 1.85;
-  if (key === 'e') return DISPLAY_SIZE * 2.45;
+function mimicCastRange(e, key) {
+  if (e.mimicClass === 'Barbarian') {
+    if (key === 'e') return DISPLAY_SIZE * 2.15;
+    if (key === 'w') return DISPLAY_SIZE * 1.9;
+    if (key === 'q') return DISPLAY_SIZE * 1.55;
+    return DISPLAY_SIZE * 999;
+  }
+  if (e.mimicClass === 'Rogue') {
+    if (key === 'e') return DISPLAY_SIZE * 999;
+    if (key === 'r') return ROGUE_SLICE_DICE_RADIUS;
+    if (key === 'w') return DISPLAY_SIZE * 4.2;
+    if (key === 'q') return DISPLAY_SIZE * 1.45;
+    return DISPLAY_SIZE * 999;
+  }
+  if (e.mimicClass === 'Mage') {
+    if (key === 'w') return DISPLAY_SIZE * 5.0;
+    if (key === 'e') return DISPLAY_SIZE * 2.45 * 0.85;
+    if (key === 'q') return DISPLAY_SIZE * 1.55;
+    return DISPLAY_SIZE * 999;
+  }
+  if (key === 'w') return DISPLAY_SIZE * 3.4;
+  if (key === 'e') return DISPLAY_SIZE * 2.45 * 0.85;
   if (key === 'q') return DISPLAY_SIZE * 1.55;
   return DISPLAY_SIZE * 999;
 }
 
-function mimicCanCastAtDistance(key, dist) {
-  return key === 'r' || dist <= mimicCastRange(key);
+function mimicCanCastAtDistance(e, key, dist) {
+  return dist <= mimicCastRange(e, key);
+}
+
+function mimicFacePlayer(e) {
+  const dx = player.x - e.x;
+  const dy = player.y - e.y;
+  if (Math.abs(dx) >= Math.abs(dy)) e.direction = dx >= 0 ? 'right' : 'left';
+  else e.direction = dy >= 0 ? 'down' : 'up';
+}
+
+function mimicMeleeWouldHit(e, range, width) {
+  mimicFacePlayer(e);
+  const hb = rectInFrontOf(e, range, width, DISPLAY_SIZE);
+  if (!rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) return false;
+  const ex = e.x + DISPLAY_SIZE / 2;
+  const ey = e.y + DISPLAY_SIZE / 2;
+  const px = player.x + DISPLAY_SIZE / 2;
+  const py = player.y + DISPLAY_SIZE / 2;
+  const forwardDist = e.direction === 'left' ? ex - px
+    : e.direction === 'right' ? px - ex
+      : e.direction === 'up' ? ey - py
+        : py - ey;
+  const sideOffset = e.direction === 'left' || e.direction === 'right' ? Math.abs(py - ey) : Math.abs(px - ex);
+  return forwardDist >= DISPLAY_SIZE * 0.35 &&
+    forwardDist <= range * 0.55 &&
+    sideOffset <= width * 0.38;
+}
+
+function mimicCircleWouldHit(e, radius) {
+  const cx = e.x + DISPLAY_SIZE / 2;
+  const cy = e.y + DISPLAY_SIZE / 2;
+  const px = player.x + DISPLAY_SIZE / 2;
+  const py = player.y + DISPLAY_SIZE / 2;
+  const centerDist = Math.hypot(px - cx, py - cy);
+  return centerDist >= DISPLAY_SIZE * 0.35 && centerDist <= radius * 0.55;
+}
+
+function mimicCanHitWithSkill(e, key, dist) {
+  if (!mimicCanCastAtDistance(e, key, dist)) return false;
+  if (e.mimicClass !== 'Barbarian') return true;
+  if (key === 'e') return mimicCircleWouldHit(e, DISPLAY_SIZE * 2.05);
+  if (key === 'w') return mimicCircleWouldHit(e, DISPLAY_SIZE * 1.85);
+  if (key === 'q') return mimicMeleeWouldHit(e, DISPLAY_SIZE * 1.8, DISPLAY_SIZE * 1.35);
+  return true;
+}
+
+function chooseContextualMimicSkill(e, dist, skillKeys, pendingKey = null) {
+  const canUse = key => skillKeys.includes(key) && mimicCooldownReady(e, key) && mimicCanHitWithSkill(e, key, dist);
+  if (pendingKey && canUse(pendingKey)) return pendingKey;
+
+  if (e.mimicClass === 'Barbarian') {
+    if (!e.opened && canUse('r')) return 'r';
+    const priority = ['e', 'w', 'q'];
+    for (const key of priority) {
+      if (canUse(key)) return key;
+    }
+    if (!e.enraged && canUse('r')) return 'r';
+    return null;
+  }
+
+  if (e.mimicClass === 'Rogue') {
+    if (!e.mimicWindwalkStrikeReady && canUse('e')) return 'e';
+    if (e.mimicWindwalkStrikeReady && canUse('q') && dist <= DISPLAY_SIZE * 1.45) return 'q';
+    if (!e.mimicWindwalkStrikeReady && canUse('r') && dist <= ROGUE_SLICE_DICE_RADIUS) return 'r';
+    if (canUse('w') && dist >= DISPLAY_SIZE * 1.55) return 'w';
+    if (canUse('q') && dist <= DISPLAY_SIZE * 1.35) return 'q';
+    return null;
+  }
+
+  if (e.mimicClass === 'Mage') {
+    if (dist <= DISPLAY_SIZE * 1.45 && canUse('e')) return 'e';
+    if (dist <= DISPLAY_SIZE * 1.25 && canUse('r')) return 'r';
+    if (dist >= DISPLAY_SIZE * 1.8 && canUse('w')) return 'w';
+    if (dist <= DISPLAY_SIZE * 1.25 && canUse('q')) return 'q';
+    if (canUse('w')) return 'w';
+    return null;
+  }
+
+  return skillKeys.find(canUse) || null;
 }
 
 function mimicCooldownFrames(key) {
   const ab = abilities.find(a => a.key === key);
-  return Math.max(20, Math.round(((ab && ab.cooldown) || 120) * 0.5));
+  return Math.max(30, Math.round(((ab && ab.cooldown) || 240) - 120));
 }
 
 function mimicCooldownReady(e, key) {
@@ -4515,6 +5452,9 @@ function updateMimic(e) {
   tickMimicCooldowns(e);
   if (e.hitFlash > 0) e.hitFlash--;
   if (e.slowTimer > 0) e.slowTimer--;
+  if (e.mimicBerserkTimer > 0) e.mimicBerserkTimer--;
+  if (e.mimicWindwalkTimer > 0) e.mimicWindwalkTimer--;
+  if (e.retreatTimer > 0) e.retreatTimer--;
   const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
   const skillKeys = (e.mimicSkills && e.mimicSkills.length ? e.mimicSkills : ['q']);
   if (!e.phaseTwo && e.hp <= e.maxHp * 0.5) {
@@ -4522,17 +5462,26 @@ function updateMimic(e) {
     e.enraged = true;
     addMarker(e.x + DISPLAY_SIZE / 2, e.y - 24, 'ADAPTED', '#bb66ff');
     const phaseKey = e.mimicOpener || skillKeys[0] || 'q';
-    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, phaseKey) && mimicCanCastAtDistance(phaseKey, dist)) startMimicCast(e, phaseKey, 24);
+    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, phaseKey) && mimicCanHitWithSkill(e, phaseKey, dist)) startMimicCast(e, phaseKey, 24);
     else e.forceSkillKey = phaseKey;
     return;
   }
   const speedFloor = Math.max(e.mimicSpeed || GOBLIN_SPEED, player.speed * 0.95);
   const spdBase = speedFloor * (e.enraged ? 1.15 : 1);
   const spd = e.slowTimer > 0 ? Math.max(1, spdBase * 0.5) : spdBase;
+  const overlapSpace = DISPLAY_SIZE * 0.48;
+  const brawlRange = DISPLAY_SIZE * 1.18;
+  const barbarianPocketMin = DISPLAY_SIZE * 0.82;
+  const barbarianPocketMax = DISPLAY_SIZE * 0.98;
+  const idealRange = e.mimicClass === 'Mage'
+    ? DISPLAY_SIZE * 2.25
+    : e.mimicClass === 'Rogue'
+      ? DISPLAY_SIZE * 1.55
+      : barbarianPocketMax;
 
   if (!e.opened && e.aliveFrames > 10) {
     const opener = e.mimicOpener || 'q';
-    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, opener) && mimicCanCastAtDistance(opener, dist)) {
+    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, opener) && mimicCanHitWithSkill(e, opener, dist)) {
       e.opened = true;
       startMimicCast(e, opener, 24);
       return;
@@ -4540,7 +5489,7 @@ function updateMimic(e) {
     e.forceSkillKey = opener;
   }
   if (e.echoTimer > 0 && --e.echoTimer <= 0 && e.echoKey) {
-    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, e.echoKey) && mimicCanCastAtDistance(e.echoKey, dist)) {
+    if ((e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, e.echoKey) && mimicCanHitWithSkill(e, e.echoKey, dist)) {
       startMimicCast(e, e.echoKey, 24);
       e.echoKey = null;
       return;
@@ -4554,7 +5503,13 @@ function updateMimic(e) {
     const castDist = Math.hypot(castDx, castDy);
     if (Math.abs(castDx) >= Math.abs(castDy)) e.direction = castDx >= 0 ? 'right' : 'left';
     else e.direction = castDy >= 0 ? 'down' : 'up';
-    if (!mimicCanCastAtDistance(e.activeAbility || 'q', castDist)) {
+    if (e.mimicClass === 'Barbarian' && castDist < barbarianPocketMin) {
+      const slide = chaseVec(-castDx, -castDy, spd * 0.72);
+      moveEntityWithSlide(e, slide.mx, slide.my);
+    } else if (castDist < overlapSpace && e.activeAbility !== 'q') {
+      const slide = chaseVec(-castDx, -castDy, spd * 0.55);
+      moveEntityWithSlide(e, slide.mx, slide.my);
+    } else if (!mimicCanCastAtDistance(e, e.activeAbility || 'q', castDist)) {
       const slide = chaseVec(castDx, castDy, spd * 0.45);
       moveEntityWithSlide(e, slide.mx, slide.my);
     }
@@ -4564,7 +5519,28 @@ function updateMimic(e) {
     }
     if (--e.attackTimer <= 0) {
       const impactDist = Math.hypot(player.x - e.x, player.y - e.y);
-      if (!mimicCanCastAtDistance(e.activeAbility || 'q', impactDist)) {
+      if (e.mimicClass === 'Barbarian' && e.activeAbility === 'e' &&
+          !mimicCircleWouldHit(e, DISPLAY_SIZE * 2.05)) {
+        e.state = 'chase';
+        e.attackTimer = 0;
+        e.activeAbility = null;
+        return;
+      }
+      if (e.mimicClass === 'Barbarian' && e.activeAbility === 'w' &&
+          !mimicCircleWouldHit(e, DISPLAY_SIZE * 1.85)) {
+        e.state = 'chase';
+        e.attackTimer = 0;
+        e.activeAbility = null;
+        return;
+      }
+      if (e.mimicClass === 'Barbarian' && e.activeAbility === 'q' &&
+          !mimicMeleeWouldHit(e, DISPLAY_SIZE * 1.8, DISPLAY_SIZE * 1.35)) {
+        e.state = 'chase';
+        e.attackTimer = 0;
+        e.activeAbility = null;
+        return;
+      }
+      if (!mimicCanCastAtDistance(e, e.activeAbility || 'q', impactDist)) {
         e.attackTimer = 6;
         return;
       }
@@ -4572,7 +5548,7 @@ function updateMimic(e) {
       mimicUseAbility(e, usedKey);
       if (!e.mimicCooldowns) e.mimicCooldowns = { q: 0, w: 0, e: 0, r: 0 };
       e.mimicCooldowns[usedKey] = Math.max(e.mimicCooldowns[usedKey] || 0, mimicCooldownFrames(usedKey));
-      e.mimicGlobalCooldown = Math.max(e.mimicGlobalCooldown || 0, mimicCooldownFrames(usedKey));
+      e.mimicGlobalCooldown = Math.max(e.mimicGlobalCooldown || 0, 34);
       e.state = 'cooldown';
       e.attackTimer = 20;
     }
@@ -4583,14 +5559,8 @@ function updateMimic(e) {
   let mx = 0, my = 0;
   const pendingKey = e.forceSkillKey || null;
   if ((e.mimicGlobalCooldown || 0) <= 0 && (pendingKey || skillKeys.some(key => mimicCooldownReady(e, key))) && e.state !== 'cooldown') {
-    let key = pendingKey;
-    if (!key) {
-      const readyKeys = skillKeys.filter(k => mimicCooldownReady(e, k));
-      e.mimicSkillCursor = (e.mimicSkillCursor || 0) % readyKeys.length;
-      key = readyKeys[e.mimicSkillCursor];
-      e.mimicSkillCursor = (e.mimicSkillCursor + 1) % readyKeys.length;
-    }
-    if (key && mimicCooldownReady(e, key) && mimicCanCastAtDistance(key, dist)) {
+    let key = chooseContextualMimicSkill(e, dist, skillKeys, pendingKey);
+    if (key && mimicCooldownReady(e, key) && mimicCanHitWithSkill(e, key, dist)) {
       e.forceSkillKey = null;
       if (e.echoKey === key) e.echoKey = null;
       startMimicCast(e, key, key === 'r' ? 24 : 26);
@@ -4599,16 +5569,68 @@ function updateMimic(e) {
     }
     if (key && mimicCooldownReady(e, key)) e.forceSkillKey = key;
   }
-  if (dist < DISPLAY_SIZE * 1.2 && e.state !== 'cooldown' && (e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, 'q')) {
+  if (e.mimicClass !== 'Barbarian' && dist < brawlRange && e.state !== 'cooldown' && (e.mimicGlobalCooldown || 0) <= 0 && mimicCooldownReady(e, 'q')) {
     startMimicCast(e, 'q', 18);
     return;
   }
-  const cv = chaseVec(dx, dy, spd);
-  mx = cv.mx; my = cv.my;
+  if (e.mimicClass === 'Barbarian') {
+    if (dist < barbarianPocketMin) {
+      const keep = chaseVec(-dx, -dy, spd * 0.72);
+      mx = keep.mx;
+      my = keep.my;
+    } else if (pendingKey === 'q' && !mimicMeleeWouldHit(e, DISPLAY_SIZE * 1.8, DISPLAY_SIZE * 1.35)) {
+      const cv = chaseVec(dx, dy, spd * 1.05);
+      mx = cv.mx;
+      my = cv.my;
+    } else if (dist > barbarianPocketMax) {
+      const cv = chaseVec(dx, dy, spd * 1.18);
+      mx = cv.mx;
+      my = cv.my;
+    } else {
+      const orbit = (e.avoidSign || 1);
+      const mag = dist || 1;
+      mx = (-dy / mag) * spd * 0.22 * orbit;
+      my = ( dx / mag) * spd * 0.22 * orbit;
+    }
+  } else if (dist < overlapSpace) {
+    const keep = chaseVec(-dx, -dy, spd * 0.45);
+    mx = keep.mx;
+    my = keep.my;
+  } else if (e.mimicClass === 'Rogue' && e.mimicWindwalkStrikeReady) {
+    const cv = chaseVec(dx, dy, spd * 1.2);
+    mx = cv.mx; my = cv.my;
+  } else if (e.mimicClass === 'Rogue' && e.retreatTimer > 0) {
+    const keep = chaseVec(-dx, -dy, spd * 1.05);
+    mx = keep.mx; my = keep.my;
+  } else if (e.mimicClass === 'Mage' && dist < idealRange * 0.82) {
+    const orbit = (e.avoidSign || 1);
+    const mag = dist || 1;
+    mx = ((-dx / mag) * 0.85 + (-dy / mag) * 0.35 * orbit) * spd;
+    my = ((-dy / mag) * 0.85 + ( dx / mag) * 0.35 * orbit) * spd;
+  } else if (dist < brawlRange && !mimicCooldownReady(e, 'q')) {
+    const orbit = (e.avoidSign || 1);
+    const mag = dist || 1;
+    mx = ((-dy / mag) * 0.85 + (-dx / mag) * 0.18) * spd * orbit;
+    my = (( dx / mag) * 0.85 + (-dy / mag) * 0.18) * spd * orbit;
+  } else {
+    if (dist > idealRange * 1.12) {
+      const cv = chaseVec(dx, dy, spd);
+      mx = cv.mx; my = cv.my;
+    } else if (dist < idealRange * 0.74 && (e.mimicClass === 'Mage' || e.mimicClass === 'Rogue')) {
+      const hold = chaseVec(-dx, -dy, spd * 0.45);
+      mx = hold.mx; my = hold.my;
+    } else {
+      const orbit = (e.avoidSign || 1);
+      const mag = dist || 1;
+      mx = (-dy / mag) * spd * 0.45 * orbit;
+      my = ( dx / mag) * spd * 0.45 * orbit;
+    }
+  }
   e.state = 'chase';
-  if (Math.abs(mx) >= Math.abs(my)) { if (mx > 0) e.direction='right'; else if (mx < 0) e.direction='left'; }
-  else { if (my > 0) e.direction='down'; else if (my < 0) e.direction='up'; }
   moveEntityWithSlide(e, mx, my);
+  const faceX = player.x - e.x, faceY = player.y - e.y;
+  if (Math.abs(faceX) >= Math.abs(faceY)) e.direction = faceX >= 0 ? 'right' : 'left';
+  else e.direction = faceY >= 0 ? 'down' : 'up';
   if (mx !== 0 || my !== 0) { if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex=(e.frameIndex+1)%4; } }
   else { e.frameIndex = 0; e.frameTick = 0; }
 }
@@ -4708,8 +5730,13 @@ function updateTribunalWarden(e) {
 
   if (e.state === 'attacking') {
     if (--e.attackTimer <= 0) {
-      const hitLine = rectInFrontOf(e, DISPLAY_SIZE * 3.0, DISPLAY_SIZE * 0.75, TRIB_WARDEN_SIZE);
-      if (rectsOverlap(hitLine.x, hitLine.y, hitLine.w, hitLine.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+      const hb = enemyHitbox(e);
+      const chainDir = e.chainDir || e.direction;
+      const sx = e.x + hb.w / 2;
+      const sy = e.y + hb.h / 2;
+      const px = player.x + DISPLAY_SIZE / 2;
+      const py = player.y + DISPLAY_SIZE / 2;
+      if (pointNearGuardianSpear(sx, sy, px, py, chainDir, TRIB_WARDEN_CHAIN_RANGE, TRIB_WARDEN_CHAIN_WIDTH)) {
         const hit = damagePlayer(42, 16);
         player.slowTimer = Math.max(player.slowTimer || 0, 80);
         addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit} SNARED`, '#8ecbff');
@@ -4721,8 +5748,9 @@ function updateTribunalWarden(e) {
     return;
   }
   if (e.state === 'cooldown') { if (--e.attackTimer <= 0) e.state = 'chase'; return; }
-  if (dist < DISPLAY_SIZE * 3.1) {
+  if (dist < TRIB_WARDEN_CHAIN_RANGE) {
     e.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    e.chainDir = guardianAimDir(dx, dy);
     e.state = 'attacking';
     e.attackTimer = TRIB_WARDEN_WINDUP;
     return;
@@ -4866,6 +5894,7 @@ function updateJohnPork(e) {
       addHazard('rubble', cx, cy, JP_SLAM_RANGE * 0.45, 180, { slow: true, color: '#5d3040' });
       if (Math.hypot(pcx - cx, pcy - cy) <= JP_SLAM_RANGE) {
         const dmg = damagePlayer(JP_SLAM_DAMAGE, 22);
+        player.slowTimer = Math.max(player.slowTimer || 0, 360);
         addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${dmg}`, '#ff3366');
         playsfx('damage');
       }
@@ -4933,6 +5962,486 @@ function updateJohnPork(e) {
   }
 }
 
+function updateDragonkin(e) {
+  if (e.hitFlash > 0) e.hitFlash--;
+
+  if (e.hp <= 0) {
+    if (!e.dying) {
+      e.dying = true; e.deathFrame = 0; e.deathTick = 0; playsfx('bruteDeath');
+      enemies.forEach(s => { if (s !== e && s.type === 'dragonkin' && s.hp > 0 && !s.dying) s.enraged = true; });
+    }
+    if (++e.deathTick >= 5) { e.deathTick = 0; e.deathFrame++; }
+    if (e.deathFrame >= 4) e.dead = true;
+    return;
+  }
+
+  const px = player.x + DISPLAY_SIZE / 2;
+  const py = player.y + DISPLAY_SIZE / 2;
+  const cx = e.x + DRAGONKIN_SIZE / 2;
+  const cy = e.y + DRAGONKIN_SIZE / 2;
+  const ddx = px - cx, ddy = py - cy;
+  const dist = Math.hypot(ddx, ddy);
+  if (Math.abs(ddx) > Math.abs(ddy)) e.direction = ddx > 0 ? 'right' : 'left';
+  else e.direction = ddy > 0 ? 'down' : 'up';
+
+  if (e.spinCooldown > 0) e.spinCooldown--;
+
+  if (e.spinTelegraphing) {
+    if (--e.spinTelegraphTimer <= 0) {
+      e.spinTelegraphing = false;
+      e.spinning = true;
+      e.spinFrame = 0; e.spinTick = 0; e.spinHit = false;
+      e.attackTimer = DRAGONKIN_SPIN_DUR;
+      playsfx('blastwave');
+    }
+    return;
+  }
+
+  // ── Spin attack ───────────────────────────────────────────────────────────
+  if (e.spinning) {
+    if (++e.spinTick >= 8) { e.spinTick = 0; e.spinFrame = (e.spinFrame + 1) % 4; }
+    if (!e.spinHit && dist < DRAGONKIN_SPIN_RANGE) {
+      damagePlayer(Math.round(DRAGONKIN_SPIN_DMG * (e.enraged ? 1.2 : 1)), 18);
+      e.spinHit = true;
+    }
+    if (--e.attackTimer <= 0) {
+      e.spinning = false;
+      e.spinCooldown = DRAGONKIN_SPIN_CD;
+      e.attackTimer = DRAGONKIN_ATK_CD;
+    }
+    return;
+  }
+
+  // ── Melee attack ──────────────────────────────────────────────────────────
+  if (e.state === 'windup' || e.state === 'attacking') {
+    if (++e.attackTick >= 4) { e.attackTick = 0; e.attackFrame = (e.attackFrame + 1) % 4; }
+    if (e.state === 'windup') {
+      if (--e.attackTimer <= 0) {
+        e.state = 'attacking';
+        e.attackTimer = DRAGONKIN_ATK_DUR;
+        if (dist < DRAGONKIN_ATK_RANGE + DISPLAY_SIZE * 0.5) {
+          damagePlayer(Math.round(DRAGONKIN_DMG * (e.enraged ? 1.2 : 1)), 15);
+          playsfx('slam');
+        }
+      }
+    } else {
+      if (--e.attackTimer <= 0) {
+        e.state = 'chase';
+        e.attackTimer = DRAGONKIN_ATK_CD;
+        e.attackFrame = 0; e.attackTick = 0;
+      }
+    }
+    return;
+  }
+
+  // ── Chase ─────────────────────────────────────────────────────────────────
+  if (e.attackTimer > 0) e.attackTimer--;
+
+  if (e.attackTimer <= 0) {
+    if (dist < DRAGONKIN_SPIN_RANGE && e.spinCooldown <= 0) {
+      e.spinTelegraphing = true;
+      e.spinTelegraphTimer = DRAGONKIN_SPIN_TELEGRAPH;
+      e.spinCooldown = DRAGONKIN_SPIN_CD;
+      return;
+    }
+    if (dist < DRAGONKIN_ATK_RANGE) {
+      e.state = 'windup';
+      e.attackFrame = 0; e.attackTick = 0;
+      e.attackTimer = DRAGONKIN_ATK_WINDUP;
+      playsfx('minotaurRoar');
+      return;
+    }
+  }
+
+  const mag = dist || 1;
+  const moveSpd = DRAGONKIN_SPEED * (e.enraged ? 1.3 : 1);
+  moveEntityWithSlide(e, (ddx / mag) * moveSpd, (ddy / mag) * moveSpd);
+  if (++e.frameTick >= FRAME_SPEED) { e.frameTick = 0; e.frameIndex = (e.frameIndex + 1) % 4; }
+
+  if (e.fireCooldown > 0) e.fireCooldown--;
+  if (e.fireCooldown <= 0 && dist < DRAGONKIN_FIRE_RANGE && dist > DRAGONKIN_ATK_RANGE * 1.5) {
+    const sx = e.x + DRAGONKIN_SIZE / 2, sy = e.y + DRAGONKIN_SIZE / 2;
+    const tx = player.x + DISPLAY_SIZE / 2, ty = player.y + DISPLAY_SIZE / 2;
+    const fmag = Math.hypot(tx - sx, ty - sy) || 1;
+    const spd = Math.round(DISPLAY_SIZE * 0.10);
+    projectiles.push({ x: sx, y: sy, dx: (tx - sx) / fmag * spd, dy: (ty - sy) / fmag * spd,
+      damage: Math.round(DRAGONKIN_FIRE_DMG * (e.enraged ? 1.2 : 1)),
+      type: 'dragonfire', life: 500, hit: false, frame: 0, frameTick: 0,
+      flySound: startLoopingSfx('fireballFly') });
+    e.fireCooldown = e.enraged ? Math.round(DRAGONKIN_FIRE_CD * 0.7) : DRAGONKIN_FIRE_CD;
+    playsfx('fireballCast');
+  }
+}
+
+function updateDragon(e) {
+  if (e.hitFlash > 0) e.hitFlash--;
+  const animSpeed = e.state === 'idle' ? 20 : 8;
+  if (++e.animTick >= animSpeed) { e.animTick = 0; e.animFrame = (e.animFrame + 1) % 4; }
+  Object.assign(e, dragonPositions());
+
+  const { headX, headY, headR, lClawX, lClawY, rClawX, rClawY, clawW, clawH } = e;
+  const px = player.x + DISPLAY_SIZE / 2;
+  const py = player.y + DISPLAY_SIZE / 2;
+
+  if (e.hp <= 0) {
+    if (!e.dying) { e.dying = true; e.deathFrame = 0; e.deathTick = 0; }
+    if (++e.deathTick >= 4) { e.deathTick = 0; e.deathFrame++; }
+    if (e.deathFrame >= 8) e.deathDone = true;
+    return;
+  }
+
+  // Enrage at 50% HP
+  if (!e.enraged && e.hp <= e.maxHp * 0.5) {
+    e.enraged = true;
+    e.attackQueue = [];
+    addMarker(headX, headY - headR * 2.5, 'ENRAGED!', '#ff4400');
+    playsfx('roar');
+  }
+  const speedMult = e.enraged ? 0.7 : 1.0;
+
+  if (e.headLunge > 0) e.headLunge = Math.max(0, e.headLunge - 3);
+
+  e.stateTimer--;
+
+  if (e.state === 'idle') {
+    if (e.stateTimer <= 0) {
+      if (!e.attackQueue.length) {
+        e.attackQueue = [...DRAGON_ATTACKS].sort(() => Math.random() - 0.5);
+      }
+      e.attack = e.attackQueue.pop();
+      if (e.attack === e.lastAttack && e.attackQueue.length) {
+        e.attackQueue.unshift(e.attack); e.attack = e.attackQueue.pop();
+      }
+      e.state = 'telegraph';
+      e.stateTimer = Math.round(DRAGON_TELEGRAPH[e.attack] * speedMult);
+
+      if (e.attack === 'fireball')  e.telegraphData = { targetX: px, targetY: py };
+      if (e.attack === 'breath')    e.breathAngle   = Math.atan2(py - headY, px - headX);
+      if (e.attack === 'claw')      e.telegraphData = { side: Math.random() < 0.5 ? 'left' : 'right' };
+    }
+
+  } else if (e.state === 'telegraph') {
+    if (e.stateTimer <= 0) {
+      e.state = 'attacking';
+      e.stateTimer = Math.round(DRAGON_ATTACK_DUR[e.attack] * speedMult);
+      e.breathTick = 0;
+      e.animFrame = 0; e.animTick = 0;
+
+      if (e.attack === 'fireball') {
+        const td  = e.telegraphData || { targetX: px, targetY: py };
+        const ang = Math.atan2(td.targetY - headY, td.targetX - headX);
+        const spd = DISPLAY_SIZE * 0.09;
+        const spread = Math.PI / 9;
+        [-spread, 0, spread].forEach((off, i) => {
+          const a = ang + off;
+          projectiles.push({ x: headX, y: headY + headR * 0.6,
+            dx: Math.cos(a) * spd, dy: Math.sin(a) * spd,
+            damage: DRAGON_FIREBALL_DMG, type: 'dragonfire',
+            life: 380, hit: false, frame: 0, frameTick: 0 });
+        });
+        playsfx('fireballCast');
+        e.headLunge = 20;
+      }
+      if (e.attack === 'bite') e.headLunge = 28;
+    }
+
+  } else if (e.state === 'attacking') {
+    const endAttack = () => {
+      e.lastAttack = e.attack; e.headLunge = 0;
+      e.state = 'idle';
+      e.stateTimer = Math.round((55 + Math.floor(Math.random() * 55)) * speedMult);
+    };
+
+    if (e.attack === 'bite') {
+      const biteY = headY + headR * 0.8 + (e.headLunge || 0);
+      if (Math.hypot(px - headX, py - biteY) < headR * 1.7 + DISPLAY_SIZE * 0.4) {
+        const dmg = damagePlayer(DRAGON_BITE_DMG, 20);
+        if (dmg > 0) { addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff6644'); playsfx('damage'); }
+        endAttack(); return;
+      }
+    }
+
+    if (e.attack === 'claw' && e.telegraphData) {
+      const isLeft = e.telegraphData.side === 'left';
+      const cx     = isLeft ? lClawX : rClawX;
+      const cy     = isLeft ? lClawY : rClawY;
+      const sx     = isLeft ? cx - clawW * 0.5 : cx - clawW * 0.5 - DISPLAY_SIZE * 2.4;
+      const sw     = clawW + DISPLAY_SIZE * 2.4;
+      if (px >= sx && px <= sx + sw && py >= cy - clawH * 0.5 && py <= cy + clawH * 0.5) {
+        const dmg = damagePlayer(DRAGON_CLAW_DMG, 15);
+        if (dmg > 0) { addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff6644'); playsfx('damage'); }
+        endAttack(); return;
+      }
+    }
+
+    if (e.attack === 'breath') {
+      e.breathTick++;
+      const targetAng = Math.atan2(py - headY, px - headX);
+      const diff = ((targetAng - e.breathAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      e.breathAngle += Math.sign(diff) * 0.018;
+      if (e.breathTick % 20 === 0) {
+        const angOff = Math.abs(((Math.atan2(py - headY, px - headX) - e.breathAngle) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+        if (angOff < Math.PI / 8 && Math.hypot(px - headX, py - headY) < DISPLAY_SIZE * 4.5) {
+          const dmg = damagePlayer(DRAGON_BREATH_DMG, 10);
+          if (dmg > 0) { addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800'); playsfx('damage'); }
+        }
+      }
+    }
+
+    if (e.stateTimer <= 0) endAttack();
+  }
+}
+
+function drawClawShape(cx, cy, w, h, dir, fillStyle, strokeStyle) {
+  ctx.fillStyle   = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth   = 2;
+  ctx.beginPath(); ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  for (let i = 0; i < 3; i++) {
+    const tx = cx + dir * (w * 0.1 * i - w * 0.1);
+    const by2 = cy + h * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(tx - w * 0.15, by2);
+    ctx.lineTo(tx, by2 + h * 0.28);
+    ctx.lineTo(tx + w * 0.15, by2);
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function drawDragonkin(e) {
+  if (e.dead) return;
+  const sz = DRAGONKIN_SIZE;
+  const row = dirToRow(e.direction);
+
+  if (e.dying) {
+    const col = Math.min(3, e.deathFrame);
+    applyHitFlash(e.hitFlash);
+    drawMasterQuadrantSprite(dragonkinSheet, 'death', col, row, e.x, e.y, sz, sz);
+    ctx.filter = 'none';
+    return;
+  }
+
+  if (e.spinTelegraphing) {
+    const frac = 1 - e.spinTelegraphTimer / DRAGONKIN_SPIN_TELEGRAPH;
+    ctx.save();
+    ctx.globalAlpha = 0.2 + 0.5 * frac;
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x + sz / 2, e.y + sz / 2, DRAGONKIN_SPIN_RANGE, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  applyHitFlash(e.hitFlash);
+  if (e.enraged && !(e.hitFlash > 0)) ctx.filter = 'hue-rotate(330deg) brightness(1.25) saturate(1.5)';
+
+  if (e.spinning && dragonkinSpinSheet) {
+    drawSheetSprite(dragonkinSpinSheet, e.spinFrame, 0, e.x, e.y, sz, sz, 4, 2);
+  } else if (e.state === 'windup' || e.state === 'attacking') {
+    drawMasterQuadrantSprite(dragonkinSheet, 'attack', Math.min(3, e.attackFrame), row, e.x, e.y, sz, sz);
+  } else {
+    drawMasterQuadrantSprite(dragonkinSheet, 'run', e.frameIndex, row, e.x, e.y, sz, sz);
+  }
+  ctx.filter = 'none';
+}
+
+function drawDragon(e) {
+  if (e.deathDone) return;
+  const { bx, by, bodyW, headX, headY, headR, clawW, clawH, lClawX, lClawY, rClawX, rClawY } = e;
+  const t      = Date.now() / 1000;
+  const pulse  = 0.5 + 0.5 * Math.sin(t * 4);
+  const isTele = e.state === 'telegraph';
+  const isAtk  = e.state === 'attacking';
+  const atk    = e.attack;
+  const lunge  = e.headLunge || 0;
+  const drawHeadY = headY + lunge;
+
+  ctx.save();
+
+  // ── Sprite ────────────────────────────────────────────────────────────────
+  const sz = e.sz;
+  const spriteX = bx - sz / 2;
+  const spriteY = by - sz * 0.45;
+
+  let sheet = dragonIdleSheet;
+  if (isAtk) {
+    if (atk === 'bite')   sheet = dragonBiteSheet   || dragonIdleSheet;
+    if (atk === 'breath') sheet = dragonSteamSheet  || dragonIdleSheet;
+    if (atk === 'claw') {
+      const isLeft = e.telegraphData?.side === 'left';
+      sheet = (isLeft ? dragonLeftClawSheet : dragonRightClawSheet) || dragonIdleSheet;
+    }
+  }
+
+  if (sheet) {
+    ctx.save();
+    if (e.enraged) { ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 28; }
+    drawSheetSprite(sheet, 0, e.animFrame, spriteX, spriteY, sz, sz, 1, 4);
+    ctx.restore();
+  }
+
+  // Hit flash
+  if (e.hitFlash > 0) {
+    ctx.save();
+    ctx.globalAlpha = e.hitFlash / 8;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(spriteX, spriteY, sz, sz);
+    ctx.restore();
+  }
+
+  // ── Telegraph overlays ────────────────────────────────────────────────────
+  if (isTele) {
+    if (atk === 'bite') {
+      ctx.save(); ctx.globalAlpha = 0.22 + pulse * 0.28; ctx.fillStyle = '#ff2200';
+      ctx.strokeStyle = '#ff6644'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.arc(headX, drawHeadY + headR * 0.8, headR * 1.7, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    }
+    if (atk === 'claw' && e.telegraphData) {
+      const isL = e.telegraphData.side === 'left';
+      const cx2 = isL ? lClawX : rClawX, cy2 = isL ? lClawY : rClawY;
+      const sw  = clawW + DISPLAY_SIZE * 2.4;
+      const sx  = isL ? cx2 - clawW * 0.5 : cx2 - clawW * 0.5 - DISPLAY_SIZE * 2.4;
+      ctx.save(); ctx.globalAlpha = 0.18 + pulse * 0.22; ctx.fillStyle = '#ff4422';
+      ctx.strokeStyle = '#ff6644'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.fillRect(sx, cy2 - clawH * 0.5, sw, clawH);
+      ctx.strokeRect(sx, cy2 - clawH * 0.5, sw, clawH);
+      ctx.setLineDash([]); ctx.restore();
+    }
+    if (atk === 'fireball') {
+      const td     = e.telegraphData || { targetX: headX, targetY: headY + 120 };
+      const ang    = Math.atan2(td.targetY - drawHeadY, td.targetX - headX);
+      const spread = e.enraged ? Math.PI / 7 : Math.PI / 9;
+      const count  = e.enraged ? 5 : 3;
+      ctx.save(); ctx.globalAlpha = 0.5 + pulse * 0.3; ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+      for (let i = 0; i < count; i++) {
+        const off = (count === 1) ? 0 : (i / (count - 1) - 0.5) * 2 * spread;
+        const a   = ang + off;
+        ctx.beginPath(); ctx.moveTo(headX, drawHeadY);
+        ctx.lineTo(headX + Math.cos(a) * DISPLAY_SIZE * 3.5, drawHeadY + Math.sin(a) * DISPLAY_SIZE * 3.5);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]); ctx.restore();
+    }
+  }
+
+  // Breath cone (telegraph + active, sweeps with angle)
+  if ((isTele || isAtk) && atk === 'breath') {
+    const coneLen = DISPLAY_SIZE * 4.5;
+    const spread  = Math.PI / 8;
+    ctx.save(); ctx.globalAlpha = isAtk ? 0.5 + pulse * 0.2 : 0.18 + pulse * 0.18;
+    const bg = ctx.createLinearGradient(headX, drawHeadY,
+      headX + Math.cos(e.breathAngle) * coneLen, drawHeadY + Math.sin(e.breathAngle) * coneLen);
+    bg.addColorStop(0, '#ff8800'); bg.addColorStop(0.6, 'rgba(255,100,0,0.5)'); bg.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = bg;
+    ctx.shadowColor = '#ff6600'; ctx.shadowBlur = isAtk ? 18 : 0;
+    ctx.beginPath(); ctx.moveTo(headX, drawHeadY);
+    ctx.arc(headX, drawHeadY, coneLen, e.breathAngle - spread, e.breathAngle + spread);
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+
+  // ── Active-attack solid hit overlays ──────────────────────────────────────
+  if (isAtk && atk === 'bite') {
+    ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff2200';
+    ctx.beginPath(); ctx.arc(headX, drawHeadY + headR * 0.8, headR * 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  if (isAtk && atk === 'claw' && e.telegraphData) {
+    const isL = e.telegraphData.side === 'left';
+    const cx2 = isL ? lClawX : rClawX, cy2 = isL ? lClawY : rClawY;
+    const sw  = clawW + DISPLAY_SIZE * 2.4;
+    const sx  = isL ? cx2 - clawW * 0.5 : cx2 - clawW * 0.5 - DISPLAY_SIZE * 2.4;
+    ctx.save(); ctx.globalAlpha = 0.48; ctx.fillStyle = '#ff4422';
+    ctx.fillRect(sx, cy2 - clawH * 0.5, sw, clawH); ctx.restore();
+  }
+
+  // ── HP bar ────────────────────────────────────────────────────────────────
+  const barW = bodyW * 0.8, barH = 16, barX = bx - barW / 2, barY = spriteY - barH - 8;
+  const hpFrac = Math.max(0, e.hp / e.maxHp);
+  ctx.fillStyle = '#1a0808'; ctx.fillRect(barX, barY, barW, barH);
+  const barColor = e.enraged ? (hpFrac > 0.25 ? '#e05010' : '#ff0000') : (hpFrac > 0.5 ? '#c0392b' : hpFrac > 0.25 ? '#e67e22' : '#ff0000');
+  ctx.fillStyle = barColor; ctx.fillRect(barX, barY, barW * hpFrac, barH);
+  if (e.enraged) {
+    ctx.save(); ctx.globalAlpha = 0.15 + pulse * 0.12; ctx.fillStyle = '#ff6600';
+    ctx.fillRect(barX, barY, barW * hpFrac, barH); ctx.restore();
+  }
+  ctx.strokeStyle = '#7a0000'; ctx.lineWidth = 1; ctx.strokeRect(barX, barY, barW, barH);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center';
+  ctx.fillText(`${e.enraged ? '⚡ ' : ''}DRAGON  ${Math.max(0, e.hp)} / ${e.maxHp}${e.enraged ? ' ⚡' : ''}`, bx, barY + barH - 3);
+  ctx.textAlign = 'left';
+
+  ctx.restore();
+}
+
+function drawSpellBlade(e) {
+  const W = SPELLBLADE_SIZE, H = SPELLBLADE_SIZE;
+  const row = dirToRow(e.direction);
+  if (e.dying || e.deathDone) {
+    const col = Math.min(3, e.deathFrame || 0);
+    if (spellBladeSheet) drawMasterQuadrantSprite(spellBladeSheet, 'death', col, row, e.x, e.y, W, H);
+    else drawSimpleEnemy(e, '#203050', '#8fd8ff', '#d8f4ff', W, H);
+    return;
+  }
+  if (e.hp <= 0) return;
+
+  applyHitFlash(e.hitFlash);
+  let quadrant = 'run';
+  let col = e.frameIndex % 4;
+  if (e.state === 'triple') {
+    if (!(e.hitFlash > 0)) ctx.filter = 'sepia(0.45) saturate(2.2) hue-rotate(310deg) brightness(1.12)';
+    const frame = Math.min(7, e.tripleFrame || 0);
+    const fcol = frame % 4;
+    const frow = Math.floor(frame / 4);
+    if (spellBladeTripleSheet) {
+      if (e.direction === 'right') {
+        ctx.save();
+        ctx.translate(e.x + W, e.y);
+        ctx.scale(-1, 1);
+        drawSheetSprite(spellBladeTripleSheet, fcol, frow, 0, 0, W, H, 4, 2);
+        ctx.restore();
+      } else {
+        drawSheetSprite(spellBladeTripleSheet, fcol, frow, e.x, e.y, W, H, 4, 2);
+      }
+    } else if (spellBladeSheet) {
+      drawMasterQuadrantSprite(spellBladeSheet, 'attack', Math.min(3, frame % 4), row, e.x, e.y, W, H);
+    } else {
+      drawSimpleEnemy(e, '#502020', '#ff7777', '#ffd0d0', W, H);
+    }
+  } else if (e.state === 'block') {
+    quadrant = 'block';
+    col = Math.min(3, e.attackFrame || 0);
+  } else if (e.state === 'attacking' || e.state === 'dash') {
+    quadrant = 'attack';
+    col = Math.min(3, e.attackFrame || 0);
+  }
+  if (e.state !== 'triple') {
+    if (spellBladeSheet) drawMasterQuadrantSprite(spellBladeSheet, quadrant, col, row, e.x, e.y, W, H);
+    else drawSimpleEnemy(e, '#203050', '#8fd8ff', '#d8f4ff', W, H);
+  }
+  ctx.filter = 'none';
+
+  if (e.state === 'dash') {
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = '#8fd8ff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(e.x + W / 2 - e.dashDx * W * 0.65, e.y + H / 2 - e.dashDy * H * 0.65);
+    ctx.lineTo(e.x + W / 2, e.y + H / 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = '#333'; ctx.fillRect(e.x, e.y - 12, W, 6);
+  ctx.fillStyle = '#8fd8ff'; ctx.fillRect(e.x, e.y - 12, W * Math.max(0, e.hp / e.maxHp), 6);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = e.blockTimer > 0 ? '#d9f2ff' : '#8fd8ff';
+  ctx.font = 'bold 10px Arial';
+  ctx.fillText('Daario the Spell Blade', e.x + W / 2, e.y - 16);
+  ctx.textAlign = 'left';
+}
+
 function updateEnemy(e) {
   if (e.dying || e.deathDone) return; // handled in death ticker
   if (e.spawnWarning > 0) {
@@ -4942,6 +6451,9 @@ function updateEnemy(e) {
   if (tickEnemyControlStatus(e)) return;
   // Abomination ignores windwalk — it hunts by more than sight
   if (e.type === 'abomination') return updateAbomination(e);
+  if (e.type === 'dragonkin') return updateDragonkin(e);
+  // Dragon is static — immune to windwalk tracking loss
+  if (e.type === 'dragon') return updateDragon(e);
   if (player.windwalkActive && e.hp > 0) {
     // Enemies wander aimlessly while player is invisible
     if (e.hitFlash > 0) e.hitFlash--;
@@ -4971,6 +6483,7 @@ function updateEnemy(e) {
   if (e.type === 'ghoul')    return updateSimpleMelee(e, GHOUL_HP, GHOUL_DAMAGE, GHOUL_SPEED, GHOUL_ATK_RANGE, GHOUL_ATK_CD, GHOUL_CHASE);
   if (e.type === 'guardian') return updateGuardian(e);
   if (e.type === 'troll')    return updateTroll(e);
+  if (e.type === 'spellblade') return updateSpellBlade(e);
   if (e.type === 'mimic')    return updateMimic(e);
   if (e.type === 'trib_sentinel') return updateTribunalSentinel(e);
   if (e.type === 'trib_warden')   return updateTribunalWarden(e);
@@ -4990,6 +6503,10 @@ function restartCurrentStageSoftcore() {
   player.deathTimer = 0;
   player.hitFlash = 0;
   player.slowTimer = 0;
+  player.stunTimer = 0;
+  player.knockbackTimer = 0;
+  player.knockbackDx = 0;
+  player.knockbackDy = 0;
   player.berserkTimer = 0;
   player.berserkCasting = false;
   player.sliceDiceTimer = 0;
@@ -5328,7 +6845,7 @@ function drawAttackRange() {
     ctx.strokeStyle = ab === 'w' ? 'rgba(230, 126, 34, 0.7)' : 'rgba(241, 196, 15, 0.7)';
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   } else if (isMageAoE) {
-    const r = DISPLAY_SIZE * 2.4 * 1.2 * (player.mightBonus ? 1.25 : 1);
+    const r = DISPLAY_SIZE * 2.4 * 1.2 * 0.85 * (player.mightBonus ? 1.25 : 1);
     ctx.strokeStyle = 'rgba(26, 188, 156, 0.7)';
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   } else if (isRogueUlt) {
@@ -5380,6 +6897,17 @@ function drawPlayerEffects(drawX, drawY, dsize) {
       ctx.arc(x, footY, dsize * 0.07, 0, Math.PI * 2);
       ctx.stroke();
     }
+    ctx.restore();
+  }
+  if (player.windwalkActive) {
+    ctx.save();
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = '#1abc9c';
+    ctx.fillRect(drawX, drawY, dsize, dsize);
+    ctx.globalAlpha = 0.7;
+    ctx.shadowColor = '#1abc9c'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#1abc9c'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(drawX + 1, drawY + 1, dsize - 2, dsize - 2);
     ctx.restore();
   }
   if (player.sliceDiceTimer > 0 && Math.floor(player.sliceDiceTimer / 4) % 2 === 0) {
@@ -5712,7 +7240,7 @@ function drawMinotaur(e) {
   }
   if (e.hp <= 0) return;
 
-  const winding = e.state === 'windup', charging = e.state === 'charging', melee = e.state === 'melee';
+  const winding = e.state === 'windup', charging = e.state === 'charging', melee = e.state === 'melee', stomping = e.state === 'stomp';
   if (e.state === 'stunned') {
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -5725,15 +7253,50 @@ function drawMinotaur(e) {
   }
 
   applyHitFlash(e.hitFlash);
-  if (winding && !(e.hitFlash > 0)) {
+  if ((winding || stomping) && !(e.hitFlash > 0)) {
     ctx.filter = 'sepia(0.45) saturate(1.85) hue-rotate(315deg) brightness(1.12)';
   }
   const row = dirToRow(e.direction);
   const col = melee ? (e.attackFrame ?? 0) % 4 : e.frameIndex % 4;
-  const useAtk = charging || winding || melee;
-  const sheet = useAtk ? (minotaurAtkSheet || minotaurRunSheet) : minotaurRunSheet;
-  drawMonSprite(sheet, col, row, e.x, e.y, W, H);
+  if (stomping) {
+    const windupFrac = 1 - Math.max(0, e.stompTimer) / MINOTAUR_STOMP_WINDUP;
+    const stompCol = minotaurStompFrame(e.stompTimer);
+    ctx.save();
+    ctx.globalAlpha = 0.22 + 0.58 * windupFrac;
+    ctx.strokeStyle = '#d8a03a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x + W / 2, e.y + H / 2, MINOTAUR_STOMP_RANGE, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    if (minotaurStompSheet) {
+      const stompRow = e.direction === 'up' ? 1 : 0;
+      drawSheetSprite(minotaurStompSheet, stompCol, stompRow, e.x, e.y, W, H, 4, 2);
+    } else {
+      drawMonSprite(minotaurAtkSheet || minotaurRunSheet, stompCol, row, e.x, e.y, W, H);
+    }
+  } else {
+    const useAtk = charging || winding || melee;
+    const sheet = useAtk ? (minotaurAtkSheet || minotaurRunSheet) : minotaurRunSheet;
+    drawMonSprite(sheet, col, row, e.x, e.y, W, H);
+  }
   ctx.filter = 'none';
+
+  if (e.stompEffect > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.65 * (e.stompEffect / 32);
+    ctx.strokeStyle = '#d8a03a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(e.x + W / 2, e.y + H / 2, MINOTAUR_STOMP_RANGE, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha *= 0.65;
+    ctx.strokeStyle = '#7a3f18';
+    ctx.beginPath();
+    ctx.arc(e.x + W / 2, e.y + H / 2, MINOTAUR_STOMP_RANGE * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.fillStyle = '#333'; ctx.fillRect(e.x, e.y - 18, W, 7);
   ctx.fillStyle = '#e74c3c'; ctx.fillRect(e.x, e.y - 18, W * Math.max(0, e.hp / e.maxHp), 7);
@@ -6102,11 +7665,14 @@ function drawTroll(e) {
   }
   if (e.hp <= 0) return;
   applyHitFlash(e.hitFlash);
-  const col = e.state === 'attacking' ? (e.attackFrame || 0) % 4 : e.frameIndex % 4;
-  if (trollMasterSheet) {
+  const attacking = e.state === 'attacking' || e.state === 'kick';
+  const col = attacking ? (e.attackFrame || 0) % 4 : e.frameIndex % 4;
+  if (e.state === 'kick' && trollKickSheet) {
+    drawSheetSprite(trollKickSheet, col, row, e.x, e.y, W, H, 4, 4);
+  } else if (trollMasterSheet) {
     drawMasterQuadrantSprite(trollMasterSheet, e.state === 'attacking' ? 'attack' : 'run', col, row, e.x, e.y, W, H);
   } else {
-    const sheet = e.state === 'attacking' ? (trollAtkSheet || trollRunSheet) : trollRunSheet;
+    const sheet = e.state === 'attacking' || e.state === 'kick' ? (trollAtkSheet || trollRunSheet) : trollRunSheet;
     drawMonSprite(sheet, col, row, e.x, e.y, W, H);
   }
   ctx.filter = 'none';
@@ -6338,14 +7904,14 @@ function drawTribunalEnemy(e) {
     }
   } else if (e.type === 'trib_warden') {
     if (e.state === 'attacking') {
-      const line = rectInFrontOf(e, DISPLAY_SIZE * 3.0, DISPLAY_SIZE * 0.75, TRIB_WARDEN_SIZE);
+      const chainDir = e.chainDir || e.direction;
+      const chainVec = guardianDirVector(chainDir);
       if (chainWardenChainSheet) {
         const progress = 1 - Math.max(0, e.attackTimer) / TRIB_WARDEN_WINDUP;
         const frameCount = 6;
         const frame = Math.min(frameCount - 1, Math.floor(progress * frameCount));
         const chainW = Math.round(DISPLAY_SIZE * 0.9);
         const chainH = Math.round(DISPLAY_SIZE * 3.25);
-        const angles = { down: 0, right: -Math.PI / 2, up: Math.PI, left: Math.PI / 2 };
         ctx.globalAlpha = Math.min(1, 0.35 + progress * 0.7);
         drawOneRowEffectFrame(
           chainWardenChainSheet,
@@ -6355,15 +7921,19 @@ function drawTribunalEnemy(e) {
           cy,
           chainW,
           chainH,
-          angles[e.direction] ?? 0,
+          Math.atan2(-chainVec.x, chainVec.y),
           -chainW / 2,
           -DISPLAY_SIZE * 0.06
         );
         ctx.globalAlpha = 1;
       } else {
         ctx.globalAlpha = 0.35;
-        ctx.fillStyle = '#8ecbff';
-        ctx.fillRect(line.x, line.y, line.w, line.h);
+        ctx.strokeStyle = '#8ecbff';
+        ctx.lineWidth = TRIB_WARDEN_CHAIN_WIDTH;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + chainVec.x * TRIB_WARDEN_CHAIN_RANGE, cy + chainVec.y * TRIB_WARDEN_CHAIN_RANGE);
+        ctx.stroke();
         ctx.globalAlpha = 1;
       }
     }
@@ -6478,8 +8048,11 @@ function drawEnemy(e) {
   if (e.type === 'abomination')  return drawAbomination(e);
   if (e.type === 'troll')        return drawTroll(e);
   if (e.type === 'guardian') return drawGuardian(e);
+  if (e.type === 'spellblade') return drawSpellBlade(e);
   if (e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest') return drawTribunalEnemy(e);
   if (e.type === 'johnpork') return drawJohnPork(e);
+  if (e.type === 'dragonkin') return drawDragonkin(e);
+  if (e.type === 'dragon')   return drawDragon(e);
   if (e.type === 'mimic') {
     if (e.dying || e.deathDone) {
       const fadeAlpha = e.deathDone ? 0 : Math.max(0, 1 - e.deathFrame / 3);
@@ -6530,22 +8103,41 @@ function drawMarkers() {
   ctx.textAlign = 'left';
 }
 
+function drawPendantIcon(p, x, y, size, selected = true) {
+  const icon = pendantIcons[pendantIconKey(p?.name)];
+  ctx.save();
+  ctx.globalAlpha = selected ? 1 : 0.42;
+  if (icon) {
+    ctx.drawImage(icon, x, y, size, size);
+  } else {
+    ctx.fillStyle = p?.color || '#d8b45d';
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size * 0.46, size * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1, size * 0.03);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawUI() {
   const U = GAME_HEIGHT; // top of UI bar
 
+  const hudH = canvas.height - U;
   if (hudBgImg) {
-    const scale = Math.max(canvas.width / hudBgImg.width, UI_HEIGHT / hudBgImg.height);
+    const scale = Math.max(canvas.width / hudBgImg.width, hudH / hudBgImg.height);
     const sw = canvas.width / scale;
-    const sh = UI_HEIGHT / scale;
+    const sh = hudH / scale;
     const sx = Math.max(0, (hudBgImg.width - sw) / 2);
     const hudContentCenterY = hudBgImg.height * 0.497;
     const sy = Math.max(0, Math.min(hudBgImg.height - sh, hudContentCenterY - sh / 2));
-    ctx.drawImage(hudBgImg, sx, sy, sw, sh, 0, U, canvas.width, UI_HEIGHT);
+    ctx.drawImage(hudBgImg, sx, sy, sw, sh, 0, U, canvas.width, hudH);
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(0, U, canvas.width, UI_HEIGHT);
+    ctx.fillRect(0, U, canvas.width, hudH);
   } else {
     ctx.fillStyle = '#0d0d1a';
-    ctx.fillRect(0, U, canvas.width, UI_HEIGHT);
+    ctx.fillRect(0, U, canvas.width, hudH);
   }
   ctx.strokeStyle = '#2a2a4a'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, U); ctx.lineTo(canvas.width, U); ctx.stroke();
@@ -6573,41 +8165,46 @@ function drawUI() {
 
   const infoX = portX + portSize + 6;
 
-  // HP bar
-  const hpW = 120, hpH = 14;
-  ctx.fillStyle = '#333'; ctx.fillRect(infoX, U + 8, hpW, hpH);
-  ctx.fillStyle = '#e74c3c'; ctx.fillRect(infoX, U + 8, hpW * (player.hp / player.maxHp), hpH);
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(infoX, U + 8, hpW, hpH);
-  ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.textAlign = 'left';
-  ctx.fillText(`HP ${player.hp}/${player.maxHp}`, infoX + 3, U + 19);
+  // HP bar — wider, styled with health-based colour
+  const hpW = 155, hpH = 16;
+  const hpFrac = Math.min(1, player.hp / player.maxHp);
+  ctx.fillStyle = '#1a0808'; ctx.fillRect(infoX, U + 7, hpW, hpH);
+  ctx.fillStyle = '#e74c3c'; ctx.fillRect(infoX, U + 7, hpW * hpFrac, hpH);
+  ctx.strokeStyle = '#5a2222'; ctx.lineWidth = 1; ctx.strokeRect(infoX, U + 7, hpW, hpH);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'left';
+  ctx.fillText(`HP  ${player.hp} / ${player.maxHp}`, infoX + 4, U + 18);
 
-  // EXP bar — fixed width, clamped fill
-  const expW = 120, expH = 10;
+  // EXP bar
+  const expW = 155, expH = 10;
   const expFrac = Math.min(1, player.exp / player.expToNext);
-  ctx.fillStyle = '#333'; ctx.fillRect(infoX, U + 26, expW, expH);
-  ctx.fillStyle = '#9b59b6';
-  ctx.fillRect(infoX, U + 26, expW * expFrac, expH);
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.strokeRect(infoX, U + 26, expW, expH);
-  ctx.fillStyle = '#ccc'; ctx.font = '9px Arial';
-  ctx.fillText(`EXP ${player.exp}/${player.expToNext}`, infoX + 3, U + 34);
+  ctx.fillStyle = '#110920'; ctx.fillRect(infoX, U + 27, expW, expH);
+  ctx.fillStyle = '#7d3c98'; ctx.fillRect(infoX, U + 27, expW * expFrac, expH);
+  ctx.strokeStyle = '#3d1a5a'; ctx.lineWidth = 1; ctx.strokeRect(infoX, U + 27, expW, expH);
+  ctx.fillStyle = '#b09ac0'; ctx.font = '9px Arial';
+  ctx.fillText(`EXP  ${player.exp} / ${player.expToNext}`, infoX + 4, U + 35);
 
-  // Stats
-  ctx.fillStyle = '#e74c3c'; ctx.font = 'bold 10px Arial'; ctx.fillText(`STR ${player.str}`, infoX,      U + 50);
-  ctx.fillStyle = '#2ecc71'; ctx.fillText(`AGI ${player.agi}`, infoX + 44, U + 50);
-  ctx.fillStyle = '#3498db'; ctx.fillText(`INT ${player.int}`, infoX + 88, U + 50);
+  // Divider
+  ctx.strokeStyle = '#2a2a4a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(infoX, U + 42); ctx.lineTo(infoX + hpW, U + 42); ctx.stroke();
 
-  // Active pendant effects listed below stats
+  // Stats — slightly larger, spaced
+  ctx.font = 'bold 11px Arial';
+  ctx.fillStyle = '#e74c3c'; ctx.fillText(`STR  ${player.str}`, infoX,       U + 54);
+  ctx.fillStyle = '#2ecc71'; ctx.fillText(`AGI  ${player.agi}`, infoX + 56,  U + 54);
+  ctx.fillStyle = '#3498db'; ctx.fillText(`INT  ${player.int}`, infoX + 112, U + 54);
+
+  // Active pendant effects
   if (player.pendants && player.pendants.length > 0) {
-    ctx.font = '8px Arial';
+    ctx.font = '9px Arial';
     player.pendants.forEach((p, i) => {
       ctx.fillStyle = p.color;
-      ctx.fillText(`◆ ${p.desc}`, infoX, U + 62 + i * 11);
+      ctx.fillText(`◆ ${p.desc}`, infoX, U + 66 + i * 12);
     });
   }
 
-  // Taken talents (compact) — shifted down if pendants present
+  // Taken talents (compact)
   const pendantRows = player.pendants ? player.pendants.length : 0;
-  const talentBaseY = U + 62 + pendantRows * 11 + (pendantRows > 0 ? 3 : 3);
+  const talentBaseY = U + 66 + pendantRows * 12 + (pendantRows > 0 ? 2 : 0);
   const takenTalents = [];
   (player.talentTaken || []).forEach((tiers, pi) => {
     tiers.forEach((taken, ti) => {
@@ -6617,55 +8214,63 @@ function drawUI() {
   ctx.fillStyle = '#ffd700'; ctx.font = '9px Arial';
   takenTalents.slice(0, 3).forEach((t, i) => ctx.fillText(`★ ${t}`, infoX + (i % 3) * 80, talentBaseY + Math.floor(i / 3) * 12));
 
-  // Status indicators
-  let statusX = infoX + 130;
-  if (player.berserkTimer > 0) {
-    ctx.fillStyle = '#cc00ff'; ctx.font = 'bold 10px Arial';
-    ctx.fillText(`BERSERK ${Math.ceil(player.berserkTimer/60)}s`, statusX, U + 18); statusX += 80;
-  }
-  if (player.windwalkActive) {
-    ctx.fillStyle = '#d8d0b8'; ctx.font = 'bold 10px Arial';
-    ctx.fillText(`WINDWALK ${Math.ceil(player.windwalkTimer/60)}s`, statusX, U + 18); statusX += 90;
-  }
-  if (player.sliceDiceTimer > 0) {
-    ctx.fillStyle = '#16a085'; ctx.font = 'bold 10px Arial';
-    ctx.fillText(`SLICE&DICE ${Math.ceil(player.sliceDiceTimer/60)}s`, statusX, U + 18); statusX += 100;
-  }
-  if ((player.bulwarkShield || 0) > 0) {
-    ctx.fillStyle = '#8fc8f4'; ctx.font = 'bold 10px Arial';
-    ctx.fillText(`SHIELD ${Math.round(player.bulwarkShield)}`, statusX, U + 18); statusX += 80;
-  }
-  if (player.slowTimer > 0) {
-    ctx.fillStyle = '#4488ff'; ctx.font = 'bold 10px Arial';
-    ctx.fillText(`SLOWED ${Math.ceil(player.slowTimer/60)}s`, statusX, U + 18);
-  }
-  ctx.fillStyle = '#555'; ctx.font = '10px Arial';
-  ctx.fillText(`Stage ${stage}`, infoX + 130, U + 34);
+  // Status effect pills — dark bordered badge per active effect
+  const statuses = [];
+  if (player.berserkTimer > 0)       statuses.push({ label: `BERSERK ${Math.ceil(player.berserkTimer/60)}s`,     color: '#cc00ff' });
+  if (player.windwalkActive)         statuses.push({ label: `WINDWALK ${Math.ceil(player.windwalkTimer/60)}s`,    color: '#1abc9c' });
+  if (player.sliceDiceTimer > 0)     statuses.push({ label: `SLICE&DICE ${Math.ceil(player.sliceDiceTimer/60)}s`, color: '#16a085' });
+
+  if (player.stunTimer > 0)          statuses.push({ label: `STUNNED ${Math.ceil(player.stunTimer/60)}s`,          color: '#ffd700' });
+  if (player.slowTimer > 0)          statuses.push({ label: `SLOWED ${Math.ceil(player.slowTimer/60)}s`,          color: '#4488ff' });
+  ctx.font = 'bold 9px Arial';
+  let statusX = infoX + 160;
+  statuses.forEach(s => {
+    const tw = ctx.measureText(s.label).width + 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(statusX, U + 7, tw, 14);
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1; ctx.strokeRect(statusX, U + 7, tw, 14);
+    ctx.fillStyle = s.color; ctx.fillText(s.label, statusX + 5, U + 17);
+    statusX += tw + 5;
+  });
+  ctx.fillStyle = '#667'; ctx.font = '9px Arial';
+  ctx.fillText(`Stage ${stage}`, infoX + 160, U + 34);
 
   // ── Center: ability slots (only show unlocked abilities, i.e. level > 0) ──
   const unlockedAbs = orderedAbilities(abilities.filter(ab => ab.level > 0));
-  const totalW = unlockedAbs.length * SLOT_SIZE + (unlockedAbs.length - 1) * SLOT_GAP;
-  const startX = (canvas.width - totalW) / 2;
-  const slotY  = U + (UI_HEIGHT - SLOT_SIZE) / 2;
+  const pSlot = 76;
+  const pGap  = 6;
+  const pendantCount = player.pendants?.length || 0;
+  const volSliderW = 122;
+  const volX = canvas.width - volSliderW - 10;
+  const pendantRight = volX - 12;
+  const pendantAreaW = pendantCount ? pendantCount * pSlot + Math.max(0, pendantCount - 1) * pGap : 0;
+  const abilityLeft = Math.min(canvas.width * 0.42, infoX + 250);
+  const abilityRight = Math.max(abilityLeft + 220, pendantRight - pendantAreaW - 12);
+  const abilityMaxW = Math.max(220, abilityRight - abilityLeft);
+  const slotSize = unlockedAbs.length
+    ? Math.max(65, Math.min(SLOT_SIZE, Math.floor((abilityMaxW - (unlockedAbs.length - 1) * SLOT_GAP) / unlockedAbs.length)))
+    : SLOT_SIZE;
+  const totalW = unlockedAbs.length * slotSize + (unlockedAbs.length - 1) * SLOT_GAP;
+  const startX = Math.max(abilityLeft, Math.min((canvas.width - totalW) / 2, abilityRight - totalW));
+  const slotY  = U + (UI_HEIGHT - slotSize) / 2;
 
   let tooltipAb = null;
   unlockedAbs.forEach((ab, i) => {
-    const x = startX + i * (SLOT_SIZE + SLOT_GAP);
+    const x = startX + i * (slotSize + SLOT_GAP);
     const cd = ab.timer > 0;
-    ctx.fillStyle = cd ? '#1a1a2e' : '#16213e'; ctx.fillRect(x, slotY, SLOT_SIZE, SLOT_SIZE);
+    ctx.fillStyle = cd ? '#1a1a2e' : '#16213e'; ctx.fillRect(x, slotY, slotSize, slotSize);
     if (cd) {
       ctx.fillStyle = 'rgba(0,0,0,0.65)';
-      ctx.fillRect(x, slotY, SLOT_SIZE, SLOT_SIZE * (ab.timer / ab.cooldown));
+      ctx.fillRect(x, slotY, slotSize, slotSize * (ab.timer / ab.cooldown));
     }
     ctx.strokeStyle = cd ? '#444' : ab.color; ctx.lineWidth = 2;
-    ctx.strokeRect(x, slotY, SLOT_SIZE, SLOT_SIZE);
+    ctx.strokeRect(x, slotY, slotSize, slotSize);
 
     const icon = skillIcons[player.className.toLowerCase() + '_' + ab.name] || skillIcons[ab.name];
     if (icon) {
       // Draw icon filling the slot, dimmed when on cooldown
       ctx.save();
       ctx.globalAlpha = cd ? 0.3 : 1.0;
-      ctx.drawImage(icon, x + 5, slotY + 5, SLOT_SIZE - 10, SLOT_SIZE - 10);
+      ctx.drawImage(icon, x + 5, slotY + 5, slotSize - 10, slotSize - 10);
       ctx.restore();
       // Key label — small badge top-left
       ctx.fillStyle = cd ? '#555' : 'rgba(255,255,255,0.9)';
@@ -6675,25 +8280,92 @@ function drawUI() {
       // Fallback: large key label centred (no icon)
       ctx.fillStyle = cd ? '#555' : '#fff'; ctx.font = 'bold 20px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(ab.label, x + SLOT_SIZE/2, slotY + SLOT_SIZE/2 + 6);
+      ctx.fillText(ab.label, x + slotSize/2, slotY + slotSize/2 + 6);
     }
 
     // Skill name — bottom centre
     const skillDisplayName = ab.name.charAt(0).toUpperCase() + ab.name.slice(1);
     ctx.textAlign = 'center';
     ctx.fillStyle = cd ? '#444' : '#aaddff'; ctx.font = '9px Arial';
-    ctx.fillText(skillDisplayName, x + SLOT_SIZE/2, slotY + SLOT_SIZE - 17);
+    ctx.fillText(skillDisplayName, x + slotSize/2, slotY + slotSize - 17);
     // Level / cooldown indicator
     ctx.fillStyle = cd ? '#444' : '#666'; ctx.font = '10px Arial';
-    ctx.fillText(`Lv ${ab.level}`, x + SLOT_SIZE/2, slotY + SLOT_SIZE - 6);
+    ctx.fillText(`Lv ${ab.level}`, x + slotSize/2, slotY + slotSize - 6);
     if (cd) {
       ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
-      ctx.fillText(Math.ceil(ab.timer / 60) + 's', x + SLOT_SIZE/2, slotY + SLOT_SIZE - 18);
+      ctx.fillText(Math.ceil(ab.timer / 60) + 's', x + slotSize/2, slotY + slotSize - 18);
     }
-    if (mouseX >= x && mouseX <= x + SLOT_SIZE && mouseY >= slotY && mouseY <= slotY + SLOT_SIZE) {
+    if (mouseX >= x && mouseX <= x + slotSize && mouseY >= slotY && mouseY <= slotY + slotSize) {
       tooltipAb = { ab, x, slotY };
     }
   });
+
+  // ── Volume sliders (SFX top, Music bottom) ────────────────────────────────
+  const sfxCY   = U + Math.round(UI_HEIGHT * 0.32);
+  const musicCY = U + Math.round(UI_HEIGHT * 0.72);
+
+  function drawVolSlider(cy, value, label, boundsTarget) {
+    const tX0 = volX + 9, tX1 = volX + volSliderW - 9, tW = tX1 - tX0;
+    const tY = cy - 4, tH = 8;
+    boundsTarget.val = { x: volX, w: volSliderW, trackX0: tX0, trackX1: tX1, trackY: tY };
+
+    // Label + percent
+    ctx.fillStyle = '#9a8060'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'left';
+    ctx.fillText(label, volX + 3, cy - 8);
+    ctx.fillStyle = '#7a6040'; ctx.font = '9px Arial'; ctx.textAlign = 'right';
+    ctx.fillText(`${Math.round(value * 100)}%`, volX + volSliderW - 3, cy - 8);
+
+    // Wood panel
+    const pGrad = ctx.createLinearGradient(volX, tY - 4, volX, tY + tH + 4);
+    pGrad.addColorStop(0, '#1e1208'); pGrad.addColorStop(0.5, '#0d0804'); pGrad.addColorStop(1, '#281a0c');
+    ctx.fillStyle = pGrad; ctx.strokeStyle = '#6b4a20'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(volX + 2, tY - 4, volSliderW - 4, tH + 8, 4); ctx.fill(); ctx.stroke();
+
+    // Groove shadow
+    ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.roundRect(tX0, tY, tW, 3, 2); ctx.fill(); ctx.restore();
+
+    // Track
+    const gGrad = ctx.createLinearGradient(0, tY, 0, tY + tH);
+    gGrad.addColorStop(0, '#090604'); gGrad.addColorStop(1, '#1a100a');
+    ctx.fillStyle = gGrad;
+    ctx.beginPath(); ctx.roundRect(tX0, tY + 1, tW, tH - 2, 2); ctx.fill();
+
+    // Amber fill
+    const fW = Math.max(0, value * tW);
+    if (fW > 1) {
+      const aGrad = ctx.createLinearGradient(0, tY, 0, tY + tH);
+      aGrad.addColorStop(0, '#e0901a'); aGrad.addColorStop(0.5, '#f5c030'); aGrad.addColorStop(1, '#9a6010');
+      ctx.fillStyle = aGrad;
+      ctx.beginPath(); ctx.roundRect(tX0, tY + 1, fW, tH - 2, 2); ctx.fill();
+      ctx.save(); ctx.globalAlpha = 0.2; ctx.shadowColor = '#ffc800'; ctx.shadowBlur = 6; ctx.fillStyle = '#ffc800';
+      ctx.beginPath(); ctx.roundRect(tX0, tY + 1, fW, tH - 2, 2); ctx.fill(); ctx.restore();
+    }
+
+    // Ticks
+    [0, 0.5, 1].forEach(t => {
+      const tx2 = tX0 + t * tW;
+      ctx.strokeStyle = '#5a3f1a'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(tx2, tY - 5); ctx.lineTo(tx2, tY - 2); ctx.stroke();
+    });
+
+    // Brass knob
+    const kx = tX0 + value * tW, kr = 7;
+    const kGrad = ctx.createRadialGradient(kx - 2, cy - 2, 1, kx, cy, kr);
+    kGrad.addColorStop(0, '#fff0b0'); kGrad.addColorStop(0.4, '#d49010'); kGrad.addColorStop(0.85, '#7a4800'); kGrad.addColorStop(1, '#2e1800');
+    ctx.fillStyle = kGrad; ctx.strokeStyle = '#f0c030'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(kx, cy, kr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.globalAlpha = 0.65; ctx.fillStyle = '#fff8c0';
+    ctx.beginPath(); ctx.arc(kx - 2, cy - 2, 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+
+    ctx.textAlign = 'left';
+  }
+
+  const sfxBoundsRef = {}, musicBoundsRef = {};
+  drawVolSlider(sfxCY,   gameVolume,  '⚔ SFX',   sfxBoundsRef);
+  drawVolSlider(musicCY, musicVolume, '♪ MUSIC', musicBoundsRef);
+  _volSliderBounds   = sfxBoundsRef.val;
+  _musicSliderBounds = musicBoundsRef.val;
 
   // Tooltip for hovered ability
   if (tooltipAb) {
@@ -6718,21 +8390,14 @@ function drawUI() {
 
   // ── Right: pendant slots ──────────────────────────────────────────────────
   if (player.pendants && player.pendants.length > 0) {
-    const pSlot = 68;
-    const pGap  = 6;
-    const pStartX = canvas.width - (player.pendants.length * (pSlot + pGap)) - 8;
+    const pStartX = pendantRight - pendantAreaW;
     player.pendants.forEach((p, i) => {
       const px = pStartX + i*(pSlot+pGap);
       const py = U + (UI_HEIGHT - pSlot)/2;
       // Background
       ctx.fillStyle = '#0d0d22'; ctx.fillRect(px, py, pSlot, pSlot);
       ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.strokeRect(px, py, pSlot, pSlot);
-      // Gem circle (placeholder for future sprite)
-      ctx.save();
-      ctx.beginPath(); ctx.arc(px+pSlot/2, py+pSlot*0.42, pSlot*0.29, 0, Math.PI*2);
-      ctx.fillStyle = p.color; ctx.globalAlpha = 0.25; ctx.fill();
-      ctx.globalAlpha = 1; ctx.strokeStyle = p.color; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.restore();
+      drawPendantIcon(p, px + 6, py + 4, pSlot - 12);
       // Short label — first word of the name, capped to 8 chars
       const shortName = p.name.split(' ').find(w => w.toLowerCase() !== 'the') || p.name;
       const label = shortName.length > 8 ? shortName.slice(0,7) + '…' : shortName;
@@ -7014,6 +8679,14 @@ function applyDevConfig() {
 
   if (devSetupStage === 11) {
     startJohnPorkIntro();
+  } else if (devSetupStage === 12) {
+    stage = 98;
+    spawnStage(98);
+    gameState = 'playing';
+  } else if (devSetupStage === 13) {
+    stage = 99;
+    spawnStage(99);
+    gameState = 'playing';
   } else {
     stage = devSetupStage;
     spawnStage(devSetupStage);
@@ -7172,13 +8845,14 @@ function drawDevSetup() {
       ctx.fillStyle = checked ? p.color : '#555';
       ctx.font = 'bold 10px Arial';
       ctx.fillText(p.name, px + slotW/2, py + 28);
+      drawPendantIcon(p, px + slotW / 2 - 14, py + 30, 28, checked);
       ctx.fillStyle = checked ? '#ccc' : '#444';
       ctx.font = '8px Arial';
       const words = p.desc.split(' ');
-      ctx.fillText(words.slice(0,3).join(' '), px+slotW/2, py+46);
-      if (words.length > 3) ctx.fillText(words.slice(3).join(' '), px+slotW/2, py+56);
+      ctx.fillText(words.slice(0,3).join(' '), px+slotW/2, py+58);
+      if (words.length > 3) ctx.fillText(words.slice(3,6).join(' '), px+slotW/2, py+68);
       ctx.fillStyle = checked ? '#2ecc71' : '#333';
-      ctx.font = 'bold 16px Arial';
+      ctx.font = 'bold 14px Arial';
       ctx.fillText(checked ? '✓' : '○', px + slotW/2, py + 74);
     });
     ctx.textAlign = 'center';
@@ -7186,7 +8860,7 @@ function drawDevSetup() {
 
   // ── 4: Stage ─────────────────────────────────────────────────────────────
   sectionLabel(5, '── STAGE ──');
-  const stageNames = ['','Goblins','Golems','Minotaur','Archers','Orcs','Trolls','Ghouls','Mimic','Guardians','Iron Tribunal','John Pork'];
+  const stageNames = ['','Goblins','Golems','Minotaur','Archers','Orcs','Trolls','Ghouls','Spell Blade','Guardians','Iron Tribunal','John Pork','Dragonkin (Dev/98)','Dragon (Dev/99)'];
   ctx.fillStyle = '#fff'; ctx.font = 'bold 36px Arial';
   ctx.fillText(devSetupStage, W/2, SEC[5] + 38);
   ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
@@ -7202,6 +8876,46 @@ function drawDevSetup() {
 
 function drawWin() {
   const W = canvas.width, H = canvas.height;
+  {
+  if (victoryBgImg) {
+    const scale = Math.max(W / victoryBgImg.width, H / victoryBgImg.height);
+    const dw = victoryBgImg.width * scale;
+    const dh = victoryBgImg.height * scale;
+    ctx.drawImage(victoryBgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, W, H);
+  }
+  const shade = ctx.createLinearGradient(0, 0, 0, H);
+  shade.addColorStop(0, 'rgba(0,0,0,0.35)');
+  shade.addColorStop(0.45, 'rgba(0,0,0,0.48)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.72)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W/2, H*0.38, 20, W/2, H*0.38, 300);
+  glow.addColorStop(0, 'rgba(255,215,0,0.25)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd700'; ctx.font = `700 ${Math.round(H * 0.07)}px 'Cinzel Decorative', serif`;
+  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 30;
+  ctx.fillText('You have cleared Rendfall Depths', W/2, H * 0.35);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ead9b9'; ctx.font = `600 ${Math.round(H * 0.026)}px 'Cinzel', serif`;
+  ctx.fillText('The darkness below has fallen silent.', W/2, H * 0.48);
+  ctx.fillStyle = '#d8c29a'; ctx.font = `600 ${Math.round(H * 0.018)}px 'Cinzel', serif`;
+  ctx.fillText(`Hero: ${player.className}  -  Level: ${player.level}  -  Stage: 11`, W/2, H * 0.55);
+  ctx.fillText(`STR ${player.str}  -  AGI ${player.agi}  -  INT ${player.int}`, W/2, H * 0.60);
+  if (player.pendants && player.pendants.length > 0) {
+    ctx.fillStyle = '#9b59b6'; ctx.font = `600 ${Math.round(H * 0.016)}px 'Cinzel', serif`;
+    ctx.fillText('Pendants: ' + player.pendants.map(p => 'Pendant of ' + p.name).join('  -  '), W/2, H * 0.66);
+  }
+  if (Math.floor(Date.now() / 700) % 2 === 0) {
+    ctx.fillStyle = '#ffd700'; ctx.font = `600 ${Math.round(H * 0.017)}px 'Cinzel', serif`;
+    ctx.fillText('Press Enter or Space to return to the Main Menu', W/2, H * 0.82);
+  }
+  ctx.textAlign = 'left';
+  return;
+  }
   ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, W, H);
 
   // Gold radial glow
@@ -7229,7 +8943,7 @@ function drawWin() {
 
   if (Math.floor(Date.now() / 700) % 2 === 0) {
     ctx.fillStyle = '#ffd700'; ctx.font = '15px Arial';
-    ctx.fillText('Press any key to return to the title', W/2, H * 0.82);
+    ctx.fillText('Press Enter or Space to return to the Main Menu', W/2, H * 0.82);
   }
   ctx.textAlign = 'left';
 }
@@ -7692,7 +9406,7 @@ function drawClassConfirm() {
 function drawPendantNotification() {
   if (!pendingPendant) return;
   drawMedievalScreenBackdrop(0.45);
-  const pw = 380, ph = 200, px = (canvas.width - pw) / 2, py = (GAME_HEIGHT - ph) / 2;
+  const pw = 420, ph = 260, px = (canvas.width - pw) / 2, py = (GAME_HEIGHT - ph) / 2;
   drawWoodPanel(px, py, pw, ph, pendingPendant.color, 3);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f1d27a'; ctx.font = `700 12px 'Cinzel', serif`;
@@ -7701,12 +9415,9 @@ function drawPendantNotification() {
   ctx.fillText(`Pendant of ${pendingPendant.name}`, px + pw/2, py + 60);
   ctx.fillStyle = '#ead9b9'; ctx.font = `600 15px 'Cinzel', serif`;
   ctx.fillText(pendingPendant.desc, px + pw/2, py + 95);
-  // Pendant icon
-  ctx.fillStyle = pendingPendant.color;
-  ctx.beginPath(); ctx.arc(px + pw/2, py + 140, 18, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  drawPendantIcon(pendingPendant, px + pw / 2 - 48, py + 110, 96);
   ctx.fillStyle = '#c7b08c'; ctx.font = `600 13px 'Cinzel', serif`;
-  ctx.fillText('Press Enter or Space to continue', px + pw/2, py + 180);
+  ctx.fillText('Press Enter or Space to continue', px + pw/2, py + 236);
   ctx.textAlign = 'left';
 }
 
@@ -7802,7 +9513,7 @@ function drawLevelupSkill() {
   ctx.fillStyle = '#d8b45d'; ctx.font = `700 28px 'Cinzel Decorative', serif`;
   ctx.fillText(`LEVEL UP!  —  Level ${player.level}`, canvas.width/2, 55);
   ctx.fillStyle = '#d8c29a'; ctx.font = `600 14px 'Cinzel', serif`;
-  ctx.fillText('Choose a skill to upgrade  -  press Q W E R', canvas.width/2, 82);
+  ctx.fillText('Choose a skill to upgrade  -  press 1 2 3 4', canvas.width/2, 82);
 
   const levelable = getLevelableSkills();
   const gap = 24;
@@ -7830,7 +9541,7 @@ function drawLevelupSkill() {
       const tW = cardW - iconSize - 42;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 17px 'Cinzel', serif`;
-      ctx.fillText(`[${ab.key.toUpperCase()}] ${ab.label} — ${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)}`, tx, cy + 22);
+      ctx.fillText(`[${i+1}] ${ab.label} — ${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)}`, tx, cy + 22);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 13px 'Cinzel', serif`;
       ctx.fillText(`Lv ${ab.level} → ${ab.level+1}  (max ${ab.maxLevel})`, tx, cy + 38);
       if (ab.damage > 0) {
@@ -7856,7 +9567,7 @@ function drawLevelupSkill() {
     } else {
       // Fallback: centred layout (no icon)
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 20px 'Cinzel', serif`;
-      ctx.fillText(`[${ab.key.toUpperCase()}]  ${ab.label}`, cx + cardW/2, cy + 28);
+      ctx.fillText(`[${i+1}]  ${ab.label}`, cx + cardW/2, cy + 28);
       ctx.fillStyle = '#f2e3bd'; ctx.font = `700 14px 'Cinzel', serif`;
       ctx.fillText(ab.name.charAt(0).toUpperCase() + ab.name.slice(1), cx + cardW/2, cy + 54);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 12px 'Cinzel', serif`;
@@ -7978,6 +9689,7 @@ function getTransitionArt(stageNum) {
   if (stageNum === 5)  return orcTransitionArt;
   if (stageNum === 6)  return trollTransitionArt;
   if (stageNum === 7)  return ghoulPitTransitionArt;
+  if (stageNum === 8)  return spellBladeTransitionArt;
   if (stageNum === 9)  return twinGuardianTransitionArt;
   if (stageNum === 10) return tribunalTransitionArt;
   return null;
@@ -8039,18 +9751,21 @@ function drawJohnPorkIntro() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const img = johnPorkIntroPhase === 'demon' ? demonPigIntroImg : johnPorkIntroImg;
-  if (img) {
-    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  if (johnPorkIntroImg) {
+    const img = johnPorkIntroImg;
+    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
     const dw = img.width * scale;
     const dh = img.height * scale;
     ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+    const vg = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width*0.25, canvas.width/2, canvas.height/2, canvas.width*0.78);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  if (johnPorkIntroPhase === 'john') {
-    johnPorkIntroTimer--;
-    if (johnPorkIntroTimer <= 0) startDemonPigIntro();
-  }
+  johnPorkIntroTimer--;
+  if (johnPorkIntroTimer <= 0) finishJohnPorkIntro();
 }
 
 function drawGameOver() {
@@ -8094,7 +9809,7 @@ function drawResumeCountdown() {
   ctx.restore();
 }
 
-function loop() {
+function runGameFrame() {
   if (gameState === 'title') {
     drawTitle();
   } else if (gameState === 'classconfirm') {
@@ -8136,6 +9851,20 @@ function loop() {
     if (gameState === 'gameover')   drawGameOver();
     if (gameState === 'playing')    drawResumeCountdown();
   }
-  requestAnimationFrame(loop);
 }
 
+function loop(now = performance.now()) {
+  if (!fixedLoopLastTime) fixedLoopLastTime = now;
+  const elapsed = Math.min(MAX_FRAME_CATCHUP_MS, now - fixedLoopLastTime);
+  fixedLoopLastTime = now;
+  fixedLoopAccumulator += elapsed;
+
+  let steps = 0;
+  while (fixedLoopAccumulator >= FIXED_STEP_MS && steps < MAX_STEPS_PER_RAF) {
+    runGameFrame();
+    fixedLoopAccumulator -= FIXED_STEP_MS;
+    steps++;
+  }
+  if (steps === MAX_STEPS_PER_RAF) fixedLoopAccumulator = 0;
+  requestAnimationFrame(loop);
+}

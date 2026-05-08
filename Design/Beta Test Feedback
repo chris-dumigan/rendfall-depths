@@ -1,0 +1,63 @@
+
+Derek:
+
+diagonal run is faster than up/down/left/right, makes for a good strategy but might be broken
+minataurs attack box is stupid >:(
+
+
+Finlay:
+Image assest optimization
+
+
+Alex:
+
+
+lets go back to making a level in the development environment. The concept for this stage in testing is the standard stage, but here we will have a dragon at the top of the room taking up a large section. It will be static (cant run) but have various attack animations that thge player will have to dodge. It will have a head and two claws - 
+
+Fireballs shoots 3 fireballs in a cone
+Bite: Large bite that damages after a delay the player will have to dodge.
+Claw swipe; Uses claws on either side of its head to do a quick slash.
+
+any other ideas you think would be good to test in this level and ways to implment?
+
+Gi 
+☑ Change skill leveling back to 1,2,3,4 -
+
+
+
+Lets make John pork move faster and slam quicker and do more damage-
+The teal shading for the rogue windwalk shouldnt be a square but just make the rogue sprite slightly change colour-
+
+
+ Changes I could try:
+
+ Diagonal attack only while holding two input arrow keys. Attacks deal damage in a cone 
+☑ Still some issues with monsters getting stuck on edges, I also want you to remove any blocks near doors
+☑ diagonal run is faster than up/down/left/right
+
+☑ Shield pendant too strong, make cooldown longer
+☑ Chain warden needs diagonal attack
+☑ make default AI for monsters to try a different direction if they way they are going is blocked.
+☑ lets make it so the goblins are more aggressive
+
+☑ There is an invisible box on stage 2 and 3 that blocks movement. the minotaur movement keeps getting stuck, I have uploaded a new file with blockers drawn with blue lines, please relax the blocking outside blue towards edges block
+
+Minotaur changes:
+☑ This fight has to be rigfht as it is the hook of the game. we  also add in a stomp attack as a 4x4 sprite sheet with top two rows being right and left facing war stomp animations. 
+
+☑ Doors appear to have an invisible blocker box on stages before the stage is complete. lets remove this
+
+Skeleton room:
+☑ Lets adjust the Skeletal Guardian HP, and lower it slightly
+
+Lower skeleton and orc XP slightly
+☑ Change 2nd level R to level 8 required
+
+Troll Room:
+☑ Needs more HP, Boulders need to have a smaller window (-15%) where they hit, but hit for more damage (+30%). They should also naturally try to run back and create distance. If the hero gets too close, they should do a kick attack to knock them back
+
+Ghouls:
+☑ too much XP still. Abomination is getting stuck on something in the top right corner. remove any blockers from the right side of the screen
+
+☑ Mimic needs reworking, AI seems off, needs to use skills contextually instead of just spamming. Should also avoid completely overlapping hero sprite
+

@@ -1,0 +1,454 @@
+========================================================
+  RENDFALL DEPTHS  —  Current Game Design Reference
+  (Updated from original design doc to reflect implemented state)
+========================================================
+
+
+────────────────────────────────────────────────────────
+OVERVIEW
+────────────────────────────────────────────────────────
+Title:       Rendfall Depths
+Genre:       Progressive Rogue-like Action RPG
+Engine:      HTML5 Canvas 2D (single-file, no framework)
+Stages:      10, increasing in difficulty
+Death:       Game over, all progress lost
+Win:         Clear all 10 stages
+
+Dev Options (on death screen):
+  [R]  Respawn at current stage with full HP
+  [S]  Skip to next stage
+
+
+────────────────────────────────────────────────────────
+SCREENS & GAME STATES
+────────────────────────────────────────────────────────
+  title       — Main menu (Game Art 1.png background, Cinzel Decorative font)
+  menu        — Hero class selection
+  playing     — Active gameplay
+  levelup     — Level-up menu (multi-phase: skill → stats → talent)
+  pendant     — Pendant drop notification (pauses game)
+  stagechoice — Rest or Continue choice between stages
+  stageclear  — Stage summary
+  gameover    — Death screen
+
+
+────────────────────────────────────────────────────────
+STATS
+────────────────────────────────────────────────────────
+  Strength     — +10 max HP per point
+  Agility      — +5% movement speed per point
+  Intelligence — −0.25s cooldown per point
+
+
+────────────────────────────────────────────────────────
+HERO CLASSES
+────────────────────────────────────────────────────────
+
+BARBARIAN
+  Primary stat:   Strength
+  Base stats:     STR 10 / AGI 8 / INT 4
+  Starting HP:    100
+  Starting damage: 10
+
+  Q  Slash        1× STR dmg         4s  CD   (basic melee swing)
+  W  Whirlwind    1.5× STR AoE       8s  CD   (surrounds hero, hits all nearby)
+  E  Slam         2× STR AoE         14s CD   (knockback slow 50% / 2s, 0.25s invul on cast)
+  R  Berserk      —                  30s CD   (10s duration: 2× size, 2× attack range,
+                                               2× damage dealt, 1.5× damage taken)
+
+
+ROGUE
+  Primary stat:   Agility
+  Base stats:     STR 6 / AGI 10 / INT 6
+  Starting HP:    60
+  Starting damage: 10
+
+  Q  Slash        1× AGI dmg         4s  CD   (quick melee strike)
+  W  Throw        1.5× AGI dmg       6s  CD   (dagger projectile in facing direction)
+  E  Wind Walk    —                  14s CD   (enemies lose tracking; sprite tinted teal;
+                                               breaks on first attack for 2× AGI bonus
+                                               damage; exit animation plays)
+  R  Slice & Dice —                  25s CD   (5s: all cooldowns tick at 2× speed)
+
+
+MAGE
+  Primary stat:   Intelligence
+  Base stats:     STR 4 / AGI 6 / INT 12
+  Starting HP:    60
+  Starting damage: 10
+
+  Q  Slash        1× INT dmg         4s  CD
+  W  Fireball     1.5× INT dmg       6s  CD   (projectile in facing direction)
+  E  Frost Nova   1× INT dmg         14s CD   (AoE stun 2s, 4× hero size radius)
+  R  Blink        —                  5s  CD   (teleport 8× hero dimensions forward)
+
+
+────────────────────────────────────────────────────────
+MOVEMENT & COMBAT
+────────────────────────────────────────────────────────
+  Movement:     Arrow keys, normalized vector (smooth, no 8-dir snapping)
+  Base speed:   ~3 units, modified by AGI (+5% per point) and talents
+  Attack range: Scales with hero model size. Hitboxes are size-dependent per monster type.
+
+  Attack range visualization (while attacking):
+    AoE abilities  → semi-transparent circle overlay
+    Directional    → dashed rectangle showing hit zone
+
+  Damage numbers float upward from the hit point.
+  XP numbers appear in purple above the damage number on enemy death.
+
+
+────────────────────────────────────────────────────────
+LEVELING SYSTEM
+────────────────────────────────────────────────────────
+  XP to level:  100 flat per level (no scaling)
+  XP decay:     base × 0.5^(aliveFrames / 2700)
+                → each monster's XP halves every 45 seconds alive
+                → minimum payout: 1 XP regardless of decay
+                → incentivizes fast kills; shown live in the purple XP popup
+
+  Level-up menu phases (in order per level-up):
+    1. Skill upgrade  — choose one skill to level (Q / W / E, R unlocks at Lv6+)
+    2. Stat points    — distribute 3 points (STR / AGI / INT); Plasticity grants +3 to all stats when chosen
+    3. Talent select  — only at levels 3, 6, and 9
+
+  Skill caps:   Q / W / E max level 3 · R max level 2
+  Power gain:   +30% per skill level
+
+  Level unlock table:
+    Lv 1   Base stats, Q only
+    Lv 2   Upgrade Q/W/E · 3 stat points
+    Lv 3   Upgrade Q/W/E · 3 stat points · select talent (tier 1)
+    Lv 4   Upgrade Q/W/E · 3 stat points
+    Lv 5   Upgrade Q/W/E · 3 stat points
+    Lv 6   Upgrade Q/W/E/R · 3 stat points · select talent (tier 2)
+    Lv 7   Upgrade Q/W/E · 3 stat points
+    Lv 8   Upgrade Q/W/E/R · 3 stat points
+    Lv 9   Upgrade Q/W/E · 3 stat points · select talent (tier 3)
+    Lv 10  Upgrade Q/W/E/R · 3 stat points
+
+
+────────────────────────────────────────────────────────
+TALENT TREE
+────────────────────────────────────────────────────────
+  3 paths (Offensive / Defensive / Utility), each with 3 tiers.
+  Tier 1 unlocks at Lv3, Tier 2 at Lv6, Tier 3 at Lv9.
+  Higher tiers require the previous tier of the same path.
+
+  OFFENSIVE (red)
+    Tier 1  Haste              Cooldowns recover 15% faster
+    Tier 2  Bloodlust          5% lifesteal; doubled briefly after kills
+    Tier 3  Executioner        +25% damage vs enemies below 35% HP
+
+  DEFENSIVE (blue)
+    Tier 1  Stoneskin          15% less damage taken
+    Tier 2  Lifeblood          Regen 1% max HP every 3 seconds when not surrounded
+    Tier 3  Ancient Bulwark    +50% max HP; blocks the first hit each stage
+
+  UTILITY (green)
+    Tier 1  Plasticity         +3 to all stats immediately and choose primary attribute
+    Tier 2  Assassin           Every 15s, next hit deals +1.5× primary stat damage
+    Tier 3  Eternal Focus      Every fourth skill cast refunds 50% of that skill cooldown
+
+
+────────────────────────────────────────────────────────
+BETWEEN STAGES
+────────────────────────────────────────────────────────
+  Players choose one of:
+    Rest     — Heal to full HP, lose current-level XP progress
+    Continue — Keep all XP, no healing
+
+  Before choosing, players can review character stats, inventory (pendants),
+  and skill/talent tooltips.
+
+
+────────────────────────────────────────────────────────
+PENDANTS  (mini-boss drops)
+────────────────────────────────────────────────────────
+  Pendants appear as a full-screen notification (game paused) when dropped.
+  They are shown in the HUD as 68×68 icon slots on the right side of the bar.
+  Hover over an icon to see the full tooltip with name and effect.
+  Active pendant effects are listed under the stat block in the HUD.
+
+  STAGE 3 — Minotaur drop table (100% drop, one of three at equal probability)
+    Pendant of Vitality      +50 max HP
+    Pendant of Swiftness     +20% movement speed
+    Pendant of Acuity        All cooldowns −1 second
+
+  STAGE 8 — Spell Blade drop table (100% drop, one of three at equal probability)
+    Pendant of Might         +10 STR · +25% all skill range and AoE
+    Pendant of the Assassin  +10 AGI · next damaging skill hit deals +15 bonus damage
+                              (proc resets every 15 seconds)
+    Pendant of Enlightenment +10 INT · absorbs one hit every 10 seconds
+
+
+────────────────────────────────────────────────────────
+STAGE TABLE
+────────────────────────────────────────────────────────
+
+STAGE 1 — Goblin Swarm
+  Count:   6 goblins
+  Size:    70% of display tile
+  HP:      10
+  Damage:  10 per hit   ATK CD: 2s
+  Behavior: Chase and melee-attack. Separation force prevents stacking.
+  XP base: 14 per kill  (total up to 84 if killed fast)
+
+STAGE 2 — Clay Golems
+  Count:   3 golems
+  Size:    120% of display tile
+  HP:      150
+  Behavior:
+    — Always chase at GOLEM_SPEED (faster than basic ENEMY_SPEED)
+    — AoE Slam: triggers within 2.2× display range
+        · Windup: ~1.3s (expanding orange circle telegraph)
+        · Damage: 32 (AoE in slam radius)
+        · Slows hero 50% for 3 seconds
+        · Cooldown: ~2.7s
+    — Enrage at 40% HP: speed +1, slam damage ×1.35, red/orange sprite tint
+    — Separation force so golems spread and surround
+  XP base: 45 per kill  (total up to 135 if killed fast)
+
+STAGE 3 — Minotaur  [MINI-BOSS]
+  Count:   1
+  HP:      500
+  Behavior:
+    — Wanders until player enters 3.5× display range
+    — Charge sequence: roar SFX → 1s windup (charge direction locked, telegraph circle) →
+      charge at MINOTAUR_CHARGE_SPEED dealing 60 damage
+    — Charge cooldown: 5 seconds after landing
+    — At 50% HP: charge speed doubles (MINOTAUR_ENRAGE_SPEED)
+  Drop:    Pendant (100%, see Pendant table above)
+  XP base: 180
+
+STAGE 4 — Skeletal Archers
+  Count:   6 archers
+  Size:    85% of display tile
+  HP:      20
+  Damage:  25 per arrow   Shoot CD: ~1.5s
+  Behavior:
+    — Flee when hero closes within 2.2× display range
+    — Strafe perpendicular to player while in shooting range (circling behavior)
+    — Periodically flip strafe direction so they orbit rather than stand still
+  XP base: 10 per kill  (low; ranged, often left alive during kiting)
+
+STAGE 5 — Orc Grunts
+  Count:   4 orcs
+  Size:    110% of display tile
+  HP:      220
+  Damage:  42 per hit   ATK CD: ~1.3s
+  Behavior:
+    — Slow base movement (designed to be kited at distance)
+    — Separation force so they spread and flank
+    — Enrage at 40% HP: burst charge (ORC_CHARGE_SPEED) toward player;
+      deals full damage on contact, then enters cooldown
+    — On enrage: battle-cry SFX plays, sprite turns red
+  XP base: 55 per kill  (total up to 220 if killed fast)
+
+STAGE 6 — Trolls
+  Count:   2 trolls
+  Size:    2× display tile (large)
+  HP:      200
+  Damage:  20 AoE
+  Behavior:
+    — Slow movement, mostly stationary at range
+    — Rock Throw: targets ground under current hero position
+        · Projectile travels and lands, triggering AoE blast on impact
+        · AoE radius: 2.8× display size
+        · Throw cooldown: 5 seconds
+        · SFX: slam.wav on impact
+    — On death: Brute Death SFX
+  XP base: 70 per kill
+
+STAGE 7 — Ghoul Pit
+  Count:   15 initial + 8-ghoul second wave
+  Size:    80% of display tile
+  HP:      20
+  Damage:  15 per hit   ATK CD: ~0.87s
+  Behavior:
+    — Fast movement, whole-room chase range (always swarm)
+    — Tight separation so they converge as a mob without fully stacking
+    — Second wave: triggers when ≤5 ghouls remain alive;
+      8 new ghouls spawn and ghoul-intro SFX replays
+    — Designed to be destroyed by AoE abilities
+  SFX:     Stage-start intro · Ghoul attack on hit · Ghoul death
+  XP base: 6 per kill (fast decay; 23 total kills → up to 138 if fast)
+
+STAGE 8 — Spell Blade  [MINI-BOSS]
+  Count:   1
+  HP:      Copied from player (STR-based) at player level+1
+  Behavior:
+    — Spawns as hue-shifted copy of the player's class sprite (195° hue rotate → purple tint)
+    — Stats mirror player at level+1: primary stat +3, others +1
+    — Random extra skill point assigned to Q, W, or E
+    — Uses same AI as a melee enemy but with the player's damage values
+    — Uses same death SFX as the player's class
+  Label:   "[ClassName] LvN" in purple above health bar
+  Drop:    Pendant (100%, see Pendant table above)
+  XP base: 230
+
+STAGE 9 — Twin Guardians
+  Count:   2 guardians
+  Size:    Display tile wide, 1.5× tall (spear-wielding statues)
+  HP:      380 each
+  Damage:  60 per spear lunge
+  Behavior:
+    — Always chase, faster movement than typical melee enemies
+    — Separation force so they approach from different angles and flank
+    — Spear Lunge (directional attack):
+        · Triggers when hero enters 2.5× display range
+        · Windup: ~0.83s — direction locked at trigger; dashed red line grows
+          toward player showing the lunge reach
+        · Hit zone: narrow rectangle extending 4.2× display size forward
+        · Flash: gold spear-flash drawn on lunge
+        · Cooldown: ~2.2s after lunge
+    — Enrage on partner death: 2× speed, ×1.4 damage, ×0.55 cooldown;
+      sprite tints red, "ENRAGED" label appears, HP bar turns orange
+  SFX:     Guardian Hit on attack · Guardian Death on kill
+  XP base: 75 per kill  (total up to 150)
+
+STAGE 10 — John Pork  [FINAL BOSS]
+  Count:   1 → splits recursively
+  HP:      500
+  Behavior:
+    — Powerful cleave melee attacks
+    — On death: splits into 2 copies at ½ HP and ½ damage
+    — Each copy splits again on death (2nd generation at ¼ original)
+    — Killing all copies wins the game
+  Win screen: Hero summary — stats, skills, talents, score (XP gained /
+              damage dealt / damage taken)
+  XP base: 150
+
+
+────────────────────────────────────────────────────────
+HUD LAYOUT  (bottom bar, 130px height)
+────────────────────────────────────────────────────────
+  LEFT SIDE
+    Portrait       Class image (placeholder if sprite unavailable)
+    Level badge    "Lv N  ClassName" below portrait
+
+  CENTER-LEFT
+    HP bar         120px wide, red fill, HP N/MAX label
+    EXP bar        120px wide, purple fill, "EXP N/100" label
+                   At design-max shows dimmed bar + "EXP MAX"
+    Stat line      STR N  (red)  |  AGI N  (green)  |  INT N  (blue)
+    Pendant FX     Active pendant effects listed in small text below stats
+
+  CENTER (ability slots)
+    Q / W / E / R  64×64 slots with:
+      — Cooldown dark overlay (drains from top)
+      — Ability key label and level (Lv N)
+      — Countdown seconds while on CD
+      — Hover tooltip: name, description, damage, cooldown, level scaling
+
+  RIGHT SIDE
+    Pendant icons  68×68 squares per pendant acquired
+      — Colored border matching pendant rarity color
+      — Gem circle placeholder (sprite to be added later)
+      — First meaningful word of the name as label
+      — Hover tooltip: full name + effect description
+
+
+────────────────────────────────────────────────────────
+AI BEHAVIOR NOTES
+────────────────────────────────────────────────────────
+  All enemy movement uses normalized vectors (no 8-direction snapping → no stutter).
+  Separation force applied per-type prevents enemies from piling into one tile.
+
+  Per-type highlights:
+    Goblins    Chase + separation; fast attackers
+    Golems     Permanent chase; slam AoE; enrage at 40% HP
+    Minotaur   Charge sequence with direction lock and sound telegraph
+    Archers    Strafe perpendicular to hero while shooting; flee when close
+    Orcs       Slow kitable base + enrage charge burst at low HP
+    Trolls     Ranged AoE rock throw aimed at player ground position
+    Ghouls     Whole-room chase, tight separation, 2-wave spawn
+    Spell Blade Melee spellblade mini-boss with block and dash attacks
+    Guardians  Directional spear lunge with windup telegraph; partner-death enrage
+
+
+────────────────────────────────────────────────────────
+XP ECONOMY SUMMARY
+────────────────────────────────────────────────────────
+  XP needed to level: 100 per level (levels 1–10 require 900 total)
+
+  Max available XP if all enemies killed instantly (no decay):
+    Stage 1   6 × 14  =  84
+    Stage 2   3 × 45  = 135
+    Stage 3   1 × 180 = 180
+    Stage 4   6 × 10  =  60
+    Stage 5   4 × 55  = 220
+    Stage 6   2 × 70  = 140
+    Stage 7  23 × 6   = 138
+    Stage 8   1 × 230 = 230
+    Stage 9   2 × 75  = 150
+    Stage 10  ~4 × 37  ≈ 150  (splits scale down)
+    ─────────────────────────
+    Total             ≈ 1,487
+
+  With fast kills: ~1,400+ XP available vs 900 needed → healthy ~1.6× buffer.
+  XP decay (halves every 45s) and Rest choices reduce this buffer,
+  encouraging aggressive play and stage completion speed.
+
+  Expected level progression (fast play, no rests):
+    After Stage 1:  ~Lv 2
+    After Stage 2:  ~Lv 3–4
+    After Stage 3:  ~Lv 5
+    After Stage 4:  ~Lv 5–6
+    After Stage 5:  ~Lv 7
+    After Stage 6:  ~Lv 8
+    After Stage 7:  ~Lv 9
+    After Stage 8:  ~Lv 10
+    Stages 9–10:    Already max or near-max
+
+
+────────────────────────────────────────────────────────
+AUDIO
+────────────────────────────────────────────────────────
+  Background music  Ashes in the Nave (1).mp3  — auto-starts on game load, loops
+
+  Shared SFX
+    hit.wav          Hit connect (hero attacks)
+    swing.mp3        Hero swing
+    damage.wav       Hero taking damage
+
+  Barbarian
+    Barbarian Death.mp3
+    Whirlwind.mp3 + hit_whirlwind.wav  (played simultaneously on W)
+    Stone Crash.wav  (E – Slam)
+
+  Enemies by stage
+    Stage 1   goblin death.wav
+    Stage 2   Golem Death.mp3 · slam.wav (slam impact)
+    Stage 3   Roar.mp3 (plays on windup start, not charge start)
+    Stage 4   bow.wav (shoot) · Skeleton death.wav
+    Stage 5   Orc Death.wav · Orc hit.wav (hero hit)
+    Stage 6   slam.wav (rock lands) · Brute Death.wav (troll death)
+    Stage 7   Ghoul pit intro.wav (stage start + wave 2) · Ghoul attack.wav · Ghoul death.wav
+    Stage 8   Uses player-class sounds (Barbarian if playing Barbarian, etc.)
+    Stage 9   Guardian Hit.wav · Guardian Death.wav
+
+
+────────────────────────────────────────────────────────
+SPRITE SHEET FORMAT  (for artist reference)
+────────────────────────────────────────────────────────
+  Standard sheet:  2048×2048, 512×512 frames, 4 columns × 4 rows
+  Row mapping:     Row 0 = Down · Row 1 = Up · Row 2 = Right · Row 3 = Left
+  Background removal: Pure black (<22 r/g/b) and near-white (>200) stripped at load
+  Barbarian special sheets use 2912×1440 (728×720 frames)
+
+  Pending sprites to add:
+    Troll run sheet (4×4, large character, recommended ≥2× hero size)
+    Twin Guardian attack sheet (spear lunge, 4 directional variants — spear tip must
+      reach opposite edge of frame since lunge range is 4× guardian height)
+    Pendant gem icons (one per pendant, to replace the placeholder circle)
+
+
+────────────────────────────────────────────────────────
+KNOWN PENDING WORK
+────────────────────────────────────────────────────────
+  — Troll and Guardian attack sprite sheets not yet created
+  — Pendant icon sprites not yet created (placeholder circle in HUD)
+  — Mage sprite sheets not yet integrated
+  — Score / end-game summary screen (Stage 10 clear) not fully implemented
+  — Stage clear stats screen placeholder only

@@ -1,0 +1,298 @@
+IRON VALE - WORKING DESIGN DOC
+Last updated: Apr 2026
+
+
+CORE GAME
+Rendfall Depths is a progressive action RPG built in HTML5 Canvas.
+The game has 11 stages.
+
+Modes:
+  Normal:
+    Death sends the player to game over and progress is lost.
+
+  Softcore:
+    Death restarts the current stage.
+    The player keeps level, stats, skills, talents, and pendants.
+    Current-level EXP progress is reset to 0.
+
+  Dev Test:
+    Lets the player choose class, level, stat allocation, skill points, talents,
+    primary attribute after Plasticity, pendants, and starting stage.
+
+Between stages:
+  Rest: full heal, current-level EXP progress becomes 0.
+  Continue: keep current HP and EXP.
+  The between-stage screen also shows stats, skill tooltips, talent information,
+  and pendant inventory.
+
+
+STATS
+Strength:
+  +10 max HP per point.
+  +5 current HP when allocated.
+  Scales damage if it is the hero's primary stat.
+
+Agility:
+  +5% movement speed per point.
+  Scales damage if it is the hero's primary stat.
+
+Intelligence:
+  -0.2s cooldown per point, minimum 0.5s.
+  Scales damage if it is the hero's primary stat.
+
+Primary stat:
+  Barbarian starts with STR.
+  Rogue starts with AGI.
+  Mage starts with INT.
+  Plasticity allows the player to choose any primary stat.
+
+
+HEROES
+Barbarian:
+  STR 10 / AGI 8 / INT 4, HP 100, primary STR.
+  Q Slash: 1x STR frontal attack.
+  W Whirlwind: 1.5x STR circular AoE.
+  E Slam: 1.75x STR circular AoE, slows enemies, brief immunity.
+  R Berserk: 10s buff, swaps to berserk sprites, takes 1.5x damage.
+    Lv1: 1.75x damage dealt.
+    Lv2: 2x damage dealt.
+    Does not change model size, range, or hitboxes.
+
+Rogue:
+  STR 6 / AGI 10 / INT 6, HP 60, primary AGI.
+  Q Slash: 1x AGI frontal attack.
+  W Throw: 1x AGI fast dagger projectile in facing direction.
+  E Wind Walk: 10s double speed and enemies lose tracking.
+    Entry animation plays on cast.
+    Damaging ability breaks it and plays exit animation.
+    Slash gets bonus damage when it breaks Wind Walk:
+      Lv1 +1.75x primary stat, Lv2 +2.05x, Lv3 +2.35x.
+  R Slice & Dice: 3x AGI AoE around hero.
+    Plays Rogue Slash sound 3 times with 0.15s spacing.
+
+Mage:
+  STR 4 / AGI 6 / INT 12, HP 40, primary INT.
+  Q Blastwave: 1x INT frontal attack.
+  W Fireball: 1.75x INT projectile with explosion AoE.
+    Projectile sound stops on impact.
+  E Frost Nova: 1.75x INT AoE, 20% larger radius.
+    Applies freeze: 1s stun, then 1s slow.
+    Frozen/slowed monsters are tinted blue.
+  R Blink: teleports up to 8x hero dimensions in facing direction.
+    Lv2 grants a second charge after 1s; cooldown begins after second charge.
+
+
+LEVELING
+EXP to level is 100 flat.
+Monster EXP decays over time: base * 0.5^(aliveFrames / 2700), minimum 1.
+
+On level-up:
+  1. Choose a skill upgrade.
+  2. Spend 3 stat points.
+  3. At levels 3, 7, and 10, choose a talent.
+
+Skill caps:
+  Q/W/E max level 3.
+  R max level 2.
+  Skill upgrades multiply current damage by 1.3.
+
+Input safety:
+  Pendant drops, level-up screens, and talent screens pause gameplay.
+  Talent selection requires confirmation so arrow-key stat allocation does not
+  accidentally level the first talent.
+
+
+TALENTS
+Offensive:
+  Lv3 Haste: all cooldowns reduced by 1s.
+  Lv7 Bloodlust: 10% lifesteal on attacks and skills.
+  Lv10 Avatar: doubles hero model size and all attack/skill ranges.
+
+Defensive:
+  Lv3 Stoneskin: 15% reduced incoming damage.
+  Lv7 Lifeblood: regenerates 1% max HP every 10s in stage.
+  Lv10 Gift of the Ancients: doubles max HP.
+
+Utility:
+  Lv3 Plasticity: choose primary stat and gain +3 bonus stat points per level.
+  Lv7 Balance: +10 all stats.
+  Lv10 Nature's Swiftness: doubles movement speed.
+
+
+PENDANTS
+Mini-boss pendants pause the game and show a full notification.
+Pendant icons appear on the HUD and can be hovered for tooltips.
+
+Stage 3 Minotaur drop table:
+  Pendant of Vitality: +50 max HP.
+  Pendant of Swiftness: +20% move speed.
+  Pendant of Acuity: all cooldowns -1s.
+
+Stage 8 Mimic drop table:
+  Pendant of Might: +10 STR and +25% skill/range area.
+  Pendant of the Assassin: +10 AGI and next damaging skill hit adds +15 damage every 15s.
+  Pendant of Enlightenment: +10 INT and absorbs one hit every 10s.
+
+
+STAGES
+Stage 1 - Goblin Swarm:
+  6 goblins, 10 HP, 10 damage.
+  Pack Courage: goblins near 2+ goblins move faster and attack sooner.
+  Coward Scatter: nearby goblins briefly flee when one dies.
+  Uses Stage 1 art and play-area blockers from the blue reference.
+  Door is not physically blocked; it only opens when clear.
+
+Stage 2 - Clay Golems:
+  3 golems, 150 HP.
+  Chase player, slam AoE, slow hero, enrage at 40% HP.
+  Cracked earth/rubble hazards can remain after slams.
+  Uses Stage 2 art and play-area blockers from the blue reference.
+
+Stage 3 - Minotaur:
+  1 minotaur, 500 HP.
+  Charge has roar on windup, direction lock, and clear telegraph.
+  Crashing into walls or stage blockers stuns the minotaur.
+  Uses Stage 3 art and top door trigger with no bottom/door blockers.
+
+Stage 4 - Skeleton Crypt:
+  6 skeletal archers plus 2 skeletal champions.
+  Archers flee, strafe, and shoot.
+  Champions are slow/tanky guards that stand apart to protect archers.
+  Champions can block attacks once every 5 seconds.
+  Uses Stage 4 art with no blockers.
+
+Stage 5 - Orc Grunts:
+  4 normal orcs plus 1 brute orc.
+  Brute is double size with double HP.
+  Orcs have overhead cleave, low-HP charge, and shield block variant.
+  Shield block plays Shield block.wav.
+  Cleave hitbox range is shortened from the first implementation.
+  Uses Stage 5 art with no blockers.
+
+Stage 6 - Trolls:
+  2 trolls, 200 HP.
+  Trolls immediately aggro from stage start.
+  Throw boulders at the hero's ground position.
+  Rock shadow/marker shows where it will land.
+  Landing plays Ground Smash.wav, deals AoE damage, and leaves slowing rubble.
+  Boulder sprite:
+    Row 1 position 1 is the flying projectile frame.
+    Remaining 15 cells are the fast impact animation.
+  Uses Stage 6 art and Troll art transition image.
+
+Stage 7 - Ghoul Pit:
+  4 waves of increasing ghoul counts.
+  Next wave spawns only after all current ghouls are killed.
+  Ghouls spawn from side pits with warning shadow and Ghoul pit intro sound.
+  Ghouls stay just outside the hero sprite so Q attacks can target them.
+  Feeding Frenzy: ghouls that hit the player gain brief speed.
+  Ghoul EXP is reduced to one-third of the earlier value.
+  Uses Stage 7 art and Ghoul Pit Art transition image.
+
+Stage 8 - Mimic:
+  Mimic immediately runs toward the hero when the stage starts.
+  HP is increased to 2x.
+  Movement speed scales from the hero's speed, but is tuned down from the fastest version.
+  Mimic uses all available class skills with half the hero's cooldowns.
+  Mimic uses class sprite animations where available.
+  Barbarian mimic can cast Berserk and swap to berserk sprites.
+  Mimic tries to close distance before attacking to reduce easy kiting.
+
+Stage 9 - Twin Guardians:
+  2 guardians, double size, 1000 HP each.
+  Fast spear attack with clear forward projectile/extension.
+  Spear projectile sheet is 3600x1600, 6 frames, one row, 600px per frame.
+  Guardians try to attack from offset positions.
+  If one dies, the survivor enrages with speed/range/damage pressure.
+
+Stage 10 - Iron Tribunal:
+  Iron Sentinel, Chain Warden, Ash Priest, and supporting tribunal behavior.
+  Iron Sentinel is slow but deals high damage; attack uses slam sound.
+  Chain Warden is faster and uses chain/slow mechanics.
+  Slow effect should avoid the old blue body outline.
+  Ash Priest HP: 250.
+  Ash Priest heal: 100.
+  Uses Stage 10 art and Iron Tribunal transition art.
+
+Stage 11 - John Pork:
+  Final boss stage.
+  Entering stage 11 pauses normal music.
+  Shows Game Art/John Pork.png.
+  Loops sounds/Voice lines/facebook_call.mp3.
+  After 10 seconds, the stage starts and the ring sound stops.
+  Normal music remains paused during the John Pork stage.
+
+
+STAGE ART SYSTEM
+Current stage backgrounds:
+  Stage 1: Game Art/Stage Art/Stage 1.png
+  Stage 2: Game Art/Stage Art/Stage 2.png
+  Stage 3: Game Art/Stage Art/Stage 3.png
+  Stage 4: Game Art/Stage Art/Stage 4.png
+  Stage 5: Game Art/Stage Art/Stage 5.png
+  Stage 6: Game Art/Stage Art/Stage 6.png
+  Stage 7: Game Art/Stage Art/Stage 7.png
+  Stage 8: Game Art/Stage Art/Stage 8.png
+  Stage 9: Game Art/Stage Art/Stage 9.png
+  Stage 10: Game Art/Stage Art/Stage 10.png
+
+Format:
+  Stage art is wide playable-area art, based on roughly 1920x797 visible area.
+  Stages 4-10 currently use no blockers by default.
+  Door visuals are part of the art. Door collision is not required for stages 4+.
+  The exit trigger remains locked until enemies are cleared.
+
+Transition art:
+  Stage 2: Golem Art.png
+  Stage 3: Minotaur Art.png
+  Stage 4: Skeleton Crypt Art.png
+  Stage 5: Orc Art.png
+  Stage 6: Troll art.png
+  Stage 7: Ghoul Pit Art.png
+  Stage 9: Twin Guardian Art.png
+  Stage 10: Iron Tribunal Art.png
+
+
+AUDIO NOTES
+Background music:
+  Ashes in the Nave (1).mp3 loops during normal stages.
+  Stage 11 intro pauses it.
+
+Hero sounds:
+  Barbarian Death.mp3
+  Rogue Death.wav, Rogue hit.wav, Rogue slash.wav, Knife Throw.mp3, Knife Throw Impact.wav
+  Mage Death.wav, Mage hit.wav, Blastwave.wav, Fireballcast.mp3, Fireball flying.wav,
+  Fireball impact.wav, Forst Nova.wav, Mage Blink.mp3
+
+Monster/stage sounds:
+  Goblin death.wav
+  Golem Death.mp3, Ground Smash.wav
+  Roar.mp3 for Minotaur windup
+  bow.wav, Skeleton death.wav
+  Orc Death.wav, Orc hit.wav, Shield block.wav
+  Brute Death.wav for trolls
+  Ghoul pit intro.wav, Ghoul attack.wav, Ghoul death.wav
+  Guardian Hit.wav, Guardian Death.wav
+  Heavy Gate.wav for stage transitions
+  facebook_call.mp3 for John Pork intro
+
+
+SPRITE AND COLLISION NOTES
+Standard monster sheets:
+  2048x2048, 4 columns x 4 rows, 512x512 per frame.
+  Row 1/down, row 2/up, row 3/right, row 4/left.
+
+Master monster sheets:
+  4096x4096, four 2048x2048 quadrants.
+  Top-left run, top-right attack, bottom-left block, bottom-right death.
+
+Collision:
+  Hero and monster blocker collision uses a small center-bottom footprint,
+  not the full visible sprite rectangle.
+  Hero collision slides along blockers rather than hard-stopping on the first blocked axis.
+  Monster AI also uses blocker-aware movement so enemies do not blindly walk through walls.
+
+
+To do:
+
+abomination is a little tuned up? 

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"d:\\\\App development\\\\rendfall-depths\" -Recurse | Where-Object { $_.PSIsContainer } | Select-Object -First 20 | ForEach-Object { $_.FullName })"
+    ]
+  }
+}
