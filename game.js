@@ -6970,15 +6970,16 @@ function drawAttackRange() {
   ctx.restore();
 }
 
-function drawPlayerEffects(drawX, drawY, dsize) {
-  if (player.berserkTimer > 0 && Math.floor(player.berserkTimer / 4) % 2 === 0) {
+// Updated player effects drawer to process custom player objects
+function drawPlayerEffects(drawX, drawY, dsize, p = player) {
+  if (p.berserkTimer > 0 && Math.floor(p.berserkTimer / 4) % 2 === 0) {
     ctx.save();
     ctx.shadowColor = '#cc00ff'; ctx.shadowBlur = 22;
     ctx.strokeStyle = '#cc00ff'; ctx.lineWidth = 3;
     ctx.strokeRect(drawX + 2, drawY + 2, dsize - 4, dsize - 4);
     ctx.restore();
   }
-  if (player.avatarActive) {
+  if (p.avatarActive) {
     ctx.save();
     ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 16;
     ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
@@ -6986,9 +6987,9 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.strokeRect(drawX, drawY, dsize, dsize);
     ctx.restore();
   }
-  if (player.slowTimer > 0) {
+  if (p.slowTimer > 0) {
     ctx.save();
-    const pulse = 0.55 + 0.25 * Math.sin(player.slowTimer / 5);
+    const pulse = 0.55 + 0.25 * Math.sin(p.slowTimer / 5);
     const footY = drawY + dsize * 0.82;
     ctx.globalAlpha = pulse;
     ctx.strokeStyle = '#2f3742';
@@ -7006,7 +7007,7 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     }
     ctx.restore();
   }
-  if (player.windwalkActive) {
+  if (p.windwalkActive) {
     ctx.save();
     ctx.globalAlpha = 0.32;
     ctx.fillStyle = '#1abc9c';
@@ -7017,7 +7018,7 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.strokeRect(drawX + 1, drawY + 1, dsize - 2, dsize - 2);
     ctx.restore();
   }
-  if (player.sliceDiceTimer > 0 && Math.floor(player.sliceDiceTimer / 4) % 2 === 0) {
+  if (p.sliceDiceTimer > 0 && Math.floor(p.sliceDiceTimer / 4) % 2 === 0) {
     ctx.save();
     ctx.shadowColor = '#16a085'; ctx.shadowBlur = 18;
     ctx.strokeStyle = '#16a085'; ctx.lineWidth = 2;
@@ -7028,33 +7029,51 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.stroke();
     ctx.restore();
   }
+  
+  // multiplayer addition: Draw a simple name tag above other players
+  if (p !== player) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(p.className, p.x + DISPLAY_SIZE / 2, p.y - 12);
+    ctx.restore();
+  }
 }
 
-function drawRogue() {
+// Updated Rogue rendering to support any player object
+function drawRogue(p = player) {
   const dsize = DISPLAY_SIZE;
-  const drawX = player.x, drawY = player.y;
-  if (player.dying) {
-    drawMonSprite(rogueDeathSheet, Math.min(player.deathFrame, 3), 0, drawX, drawY, dsize, dsize);
+  const drawX = p.x, drawY = p.y;
+  if (p.dying) {
+    drawMonSprite(rogueDeathSheet, Math.min(p.deathFrame, 3), 0, drawX, drawY, dsize, dsize);
     return;
   }
-  drawAttackRange();
-  applyHitFlash(player.hitFlash);
+  
+  // We only draw the dotted attack range helper for the LOCAL player
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  applyHitFlash(p.hitFlash);
 
   let sheet = rogueRunSheet;
-  let col   = player.frameIndex % 4;
-  let row   = dirToRow(player.direction);
+  let col   = p.frameIndex % 4;
+  let row   = dirToRow(p.direction);
 
-  if (player.windwalkEntering) {
+  if (p.windwalkEntering) {
     sheet = rogueWindwalkSheet;
-    col   = player.windwalkEnterFrame % 4;
+    col   = p.windwalkEnterFrame % 4;
     row   = 0;
-  } else if (player.windwalkExiting) {
+  } else if (p.windwalkExiting) {
     sheet = rogueWindwalkSheet;
-    col   = player.windwalkExitFrame % 4;
+    col   = p.windwalkExitFrame % 4;
     row   = 0;
-  } else if (player.state === 'attacking') {
-    const ab = player.activeAbility;
-    col = player.attackFrame % 4;
+  } else if (p.state === 'attacking') {
+    const ab = p.activeAbility;
+    col = p.attackFrame % 4;
     if      (ab === 'w') sheet = rogueThrowSheet;
     else if (ab === 'e') { sheet = rogueWindwalkSheet; row = 0; }
     else if (ab === 'r') sheet = rogueSliceDiceSheet;
@@ -7064,7 +7083,7 @@ function drawRogue() {
   drawMonSprite(sheet || rogueRunSheet, col, row, drawX, drawY, dsize, dsize);
   ctx.globalAlpha = 1;
   ctx.filter = 'none';
-  drawPlayerEffects(drawX, drawY, dsize);
+  drawPlayerEffects(drawX, drawY, dsize, p);
 }
 
 function drawBarbarianDeath() {
@@ -7084,32 +7103,36 @@ function drawBarbarianDeath() {
   );
 }
 
-function drawMage() {
+// Updated Mage rendering to support any player object
+function drawMage(p = player) {
   const dsize = DISPLAY_SIZE;
-  const drawX = player.x, drawY = player.y;
-  const row = dirToRow(player.direction);
+  const drawX = p.x, drawY = p.y;
+  const row = dirToRow(p.direction);
   let sheet = mageRunSheet;
-  let col = player.frameIndex % 4;
+  let col = p.frameIndex % 4;
 
-  if (player.dying) {
-    drawMonSprite(mageDeathSheet || mageRunSheet, Math.min(player.deathFrame, 3), row, drawX, drawY, dsize, dsize);
+  if (p.dying) {
+    drawMonSprite(mageDeathSheet || mageRunSheet, Math.min(p.deathFrame, 3), row, drawX, drawY, dsize, dsize);
     return;
   }
 
-  drawAttackRange();
-  applyHitFlash(player.hitFlash);
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  applyHitFlash(p.hitFlash);
 
-  if (player.mageBlinkPhase) {
-    const frame = Math.max(0, Math.min(3, player.mageBlinkFrame));
+  if (p.mageBlinkPhase) {
+    const frame = Math.max(0, Math.min(3, p.mageBlinkFrame));
     drawMonSprite(mageBlinkSheet || mageRunSheet, frame, row, drawX, drawY, dsize, dsize);
     ctx.filter = 'none';
-    drawPlayerEffects(drawX, drawY, dsize);
+    drawPlayerEffects(drawX, drawY, dsize, p);
     return;
   }
 
-  if (player.state === 'attacking') {
-    const ab = player.activeAbility;
-    col = player.attackFrame % 4;
+  if (p.state === 'attacking') {
+    const ab = p.activeAbility;
+    col = p.attackFrame % 4;
     if (ab === 'w') {
       sheet = mageFireballCastSheet || mageAtkSheet || mageRunSheet;
     } else if (ab === 'e') {
@@ -7124,14 +7147,14 @@ function drawMage() {
       sheet = mageFrostNovaSheet || mageAtkSheet || mageRunSheet;
       drawMonSprite(sheet || mageRunSheet, col, Math.min(1, row), drawX, drawY, dsize, dsize);
       ctx.filter = 'none';
-      drawPlayerEffects(drawX, drawY, dsize);
+      drawPlayerEffects(drawX, drawY, dsize, p);
       return;
     } else {
       sheet = mageAtkSheet || mageRunSheet;
       if (ab === 'q') {
         drawMonSpriteInset(sheet || mageRunSheet, col, row, drawX, drawY, dsize, dsize, 6);
         ctx.filter = 'none';
-        drawPlayerEffects(drawX, drawY, dsize);
+        drawPlayerEffects(drawX, drawY, dsize, p);
         return;
       }
     }
@@ -7139,34 +7162,52 @@ function drawMage() {
 
   drawMonSprite(sheet || mageRunSheet, col, row, drawX, drawY, dsize, dsize);
   ctx.filter = 'none';
-  drawPlayerEffects(drawX, drawY, dsize);
+  drawPlayerEffects(drawX, drawY, dsize, p);
 }
 
-function drawPlayer() {
-  if (player.className === 'Rogue') return drawRogue();
-  if (player.className === 'Mage') return drawMage();
+// Updated main Player rendering to support drawing remote players
+function drawPlayer(p = player) {
+  if (p.className === 'Rogue') return drawRogue(p);
+  if (p.className === 'Mage') return drawMage(p);
 
-  if (player.dying) {
-    if (player.className === 'Barbarian') {
-      drawBarbarianDeath();
+  if (p.dying) {
+    if (p.className === 'Barbarian') {
+      // Inline Barbarian death to accept custom player 'p'
+      if (!barbDeathSheet) {
+        drawMonSprite(barbWalkSheet, 0, dirToRow(p.direction), p.x, p.y, DISPLAY_SIZE, DISPLAY_SIZE);
+        return;
+      }
+      const frame = Math.min(p.deathFrame, BARB_DEATH_FRAMES - 1);
+      const col = frame;
+      const row = 0;
+      const dsize = Math.round(DISPLAY_SIZE * 1.3);
+      const off = Math.round((dsize - DISPLAY_SIZE) / 2);
+      ctx.drawImage(
+        barbDeathSheet,
+        SLAM_XS[col], row * SLAM_FH, SLAM_FW, SLAM_FH,
+        p.x - off, p.y - off, dsize, dsize
+      );
     } else {
-      drawMonSprite(barbWalkSheet, 0, dirToRow(player.direction), player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE);
+      drawMonSprite(barbWalkSheet, 0, dirToRow(p.direction), p.x, p.y, DISPLAY_SIZE, DISPLAY_SIZE);
     }
     return;
   }
 
-  const isBerserk = player.berserkTimer > 0;
-  const enlarged = player.avatarActive;
+  const isBerserk = p.berserkTimer > 0;
+  const enlarged = p.avatarActive;
   const dsize = enlarged ? DISPLAY_SIZE * 2 : DISPLAY_SIZE;
-  const drawX = enlarged ? player.x - DISPLAY_SIZE / 2 : player.x;
-  const drawY = enlarged ? player.y - DISPLAY_SIZE / 2 : player.y;
+  const drawX = enlarged ? p.x - DISPLAY_SIZE / 2 : p.x;
+  const drawY = enlarged ? p.y - DISPLAY_SIZE / 2 : p.y;
 
-  drawAttackRange();
-  drawPlayerEffects(drawX, drawY, dsize);
-  applyHitFlash(player.hitFlash);
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  drawPlayerEffects(drawX, drawY, dsize, p);
+  applyHitFlash(p.hitFlash);
 
-  if (player.className === 'Barbarian' && player.berserkCasting) {
-    const frame = Math.min(player.berserkCastFrame, BARB_BERSERK_SKILL_FRAMES - 1);
+  if (p.className === 'Barbarian' && p.berserkCasting) {
+    const frame = Math.min(p.berserkCastFrame, BARB_BERSERK_SKILL_FRAMES - 1);
     const row = Math.floor(frame / 4);
     const col = frame % 4;
     drawMonSprite(barbBerserkSkillSheet || barbBerserkWalkSheet || barbWalkSheet, col, row, drawX, drawY, dsize, dsize);
@@ -7180,13 +7221,13 @@ function drawPlayer() {
   const barbSlamLeftSheet = isBerserk ? (barbBerserkSlamLSheet || barbSlamLSheet) : barbSlamLSheet;
   const barbWhirlSheetActive = isBerserk ? (barbBerserkWhirlSheet || barbWhirlSheet) : barbWhirlSheet;
 
-  if (player.state === 'attacking') {
-    const ab = player.activeAbility;
+  if (p.state === 'attacking') {
+    const ab = p.activeAbility;
     const sd = enlarged ? SLAM_DISP * 2 : SLAM_DISP;
     const wd = enlarged ? WHIRL_DISP * 2 : WHIRL_DISP;
 
     if (ab === 'e') {
-      const useRight = player.direction === 'right' || player.direction === 'down';
+      const useRight = p.direction === 'right' || p.direction === 'down';
       const sheet    = useRight ? barbSlamRightSheet : barbSlamLeftSheet;
       const useBerserkSheet = isBerserk && (useRight ? barbBerserkSlamRSheet : barbBerserkSlamLSheet);
       const fw   = useBerserkSheet ? BERSERK_SLAM_FW   : SLAM_FW;
@@ -7194,25 +7235,25 @@ function drawPlayer() {
       const xsR  = useBerserkSheet ? BERSERK_SLAM_XS   : SLAM_XS;
       const xsL  = useBerserkSheet ? BERSERK_SLAM_XS_R : SLAM_XS_R;
       const xs   = useRight ? xsR : xsL;
-      const col  = player.attackFrame < 4 ? player.attackFrame : player.attackFrame - 4;
-      const srcY = player.attackFrame < 4 ? 0 : fh;
+      const col  = p.attackFrame < 4 ? p.attackFrame : p.attackFrame - 4;
+      const srcY = p.attackFrame < 4 ? 0 : fh;
       const sOff = Math.round((sd - dsize) / 2);
       ctx.drawImage(sheet, xs[col], srcY, fw, fh, drawX - sOff, drawY - sOff, sd, sd);
 
     } else if (ab === 'w') {
-      const whirlRect = barbWhirlFrameRect(barbWhirlSheetActive, isBerserk && barbBerserkWhirlSheet, player.direction, player.attackFrame);
+      const whirlRect = barbWhirlFrameRect(barbWhirlSheetActive, isBerserk && barbBerserkWhirlSheet, p.direction, p.attackFrame);
       const wOff = Math.round((wd - dsize) / 2);
       ctx.drawImage(barbWhirlSheetActive, whirlRect.sx, whirlRect.sy, whirlRect.sw, whirlRect.sh, drawX - wOff, drawY - wOff, wd, wd);
 
     } else {
-      const anim = BARB_ATK[player.direction];
-      const sx   = anim.xs[player.attackFrame];
+      const anim = BARB_ATK[p.direction];
+      const sx   = anim.xs[p.attackFrame];
       ctx.drawImage(barbAttackSheet, sx, anim.srcY, BARB_MOVE_FW, anim.srcH, drawX, drawY, dsize, dsize);
     }
 
   } else {
-    const anim = BARB_WALK[player.direction];
-    const sx   = anim.xs[player.frameIndex];
+    const anim = BARB_WALK[p.direction];
+    const sx   = anim.xs[p.frameIndex];
     ctx.drawImage(barbMoveSheet, sx, anim.srcY, BARB_MOVE_FW, anim.srcH, drawX, drawY, dsize, dsize);
   }
   ctx.filter = 'none';
@@ -9943,6 +9984,14 @@ function runGameFrame() {
     drawProjectiles();
     drawSpellEffects();
     drawPlayer();
+    // Draw remote players
+    for (let id in remotePlayers) {
+      const p = remotePlayers[id];
+      // Don't draw players who are on a different stage
+      if (p.stage === stage) {
+        drawPlayer(p);
+      }
+    }
     drawMarkers();
     drawUI();
     if (gameState === 'levelup') {
