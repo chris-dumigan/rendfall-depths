@@ -1904,7 +1904,7 @@ function setupAbilitiesForClass(cls) {
   } else if (cls.name === 'Rogue') {
     abilities.push(
       mkab('q','Q','slash',     '#2ecc71', 240,  ps,                 qTooltipText('slash', ps, cls.primaryStat, cls[cls.primaryStat])),
-      mkab('w','W','throw',     '#27ae60', 360,  ps,                  `Throw dagger. ${ps} dmg in the direction you face.`),
+      mkab('w','W','throw',     '#27ae60', 360,  Math.round(ps*1.5),  `Throw dagger. ${Math.round(ps*1.5)} dmg in the direction you face.`),
       mkab('e','E','windwalk',  '#1abc9c', 840,  0,                   windwalkTooltipText(1, cls.primaryStat, cls[cls.primaryStat])),
       mkab('r','R','slicedice', '#16a085', 1800, Math.round(ps*3),   `Slice and Dice. ${Math.round(ps*3)} AoE damage around you (3x ${primaryStatLabel(cls.primaryStat)} base).`)
     );
@@ -3386,18 +3386,22 @@ function refreshBerserkTooltip(ab = abilities.find(a => a.name === 'berserk')) {
 
 function windwalkBonusMult(levelOrAb = abilities.find(a => a.name === 'windwalk')) {
   const lvl = typeof levelOrAb === 'number' ? levelOrAb : (levelOrAb?.level || 1);
-  return 1.45 + lvl * 0.30;
+  return 1.70 + lvl * 0.30;
 }
 
 function windwalkBonusDamage(ab = abilities.find(a => a.name === 'windwalk')) {
   return Math.round((player[player.primaryStat] || 1) * windwalkBonusMult(ab));
 }
 
+function formatAbilityMultiplier(mult) {
+  return `${Number.isInteger(mult) ? mult : Number(mult.toFixed(2))}x`;
+}
+
 function windwalkTooltipText(levelOrAb = abilities.find(a => a.name === 'windwalk'), stat = player.primaryStat, statValue = player[player.primaryStat]) {
   const lvl = typeof levelOrAb === 'number' ? levelOrAb : (levelOrAb?.level || 1);
   const mult = windwalkBonusMult(lvl);
   const value = statValue || player[stat] || 1;
-  return `Wind Walk. Enemies lose tracking for 10s. First damaging hit adds ${mult.toFixed(2)}x ${primaryStatLabel(stat)} (${Math.round(value * mult)} bonus dmg) to Slash damage.`;
+  return `Wind Walk. Enemies lose tracking for 10s. First damaging Slash adds ${formatAbilityMultiplier(mult)} ${primaryStatLabel(stat)} (${Math.round(value * mult)} bonus dmg), then Wind Walk ends.`;
 }
 
 function refreshWindwalkTooltip() {

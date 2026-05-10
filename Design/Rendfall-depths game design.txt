@@ -66,8 +66,9 @@ ROGUE
   Q  Slash        1× AGI dmg         4s  CD   (quick melee strike)
   W  Throw        1.5× AGI dmg       6s  CD   (dagger projectile in facing direction)
   E  Wind Walk    —                  14s CD   (enemies lose tracking; sprite tinted teal;
-                                               breaks on first attack for 2× AGI bonus
-                                               damage; exit animation plays)
+                                               breaks on first damaging Slash for
+                                               2x/2.3x/2.6x AGI bonus damage by level;
+                                               exit animation plays)
   R  Slice & Dice —                  25s CD   (5s: all cooldowns tick at 2× speed)
 
 
