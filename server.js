@@ -35,6 +35,13 @@ io.on('connection', (socket) => {
   socket.on('playerUpdate', (data) => {
     socket.broadcast.emit('playerUpdate', { id: socket.id, ...data });
   });
+  
+  socket.on('playerAction', (data) => {
+    socket.broadcast.emit('playerAction', { 
+      playerId: socket.id, 
+      ...data 
+    });
+  });
 
   // Host broadcasts enemy state updates
   socket.on('hostEnemySync', (data) => {

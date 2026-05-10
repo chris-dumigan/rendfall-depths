@@ -1994,16 +1994,43 @@ function initMultiplayer() {
     }
   });
 
-  // When another player casts an ability
-  socket.on('playerActed', (actionData) => {
-    const remoteHero = remotePlayers[actionData.id];
-    if (remoteHero) {
-      remoteHero.state = 'attacking';
-      remoteHero.activeAbility = actionData.action;
-      remoteHero.direction = actionData.direction;
-      
-      // OPTIONAL: Play sound effects locally for remote player actions!
-      if (actionData.action === 'fireball') playsfx('fireballCast');
+  socket.on('playerAction', (data) => {
+    // Safety check: Ignore our own echoed actions
+    if (data.playerId === socket.id) return;
+
+    const rPlayer = remotePlayers[data.playerId];
+    if (rPlayer) {
+      rPlayer.state = 'attacking';
+      rPlayer.activeAbility = data.action;
+      rPlayer.direction = data.direction;
+      rPlayer.attackFrame = 0;
+      rPlayer.atkFrameTick = 0;
+    }
+
+    console.log(`[Melee Sound Sync] Received playerAction: "${data.action}" from ${data.playerId}`);
+
+    try {
+      if (data.action === 'whirlwind') {
+        playsfx('whirlwind');
+      } else if (data.action === 'slam') {
+        playsfx('stoneCrash');
+      } else if (data.action === 'slicedice') {
+        playSfxBurst('rogueSlash', 3, 150); 
+      } else if (data.action === 'frostnova') {
+        playsfx('frostNova');
+      } else if (data.action === 'blastwave') {
+        playsfx('blastwave');
+      } else if (data.action === 'fireball') {
+        // Fallback in case projectile spawning sound does not play
+        playsfx('fireballCast');
+      } else if (data.action === 'throw') {
+        playsfx('knifeThrow');
+      } else {
+        // Default swing sound for base melee attacks
+        playsfx('swing'); 
+      }
+    } catch (err) {
+      console.warn(`[Melee Sound Sync] Failed to play sound for action: ${data.action}`, err);
     }
   });
   
@@ -2043,10 +2070,16 @@ function initMultiplayer() {
   // --- HOST ONLY LISTENER ---
   socket.on('hostApplyClientDamage', (data) => {
     if (!isHost) return;
-  
+
     const enemy = enemies.find(e => e.id === data.enemyId);
     if (enemy && enemy.hp > 0 && !enemy.dying) {
-      // Host runs the full calculation block on behalf of the client
+      // Play melee hit sound locally on Host when Client connects an attack
+      try {
+        playsfx('hit'); 
+      } catch (err) {
+        console.warn("Melee hit sound failed:", err);
+      }
+
       applyDamageToEnemy(enemy, data.baseDmg, data.color, data.clientId);
     }
   });
@@ -2071,7 +2104,32 @@ function initMultiplayer() {
   });
 
   socket.on('playerUpdate', (data) => {
-    remotePlayers[data.id] = data;
+    // Avoid updating ourselves
+    if (data.id === socket.id) return;
+
+    const remoteHero = remotePlayers[data.id];
+    if (remoteHero) {
+      // Update their visual properties
+      remoteHero.x = data.x;
+      remoteHero.y = data.y;
+      remoteHero.direction = data.direction;
+      remoteHero.frameIndex = data.frameIndex;
+      remoteHero.state = data.state;
+      remoteHero.activeAbility = data.activeAbility;
+      remoteHero.attackFrame = data.attackFrame;
+      remoteHero.dying = data.dying;
+      remoteHero.deathFrame = data.deathFrame;
+      remoteHero.hitFlash = data.hitFlash;
+      remoteHero.berserkTimer = data.berserkTimer;
+      remoteHero.avatarActive = data.avatarActive;
+      remoteHero.slowTimer = data.slowTimer;
+      remoteHero.windwalkActive = data.windwalkActive;
+      remoteHero.sliceDiceTimer = data.sliceDiceTimer;
+      remoteHero.stage = data.stage;
+    } else {
+      // If the remote player doesn't exist yet, register them
+      remotePlayers[data.id] = { ...data };
+    }
   });
 
   // Client receives enemy positions from Host
@@ -2548,7 +2606,7 @@ document.addEventListener('keydown', (e) => {
       }
     });
   }
-}); // <--- keydown properly ends here!
+});
 
 document.addEventListener('keyup', (e) => {
   keys[e.key] = false;
