@@ -1,3 +1,9 @@
+// multiplayer server stuff
+let socket;
+const remotePlayers = {}; // Stores other players keyed by their socket ID
+let isHost = false; // Determined by the server upon connecting
+
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1576,6 +1582,26 @@ function spawnStage(n) {
   doorOpen = false;
   resumeCountdown = 0;
   abilities.forEach(ab => { ab.timer = 0; });
+
+  // MULTIPLAYER CHECK: Only the host spawns enemies.
+  // If we are a client, we exit early and let the Host's sync handle creating enemies.
+  if (!isHost && socket) {
+    return; 
+  }
+  // single player stage spawn
+  player.x = Math.floor(MAP_COLS / 2) * TILE_SIZE;
+  player.y = (MAP_ROWS - 3) * TILE_SIZE;
+  player.direction = 'up';
+  enemies.length = 0;
+  projectiles.forEach(p => stopSfxInstance(p.flySound));
+  projectiles.length = 0;
+  spellEffects.length = 0;
+  markers.length = 0;
+  hazards.length = 0;
+  telegraphs.length = 0;
+  doorOpen = false;
+  resumeCountdown = 0;
+  abilities.forEach(ab => { ab.timer = 0; });
   if      (n === 1)  { for (let i=0;i<6;i++)  enemies.push(spawnGoblin()); }
   else if (n === 2)  {
     placePlayerAt(0.50, 0.705);
@@ -1926,6 +1952,219 @@ function orderedAbilities(list = abilities) {
   return [...list].sort((a, b) => orderOf(a) - orderOf(b));
 }
 
+
+function initMultiplayer() {
+  // Establish connection to our Node server
+  socket = io();
+
+  // Tell the server we are entering the game with our setup
+  socket.emit('joinGame', {
+    x: player.x,
+    y: player.y,
+    direction: player.direction,
+    className: player.className,
+    state: player.state,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    dying: player.dying
+  });
+
+  // Get list of existing players when we join
+  socket.on('currentPlayers', (serverPlayers) => {
+    Object.keys(serverPlayers).forEach((id) => {
+      if (id !== socket.id) {
+        remotePlayers[id] = serverPlayers[id];
+      }
+    });
+  });
+
+  // When a new player connects
+  socket.on('newPlayer', (playerInfo) => {
+    remotePlayers[playerInfo.id] = playerInfo;
+  });
+
+  // When another player moves
+  socket.on('playerMoved', (playerInfo) => {
+    if (remotePlayers[playerInfo.id]) {
+      remotePlayers[playerInfo.id].x = playerInfo.x;
+      remotePlayers[playerInfo.id].y = playerInfo.y;
+      remotePlayers[playerInfo.id].direction = playerInfo.direction;
+      remotePlayers[playerInfo.id].state = playerInfo.state;
+      remotePlayers[playerInfo.id].moving = playerInfo.moving;
+    }
+  });
+
+  socket.on('playerAction', (data) => {
+    // Safety check: Ignore our own echoed actions
+    if (data.playerId === socket.id) return;
+
+    const rPlayer = remotePlayers[data.playerId];
+    if (rPlayer) {
+      rPlayer.state = 'attacking';
+      rPlayer.activeAbility = data.action;
+      rPlayer.direction = data.direction;
+      rPlayer.attackFrame = 0;
+      rPlayer.atkFrameTick = 0;
+    }
+
+    console.log(`[Melee Sound Sync] Received playerAction: "${data.action}" from ${data.playerId}`);
+
+    try {
+      if (data.action === 'whirlwind') {
+        playsfx('whirlwind');
+      } else if (data.action === 'slam') {
+        playsfx('stoneCrash');
+      } else if (data.action === 'slicedice') {
+        playSfxBurst('rogueSlash', 3, 150); 
+      } else if (data.action === 'frostnova') {
+        playsfx('frostNova');
+      } else if (data.action === 'blastwave') {
+        playsfx('blastwave');
+      } else if (data.action === 'fireball') {
+        // Fallback in case projectile spawning sound does not play
+        playsfx('fireballCast');
+      } else if (data.action === 'throw') {
+        playsfx('knifeThrow');
+      } else {
+        // Default swing sound for base melee attacks
+        playsfx('swing'); 
+      }
+    } catch (err) {
+      console.warn(`[Melee Sound Sync] Failed to play sound for action: ${data.action}`, err);
+    }
+  });
+  
+  console.log("[Multiplayer Init] Registering network listeners...");
+
+  socket.on('spawnProjectile', (data) => {
+    console.log(`[Network Listener] Received 'spawnProjectile' from server:`, data);
+
+    if (data.ownerId === socket.id) {
+      console.log(`[Network Listener] Ignored packet (we are the creator)`);
+      return;
+    }
+
+    console.log(`[Network Listener] Spawning projectile on remote screen now!`);
+    
+    // Spawns the remote projectile using the exact velocities calculated by the sender!
+    spawnProjectile(
+      data.sx,
+      data.sy,
+      data.dx,
+      data.dy,
+      data.damage,
+      data.type,
+      data.ownerId
+    );
+  });
+  
+  socket.on('applyForcedDamage', (data) => {
+    if (isHost) return;
+    const dmg = damagePlayer(data.amount, 15);
+    if (dmg > 0) {
+      addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, data.type === 'dragonfire' ? '#ff8800' : '#aaccff');
+    }
+    playsfx('damage');
+  });
+  
+  // --- HOST ONLY LISTENER ---
+  socket.on('hostApplyClientDamage', (data) => {
+    if (!isHost) return;
+
+    const enemy = enemies.find(e => e.id === data.enemyId);
+    if (enemy && enemy.hp > 0 && !enemy.dying) {
+      // Play melee hit sound locally on Host when Client connects an attack
+      try {
+        playsfx('hit'); 
+      } catch (err) {
+        console.warn("Melee hit sound failed:", err);
+      }
+
+      applyDamageToEnemy(enemy, data.baseDmg, data.color, data.clientId);
+    }
+  });
+
+  // --- CLIENT ONLY LISTENER ---
+  socket.on('clientEarnXP', (data) => {
+    if (isHost) return;
+    grantExp(data.xp);
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 14, `+${data.xp} EXP`, '#cc88ff');
+  });
+
+  // Remove a player who left
+  socket.on('playerDisconnected', (id) => {
+    delete remotePlayers[id];
+  });
+  
+  socket.on('initSession', (data) => {
+    isHost = data.isHost;
+    console.log(isHost ? "You are the HOST. You control the monsters." : "You are the CLIENT. Synced to Host.");
+    // Force a fresh stage spawn now that we officially know our role!
+    spawnStage(stage);
+  });
+
+  socket.on('playerUpdate', (data) => {
+    // Avoid updating ourselves
+    if (data.id === socket.id) return;
+
+    const remoteHero = remotePlayers[data.id];
+    if (remoteHero) {
+      // Update their visual properties
+      remoteHero.x = data.x;
+      remoteHero.y = data.y;
+      remoteHero.direction = data.direction;
+      remoteHero.frameIndex = data.frameIndex;
+      remoteHero.state = data.state;
+      remoteHero.activeAbility = data.activeAbility;
+      remoteHero.attackFrame = data.attackFrame;
+      remoteHero.dying = data.dying;
+      remoteHero.deathFrame = data.deathFrame;
+      remoteHero.hitFlash = data.hitFlash;
+      remoteHero.berserkTimer = data.berserkTimer;
+      remoteHero.avatarActive = data.avatarActive;
+      remoteHero.slowTimer = data.slowTimer;
+      remoteHero.windwalkActive = data.windwalkActive;
+      remoteHero.sliceDiceTimer = data.sliceDiceTimer;
+      remoteHero.stage = data.stage;
+    } else {
+      // If the remote player doesn't exist yet, register them
+      remotePlayers[data.id] = { ...data };
+    }
+  });
+
+  // Client receives enemy positions from Host
+  socket.on('clientEnemySync', (syncData) => {
+    if (isHost) return; // Host ignores syncs
+    // Temporary debug log: Open your browser F12 console on the client window.
+    // If you see this printing rapidly, the network sync is working perfectly!
+    console.log("Received enemy positions from Host:", syncData.enemies.length);
+    // Reconstruct/update enemies array on the Client side to match the Host
+    // 1. Map the incoming sync data to actual enemy objects
+    const updatedEnemies = syncData.enemies.map(syncE => {
+      // Find an existing local enemy by ID, or start a new empty object
+      let localE = enemies.find(e => e.id === syncE.id);
+      if (!localE) {
+        localE = { id: syncE.id };
+      }
+      return Object.assign(localE, syncE);
+    });
+
+    // 2. Clear the const array without breaking its reference
+    enemies.length = 0;
+
+    // 3. Repopulate the original array with the updated enemies
+    enemies.push(...updatedEnemies);
+  });
+
+  // Client receives door status
+  socket.on('clientDoorSync', (data) => {
+    if (!isHost) {
+      doorOpen = data.doorOpen;
+    }
+  });
+}
+
+
 function startGame(classIdx) {
   const cls = CLASSES[classIdx];
   const speed = Math.round(2.5 * (1 + cls.agi * 0.05) * 10) / 10;
@@ -1970,6 +2209,7 @@ function startGame(classIdx) {
   stage = 1;
   spawnStage(1);
   gameState = 'playing';
+  initMultiplayer();
 }
 
 function expForEnemy(e) {
@@ -2318,37 +2558,56 @@ document.addEventListener('keydown', (e) => {
   if (player.state === 'idle') {
     abilities.forEach(ab => {
       if (e.key.toLowerCase() === ab.key && ab.timer === 0 && ab.level > 0) {
-      ab.timer = ab.cooldown;
-      player.castDirection = player.direction;
-      if (ab.name === 'berserk') { registerSkillCast(ab); startBerserkCast(); return; }
-      if (ab.name === 'blink') {
-        if (ab.level >= 2 && player.blinkChargeAvailable) {
-          // Second charge — consume it and start full CD
-          player.blinkChargeAvailable = false;
-          ab.timer = ab.cooldown;
-        } else {
-          // First blink — if Lv 2, short 1s gap before second charge; else full CD
-          if (ab.level >= 2) {
-            player.blinkChargeAvailable = true;
-            ab.timer = 60; // 1s gap
+        ab.timer = ab.cooldown;
+        player.castDirection = player.direction;
+        
+        if (ab.name === 'berserk') { 
+          registerSkillCast(ab); 
+          startBerserkCast(); 
+          if (socket) {
+            socket.emit('playerAction', { action: 'berserk', direction: player.direction });
           }
-          // (Lv 1: ab.timer already set to ab.cooldown above)
+          return; 
         }
+        
+        if (ab.name === 'blink') {
+          if (ab.level >= 2 && player.blinkChargeAvailable) {
+            player.blinkChargeAvailable = false;
+            ab.timer = ab.cooldown;
+          } else {
+            if (ab.level >= 2) {
+              player.blinkChargeAvailable = true;
+              ab.timer = 60; // 1s gap
+            }
+          }
+          registerSkillCast(ab);
+          startMageBlink();
+          if (socket) {
+            socket.emit('playerAction', { action: 'blink', direction: player.direction });
+          }
+          return;
+        }
+        
+        if (ab.name === 'fireball') playsfx('fireballCast');
+        
         registerSkillCast(ab);
-        startMageBlink();
-        return;
-      }
-      if (ab.name === 'fireball') playsfx('fireballCast');
-      registerSkillCast(ab);
-      player.state         = 'attacking';
+        player.state         = 'attacking';
         player.activeAbility = ab.key;
         player.attackFrame   = 0;
         player.atkFrameTick  = 0;
         player.hitDealt      = false;
+        
+        if (socket) {
+          socket.emit('playerAction', {
+            action: ab.name,
+            direction: player.direction
+          });
+        }
       }
     });
   }
 });
+
 document.addEventListener('keyup', (e) => {
   keys[e.key] = false;
   if (gameState === 'levelup' && levelupPhase === 'talentConfirm' &&
@@ -2356,6 +2615,7 @@ document.addEventListener('keyup', (e) => {
     talentConfirmData.armed = true;
   }
 });
+
 document.addEventListener('mousemove', (ev) => {
   const rect = canvas.getBoundingClientRect();
   mouseX = ev.clientX - rect.left;
@@ -2370,6 +2630,7 @@ document.addEventListener('mousemove', (ev) => {
     applyGameVolume();
   }
 });
+
 document.addEventListener('mousedown', (ev) => {
   const rect = canvas.getBoundingClientRect();
   const x = ev.clientX - rect.left;
@@ -2390,7 +2651,9 @@ document.addEventListener('mousedown', (ev) => {
     }
   }
 });
+
 document.addEventListener('mouseup', () => { volDragging = false; });
+
 document.addEventListener('click', (ev) => {
   tryStartMusic();
   const rect = canvas.getBoundingClientRect();
@@ -2868,6 +3131,7 @@ function getHitbox() {
 }
 
 function damagePlayer(baseDmg, flashDur) {
+  return; // GOD MODE for testing multiplayer
   if (player.slamImmunity > 0) return 0;
   if (player.enlightenShield && player.enlightenShieldCD <= 0) {
     player.enlightenShieldCD = 900;
@@ -2903,11 +3167,25 @@ function berserkTooltipText(levelOrAb = abilities.find(a => a.name === 'berserk'
   return `Berserk rage. ${statFormulaMultiplierText(mult)} dmg dealt, 1.5x dmg taken for 10s.`;
 }
 
-function applyDamageToEnemy(e, baseDmg, color) {
+function applyDamageToEnemy(e, baseDmg, color, sourceClientId = null) {
+  // 📡 MULTIPLAYER CLIENT CHECK
+  if (socket && !isHost) {
+    // If we are the client, we do not run calculations locally.
+    // Instead, we immediately ask the Host to evaluate and apply the hit.
+    socket.emit('clientRequestDamage', {
+      enemyId: e.id,
+      baseDmg: baseDmg,
+      color: color
+    });
+    return; // Exit early! Let the Host do the rest.
+  }
+
+  // 👑 HOST ONLY / SINGLEPLAYER CONTINUES BEYOND THIS POINT:
   let dmg = baseDmg * berserkDamageMultiplier();
   if (e.type === 'mimic' && e.state === 'mimicCast') {
     dmg *= 0.7;
   }
+  
   if (e.type === 'spellblade') {
     if (e.state === 'block' && e.blockTimer > 0) {
       addMarker(e.x + SPELLBLADE_SIZE / 2, e.y - 20, 'BLOCK', '#d9f2ff');
@@ -2928,9 +3206,13 @@ function applyDamageToEnemy(e, baseDmg, color) {
       return;
     }
   }
+
+  // Handle player-specific talents (Targeting the attacker)
+  // Note: Since Host calculates this, we default to the Host's local talent rules.
   if (player.executionerActive && e.hp / e.maxHp <= 0.35) {
     dmg *= 1.25;
   }
+  
   if (player.assassinProc) {
     const assassinBonus = player.assassinTalent ? Math.round((player[player.primaryStat] || 1) * 1.5) : 15;
     dmg += assassinBonus;
@@ -2938,11 +3220,13 @@ function applyDamageToEnemy(e, baseDmg, color) {
     player.assassinProcCD = 900;
     addMarker(e.x + DISPLAY_SIZE / 2, e.y - 20, `+${assassinBonus}!`, '#27ae60');
   }
+
   if (e.type === 'orc' && e.shielded && !e.enraged && isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, ORC_SIZE)) {
     dmg *= 0.45;
     addMarker(e.x + ORC_SIZE / 2, e.y - 20, 'BLOCK', '#b0c4de');
     playsfx('shieldBlock');
   }
+
   if (e.type === 'skeletal_champion' && (e.blockCooldown || 0) <= 0 &&
       isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, SKELETAL_CHAMPION_SIZE)) {
     e.blockCooldown = SKELETAL_CHAMPION_BLOCK_CD;
@@ -2951,35 +3235,43 @@ function applyDamageToEnemy(e, baseDmg, color) {
     playsfx('shieldBlock');
     return;
   }
+
   if (e.type === 'trib_sentinel' && isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, TRIB_SENTINEL_SIZE)) {
     dmg *= 0.6;
     e.blockTimer = 20;
     addMarker(e.x + TRIB_SENTINEL_SIZE / 2, e.y - 22, 'GUARD', '#b0c4de');
     playsfx('shieldBlock');
   }
+
   dmg = Math.round(dmg);
   e.hp -= dmg;
   e.hitFlash = 12;
   addMarker(e.x + DISPLAY_SIZE / 2, e.y, `-${dmg}`, color || '#ff4444');
-  if (player.lifesteal > 0) {
+
+  // Lifesteal targets whoever triggered the hit locally
+  if (player.lifesteal > 0 && !sourceClientId) {
     const steal = player.bloodlustKillTimer > 0 ? player.lifesteal * 2 : player.lifesteal;
     const heal = Math.max(1, Math.round(dmg * steal));
     player.hp = Math.min(player.maxHp, player.hp + heal);
     addMarker(player.x + DISPLAY_SIZE / 2, player.y, `+${heal}`, '#2ecc71');
   }
+
+  // Handle Death Triggers
   if (e.hp <= 0 && !e.dying && !e.deathDone) {
-    // Pick a random death animation row from this enemy's death sheet
     const deathRowCounts = { minotaur: 4, orc: 4 };
     const deathRows = { goblin: [1, 2, 3] };
     const directionalDeath = e.type === 'ghoul' || e.type === 'golem' || e.type === 'skeletal_champion' || e.type === 'spellblade' || e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest';
     const hasCorpse = e.type in deathRowCounts || e.type in deathRows || directionalDeath;
     const rows = deathRowCounts[e.type] || 1;
+    
     e.dying = true; e.deathFrame = 0; e.deathTick = 0; e.deathDone = false;
     e.deathRow = deathRows[e.type]
       ? deathRows[e.type][Math.floor(Math.random() * deathRows[e.type].length)]
       : directionalDeath ? dirToRow(e.direction)
       : Math.floor(Math.random() * rows);
-    e.corpseTimer = hasCorpse ? 999999 : 0; // bodies linger until stage clears
+    e.corpseTimer = hasCorpse ? 999999 : 0; 
+
+    // Goblin scatter behavior
     if (e.type === 'goblin') {
       enemies.forEach(o => {
         if (o.type === 'goblin' && o !== e && !o.dying && o.hp > 0) {
@@ -2991,7 +3283,8 @@ function applyDamageToEnemy(e, baseDmg, color) {
         }
       });
     }
-    // Abomination feeding — ghoul dies near it, heals it and triggers speed lunge
+
+    // Abomination feeding mechanic
     if (e.type === 'ghoul') {
       const abom = enemies.find(a => a.type === 'abomination' && !a.dying && !a.deathDone && a.hp > 0);
       if (abom) {
@@ -3009,9 +3302,14 @@ function applyDamageToEnemy(e, baseDmg, color) {
         }
       }
     }
-    if (player.lifesteal > 0) player.bloodlustKillTimer = 120;
+
+    if (player.lifesteal > 0 && !sourceClientId) player.bloodlustKillTimer = 120;
+    
+    // Drops (Host only handles physical drops)
     if (e.type === 'minotaur') tryDropPendant(e, STAGE3_PENDANTS);
     if (e.type === 'mimic' || e.type === 'spellblade') tryDropPendant(e, STAGE8_PENDANTS);
+
+    // Audio SFX trigger
     if      (e.type === 'goblin')      playsfx('goblinDeath');
     else if (e.type === 'golem')       playsfx('golemDeath');
     else if (e.type === 'archer' || e.type === 'skeletal_champion') playsfx('skeletonDeath');
@@ -3028,10 +3326,18 @@ function applyDamageToEnemy(e, baseDmg, color) {
       else if (mc === 'Mage')  playsfx('mageDeath');
     }
     else if (e.type === 'johnpork')    playsfx('bruteDeath');
+
+    // Distribute EXP
     const xp = expForEnemy(e);
     if (xp > 0) {
-      grantExp(xp);
-      addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+      if (sourceClientId) {
+        // 📡 Send the XP to the Client who got the kill!
+        if (socket) socket.emit('hostConfirmedKill', { clientId: sourceClientId, xp: xp });
+      } else {
+        // Local Host gets the XP
+        grantExp(xp);
+        addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+      }
     }
   }
 }
@@ -3189,15 +3495,17 @@ function fireAbility() {
 
   if (ab.name === 'throw') {
     if (player.windwalkActive) startWindwalkExit();
-    // Spawn a dagger projectile in the direction the rogue faces
-    const cx = player.x + DISPLAY_SIZE / 2, cy = player.y + DISPLAY_SIZE / 2;
+    
+    const cx = player.x + DISPLAY_SIZE / 2;
+    const cy = player.y + DISPLAY_SIZE / 2;
     const spd = Math.max(7, Math.round(DISPLAY_SIZE * 0.20));
     const dirs = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
     const [dx, dy] = dirs[player.castDirection || player.direction] || [0, 1];
-    const proj = { x: cx, y: cy, dx: dx * spd, dy: dy * spd,
-      damage: ab.damage, type: 'dagger', life: 500, hit: false };
-    projectiles.push(proj);
-    playsfx('knifeThrow');
+
+    console.log(`[fireAbility] Local Rogue triggering throw! dx: ${dx}, dy: ${dy}`);
+
+    // Call our unified spawn projectile engine!
+    spawnProjectile(cx, cy, dx * spd, dy * spd, ab.damage, 'dagger');
     return;
   }
 
@@ -3231,15 +3539,16 @@ function fireAbility() {
   }
 
   if (ab.name === 'fireball') {
-    const cx = player.x + DISPLAY_SIZE / 2, cy = player.y + DISPLAY_SIZE / 2;
+    const cx = player.x + DISPLAY_SIZE / 2;
+    const cy = player.y + DISPLAY_SIZE / 2;
     const spd = Math.max(5, Math.round(DISPLAY_SIZE * 0.14));
     const dirs = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
     const [dx, dy] = dirs[player.castDirection || player.direction] || [0, 1];
-    projectiles.push({
-      x: cx, y: cy, dx: dx * spd, dy: dy * spd,
-      damage: ab.damage, type: 'fireball', life: 500, hit: false, frame: 0, frameTick: 0,
-      flySound: startLoopingSfx('fireballFly')
-    });
+
+    console.log(`[fireAbility] Local Mage triggering fireball! dx: ${dx}, dy: ${dy}`);
+
+    // Call our unified spawn projectile engine!
+    spawnProjectile(cx, cy, dx * spd, dy * spd, ab.damage, 'fireball');
     return;
   }
 
@@ -3729,6 +4038,39 @@ function updatePlayer() {
   }
 
   if (player.hitFlash > 0) player.hitFlash--;
+
+  if (socket) {
+    socket.emit('playerMovement', {
+      x: player.x,
+      y: player.y,
+      direction: player.direction,
+      state: player.state,
+      moving: player.moving
+    });
+  // Send local player updates to the server so other players can see us
+  if (socket && socket.connected) {
+    socket.emit('playerUpdate', {
+      x: player.x,
+      y: player.y,
+      className: player.className,
+      direction: player.direction,
+      frameIndex: player.frameIndex,
+      state: player.state,
+      activeAbility: player.activeAbility,
+      attackFrame: player.attackFrame,
+      dying: player.dying,
+      deathFrame: player.deathFrame,
+      hitFlash: player.hitFlash,
+      berserkTimer: player.berserkTimer,
+      avatarActive: player.avatarActive,
+      slowTimer: player.slowTimer,
+      windwalkActive: player.windwalkActive,
+      sliceDiceTimer: player.sliceDiceTimer,
+      stage: stage // Crucial: so we only draw players on the same level!
+    });
+  }
+}
+
 }
 
 function updateGolem(e) {
@@ -4097,43 +4439,104 @@ function updateMinotaur(e) {
 
 // ── Projectile system ─────────────────────────────────────────────────────────
 
-function spawnProjectile(sx, sy, damage, speed, type) {
-  const tx = player.x + DISPLAY_SIZE / 2, ty = player.y + DISPLAY_SIZE / 2;
-  const dx = tx - sx, dy = ty - sy, mag = Math.hypot(dx, dy) || 1;
-  const proj = { x: sx, y: sy, dx: dx/mag * speed, dy: dy/mag * speed,
-    damage, type, life: 400, hit: false };
-  if (type === 'rock') {
-    proj.targetX = tx; proj.targetY = ty;
-    proj.shadowLife = Math.max(20, Math.ceil(Math.hypot(tx - sx, ty - sy) / Math.max(1, speed)));
+function spawnProjectile(sx, sy, dx, dy, damage, type, ownerId = null) {
+  const isLocal = (ownerId === null);
+  const projOwner = isLocal ? (socket && socket.connected ? socket.id : 'local') : ownerId;
+
+  console.log(`[spawnProjectile ENTRY] Type: "${type}", IsLocal: ${isLocal}, Owner: ${projOwner}, Coords: (${sx}, ${sy})`);
+
+  // 1. Build the unified projectile object
+  const proj = {
+    id: `proj_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    ownerId: projOwner,
+    x: sx,
+    y: sy,
+    dx: dx,
+    dy: dy,
+    damage: damage,
+    type: type,
+    life: 500,
+    hit: false,
+    isRemote: !isLocal
+  };
+
+  // Add Mage-specific fireball parameters
+  if (type === 'fireball') {
+    proj.frame = 0;
+    proj.frameTick = 0;
+    try {
+      proj.flySound = startLoopingSfx('fireballFly');
+    } catch (e) {
+      console.warn("Could not start looping fireball sound:", e);
+    }
   }
+
+  // 2. Add to local projectile registry
   projectiles.push(proj);
+  console.log(`[spawnProjectile] Spawned successfully. Active projectiles count: ${projectiles.length}`);
+
+  // 3. Play the audio locally on whichever client is running this function
+  try {
+    if (type === 'dagger') {
+      console.log(`[spawnProjectile Sound] Playing knifeThrow sfx`);
+      playsfx('knifeThrow');
+    } else if (type === 'fireball') {
+      console.log(`[spawnProjectile Sound] Playing fireballCast sfx`);
+      playsfx('fireballCast');
+    }
+  } catch (err) {
+    console.warn("Sound play failed:", err);
+  }
+
+  // 4. 📡 MULTIPLAYER BROADCAST: Send this event to our co-op partner
+  if (isLocal && socket && socket.connected) {
+    console.log(`[spawnProjectile Network] Sending event to server...`);
+    socket.emit('spawnProjectile', {
+      ownerId: socket.id,
+      sx: sx,
+      sy: sy,
+      dx: dx,
+      dy: dy,
+      damage: damage,
+      type: type
+    });
+  }
 }
 
 function updateProjectiles() {
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
     p.x += p.dx; p.y += p.dy;
+    
     if (p.frameTick !== undefined && ++p.frameTick >= 6) {
       p.frameTick = 0;
       p.frame = ((p.frame || 0) + 1) % 4;
     }
 
+    // A. ROCK LANDING BEHAVIOR
     if (p.type === 'rock') {
       const toTarget = Math.hypot(p.x - p.targetX, p.y - p.targetY);
       const stepDist = Math.hypot(p.dx, p.dy);
       if (--p.life <= 0 || toTarget <= stepDist + 2) {
         p.x = p.targetX; p.y = p.targetY;
-        checkRockSplash(p);
+        
+        // Only run splash mechanics if we are the Host or in Singleplayer
+        if (isHost || !socket) {
+          checkRockSplash(p);
+        }
         spawnTrollRockImpact(p.x, p.y);
         projectiles.splice(i, 1);
       }
       continue;
     }
 
+    // B. WALL / SOLID ENVIRONMENT IMPACTS
     if (--p.life <= 0 || isSolid(p.x, p.y)) {
       if (p.type === 'fireball') {
         stopSfxInstance(p.flySound);
-        applyFireballSplash(p.x, p.y, Math.round(p.damage * 0.65));
+        if (isHost || !socket) {
+          applyFireballSplash(p.x, p.y, Math.round(p.damage * 0.65));
+        }
         spawnFireballExplosion(p.x, p.y);
         playsfx('fireballImpact');
       }
@@ -4145,6 +4548,24 @@ function updateProjectiles() {
       projectiles.splice(i, 1);
       continue;
     }
+
+    // 📡 MULTIPLAYER CHECK: Clients exit update early here.
+    // They visual update positions, but they DO NOT evaluate player or enemy damage.
+    if (socket && !isHost) {
+      continue;
+    }
+
+    // C. ENEMY PROJECTILE COLLISION (Host Only)
+    // Find all targets in game (Host player + any client players)
+    const possibleTargets = [player];
+    for (let id in remotePlayers) {
+      const rp = remotePlayers[id];
+      if (rp.stage === stage) {
+        possibleTargets.push(rp);
+      }
+    }
+
+    // D. FIREBALL COLLISION (Player-fired, hits enemies)
     if (p.type === 'fireball') {
       let hit = false;
       enemies.forEach(e => {
@@ -4161,47 +4582,73 @@ function updateProjectiles() {
       if (hit) projectiles.splice(i, 1);
       continue;
     }
+
+    // E. DAGGER COLLISION (Player-fired, hits enemies)
     if (p.type === 'dagger') {
-      // Dagger hits enemies (player-fired), not the player
       let hit = false;
       enemies.forEach(e => {
         if (hit || e.hp <= 0 || e.dying) return;
         const eb = enemyHitbox(e);
         if (p.x >= eb.x && p.x <= eb.x + eb.w && p.y >= eb.y && p.y <= eb.y + eb.h) {
-          applyDamageToEnemy(e, p.damage, '#2ecc71');
+          // Pass the projectile owner so they get credit for the kill!
+          applyDamageToEnemy(e, p.damage, '#2ecc71', p.ownerId !== socket.id ? p.ownerId : null);
           playsfx('knifeImpact');
           hit = true;
         }
       });
-      if (hit) { projectiles.splice(i, 1); }
+      if (hit) projectiles.splice(i, 1);
       continue;
     }
+
+    // F. DRAGONFIRE COLLISION (Enemy-fired, can hit any player)
     if (p.type === 'dragonfire') {
       if (!p.hit) {
-        const dist = Math.hypot(p.x - (player.x + DISPLAY_SIZE/2), p.y - (player.y + DISPLAY_SIZE/2));
-        if (dist < DISPLAY_SIZE * 0.65) {
-          p.hit = true;
-          if (p.flySound) stopSfxInstance(p.flySound);
-          spawnFireballExplosion(p.x, p.y);
-          playsfx('fireballImpact');
-          const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
-          const dmg = damagePlayer(base, 15);
-          if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800');
-          projectiles.splice(i, 1);
-        }
+        possibleTargets.forEach(t => {
+          if (p.hit) return;
+          const dist = Math.hypot(p.x - (t.x + DISPLAY_SIZE/2), p.y - (t.y + DISPLAY_SIZE/2));
+          if (dist < DISPLAY_SIZE * 0.65) {
+            p.hit = true;
+            if (p.flySound) stopSfxInstance(p.flySound);
+            spawnFireballExplosion(p.x, p.y);
+            playsfx('fireballImpact');
+            
+            const base = t.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+            
+            // Apply damage to whichever player got hit (Host or Client)
+            if (t === player) {
+              const dmg = damagePlayer(base, 15);
+              if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800');
+            } else {
+              // Tell client they were hit
+              socket.emit('playerForceDamage', { targetId: t.id, amount: base, type: 'dragonfire' });
+            }
+            projectiles.splice(i, 1);
+          }
+        });
       }
       continue;
     }
+
+    // G. DEFAULT ENEMY PROJECTILE COLLISION (Arrows, etc., can hit any player)
     if (!p.hit) {
-      const dist = Math.hypot(p.x - (player.x + DISPLAY_SIZE/2), p.y - (player.y + DISPLAY_SIZE/2));
-      if (dist < DISPLAY_SIZE * 0.6) {
-        p.hit = true;
-        const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
-        const dmg = damagePlayer(base, 15);
-        if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#aaccff');
-        playsfx('damage');
-        projectiles.splice(i, 1);
-      }
+      possibleTargets.forEach(t => {
+        if (p.hit) return;
+        const dist = Math.hypot(p.x - (t.x + DISPLAY_SIZE/2), p.y - (t.y + DISPLAY_SIZE/2));
+        if (dist < DISPLAY_SIZE * 0.6) {
+          p.hit = true;
+          const base = t.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+          
+          if (t === player) {
+            const dmg = damagePlayer(base, 15);
+            if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#aaccff');
+            playsfx('damage');
+          } else {
+            // Tell client they were hit
+            socket.emit('playerForceDamage', { targetId: t.id, amount: base, type: 'arrow' });
+          }
+          projectiles.splice(i, 1);
+        }
+      });
     }
   }
 }
@@ -6530,30 +6977,40 @@ function restartCurrentStageSoftcore() {
 
 function update() {
   updatePlayer();
-  enemies.forEach(updateEnemy);
+  
+  // 1. Run visual/movement updates for BOTH Host and Client
   updateProjectiles();
   updateSpellEffects();
-  updateHazards();
-  updateTelegraphs();
-  abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
-  // Slice and dice: extra cooldown tick for double recharge rate
-  if (player.sliceDiceTimer > 0) {
-    player.sliceDiceTimer--;
+
+  if (isHost || !socket) {
+    // 2. Only the Host runs enemy AI, hazards, and telegraphs
+    enemies.forEach(updateEnemy);
+    updateHazards();
+    updateTelegraphs();
+  } else {
+    // Client-specific non-host updates (if any) can go here
   }
+
+  abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
+  
+  if (player.sliceDiceTimer > 0) player.sliceDiceTimer--;
   if (player.enlightenShieldCD > 0) player.enlightenShieldCD--;
   if (player.assassinProcCD > 0) {
     player.assassinProcCD--;
   } else if (player.assassinTalent || (player.pendants && player.pendants.some(p => p.name === 'the Assassin'))) {
     player.assassinProc = true;
   }
+
   for (let i = markers.length - 1; i >= 0; i--) {
     if (--markers[i].life <= 0) markers.splice(i, 1);
   }
+
+  // Handle Local Player Death
   if (player.hp <= 0) {
     if (!player.dying) {
       player.dying = true;
       player.deathFrame = 0; player.deathTick = 0; player.deathTimer = 0;
-      if (player.className === 'Barbarian')     playsfx('barbarianDeath');
+      if (player.className === 'Barbarian')      playsfx('barbarianDeath');
       else if (player.className === 'Rogue')    playsfx('rogueDeath');
       else if (player.className === 'Mage')     playsfx('mageDeath');
     }
@@ -6572,40 +7029,82 @@ function update() {
       }
     }
   }
-  // Advance death animations then hold corpse on screen
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    if (e.deathDone) {
-      if (e.corpseTimer > 0) { e.corpseTimer--; }
-      else { enemies.splice(i, 1); }
-      continue;
-    }
-    if (!e.dying) continue;
-    if (++e.deathTick >= FRAME_SPEED) {
-      e.deathTick = 0;
-      e.deathFrame++;
-      if (e.deathFrame >= 4) {
-        e.deathFrame = 3; // freeze on last frame
-        e.dying = false;
-        e.deathDone = true;
+
+  // Advance death animations for enemies (Only Host processes this locally)
+  if (isHost || !socket) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.deathDone) {
+        if (e.corpseTimer > 0) { e.corpseTimer--; }
+        else { enemies.splice(i, 1); }
+        continue;
+      }
+      if (!e.dying) continue;
+      if (++e.deathTick >= FRAME_SPEED) {
+        e.deathTick = 0;
+        e.deathFrame++;
+        if (e.deathFrame >= 4) {
+          e.deathFrame = 3; 
+          e.dying = false;
+          e.deathDone = true;
+        }
       }
     }
-  }
-  // Ghoul pit waves: next side wave spawns only after every ghoul is gone.
-  if (stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1) {
-    const ghoulsRemaining = enemies.some(e => e.type === 'ghoul' && e.hp > 0);
-    if (!ghoulsRemaining) {
-      ghoulWaveIndex++;
-      spawnGhoulWave(ghoulWaveIndex);
-    }
-  }
 
-  // Door opens / stage ends once all enemies are at least dying
-  const stageCombatDone = enemies.length === 0 || enemies.every(e => e.dying || e.deathDone);
-  const waitingForGhoulWave = stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1;
-  if (stageCombatDone && !waitingForGhoulWave) {
-    if (!doorOpen && stage < 11) doorOpen = true;
-    if (stage >= 11) { gameState = 'win'; return; }
+    // Ghoul pit waves
+    if (stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1) {
+      const ghoulsRemaining = enemies.some(e => e.type === 'ghoul' && e.hp > 0);
+      if (!ghoulsRemaining) {
+        ghoulWaveIndex++;
+        spawnGhoulWave(ghoulWaveIndex);
+      }
+    }
+
+    // Door opens / stage ends once all enemies are at least dying
+    const stageCombatDone = enemies.length === 0 || enemies.every(e => e.dying || e.deathDone);
+    const waitingForGhoulWave = stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1;
+    if (stageCombatDone && !waitingForGhoulWave) {
+      if (!doorOpen && stage < 11) {
+        doorOpen = true;
+        if (socket) socket.emit('hostDoorSync', { doorOpen: true });
+      }
+      if (stage >= 11) { gameState = 'win'; return; }
+    }
+
+    // HOST SYNC PACKET: Send enemy states down to client
+    if (socket && enemies.length > 0) {
+      // Map out only the essential attributes we need to render the enemy
+      const enemySyncPacket = enemies.map((e, index) => {
+        // Ensure every enemy has a unique ID for synchronization tracking
+        if (!e.id) e.id = `enemy_${stage}_${index}_${Date.now()}`;
+        return {
+          id: e.id,
+          type: e.type,
+          x: e.x,
+          y: e.y,
+          hp: e.hp,
+          maxHp: e.maxHp,
+          direction: e.direction,
+          frameIndex: e.frameIndex,
+          state: e.state,
+          dying: e.dying,
+          deathDone: e.deathDone,
+          deathFrame: e.deathFrame,
+          deathRow: e.deathRow,
+          hitFlash: e.hitFlash,
+          // Custom class visual states
+          stompTimer: e.stompTimer,
+          stompEffect: e.stompEffect,
+          slamTimer: e.slamTimer,
+          slamEffect: e.slamEffect,
+          enraged: e.enraged,
+          volleyTimer: e.volleyTimer,
+          blockTimer: e.blockTimer,
+          blockCooldown: e.blockCooldown
+        };
+      });
+      socket.emit('hostEnemySync', { enemies: enemySyncPacket });
+    }
   }
 }
 
@@ -6867,15 +7366,16 @@ function drawAttackRange() {
   ctx.restore();
 }
 
-function drawPlayerEffects(drawX, drawY, dsize) {
-  if (player.berserkTimer > 0 && Math.floor(player.berserkTimer / 4) % 2 === 0) {
+// Updated player effects drawer to process custom player objects
+function drawPlayerEffects(drawX, drawY, dsize, p = player) {
+  if (p.berserkTimer > 0 && Math.floor(p.berserkTimer / 4) % 2 === 0) {
     ctx.save();
     ctx.shadowColor = '#cc00ff'; ctx.shadowBlur = 22;
     ctx.strokeStyle = '#cc00ff'; ctx.lineWidth = 3;
     ctx.strokeRect(drawX + 2, drawY + 2, dsize - 4, dsize - 4);
     ctx.restore();
   }
-  if (player.avatarActive) {
+  if (p.avatarActive) {
     ctx.save();
     ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 16;
     ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
@@ -6883,9 +7383,9 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.strokeRect(drawX, drawY, dsize, dsize);
     ctx.restore();
   }
-  if (player.slowTimer > 0) {
+  if (p.slowTimer > 0) {
     ctx.save();
-    const pulse = 0.55 + 0.25 * Math.sin(player.slowTimer / 5);
+    const pulse = 0.55 + 0.25 * Math.sin(p.slowTimer / 5);
     const footY = drawY + dsize * 0.82;
     ctx.globalAlpha = pulse;
     ctx.strokeStyle = '#2f3742';
@@ -6903,7 +7403,7 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     }
     ctx.restore();
   }
-  if (player.windwalkActive) {
+  if (p.windwalkActive) {
     ctx.save();
     ctx.globalAlpha = 0.32;
     ctx.fillStyle = '#1abc9c';
@@ -6914,7 +7414,7 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.strokeRect(drawX + 1, drawY + 1, dsize - 2, dsize - 2);
     ctx.restore();
   }
-  if (player.sliceDiceTimer > 0 && Math.floor(player.sliceDiceTimer / 4) % 2 === 0) {
+  if (p.sliceDiceTimer > 0 && Math.floor(p.sliceDiceTimer / 4) % 2 === 0) {
     ctx.save();
     ctx.shadowColor = '#16a085'; ctx.shadowBlur = 18;
     ctx.strokeStyle = '#16a085'; ctx.lineWidth = 2;
@@ -6925,33 +7425,51 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.stroke();
     ctx.restore();
   }
+  
+  // multiplayer addition: Draw a simple name tag above other players
+  if (p !== player) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(p.className, p.x + DISPLAY_SIZE / 2, p.y - 12);
+    ctx.restore();
+  }
 }
 
-function drawRogue() {
+// Updated Rogue rendering to support any player object
+function drawRogue(p = player) {
   const dsize = DISPLAY_SIZE;
-  const drawX = player.x, drawY = player.y;
-  if (player.dying) {
-    drawMonSprite(rogueDeathSheet, Math.min(player.deathFrame, 3), 0, drawX, drawY, dsize, dsize);
+  const drawX = p.x, drawY = p.y;
+  if (p.dying) {
+    drawMonSprite(rogueDeathSheet, Math.min(p.deathFrame, 3), 0, drawX, drawY, dsize, dsize);
     return;
   }
-  drawAttackRange();
-  applyHitFlash(player.hitFlash);
+  
+  // We only draw the dotted attack range helper for the LOCAL player
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  applyHitFlash(p.hitFlash);
 
   let sheet = rogueRunSheet;
-  let col   = player.frameIndex % 4;
-  let row   = dirToRow(player.direction);
+  let col   = p.frameIndex % 4;
+  let row   = dirToRow(p.direction);
 
-  if (player.windwalkEntering) {
+  if (p.windwalkEntering) {
     sheet = rogueWindwalkSheet;
-    col   = player.windwalkEnterFrame % 4;
+    col   = p.windwalkEnterFrame % 4;
     row   = 0;
-  } else if (player.windwalkExiting) {
+  } else if (p.windwalkExiting) {
     sheet = rogueWindwalkSheet;
-    col   = player.windwalkExitFrame % 4;
+    col   = p.windwalkExitFrame % 4;
     row   = 0;
-  } else if (player.state === 'attacking') {
-    const ab = player.activeAbility;
-    col = player.attackFrame % 4;
+  } else if (p.state === 'attacking') {
+    const ab = p.activeAbility;
+    col = p.attackFrame % 4;
     if      (ab === 'w') sheet = rogueThrowSheet;
     else if (ab === 'e') { sheet = rogueWindwalkSheet; row = 0; }
     else if (ab === 'r') sheet = rogueSliceDiceSheet;
@@ -6961,7 +7479,7 @@ function drawRogue() {
   drawMonSprite(sheet || rogueRunSheet, col, row, drawX, drawY, dsize, dsize);
   ctx.globalAlpha = 1;
   ctx.filter = 'none';
-  drawPlayerEffects(drawX, drawY, dsize);
+  drawPlayerEffects(drawX, drawY, dsize, p);
 }
 
 function drawBarbarianDeath() {
@@ -6981,32 +7499,36 @@ function drawBarbarianDeath() {
   );
 }
 
-function drawMage() {
+// Updated Mage rendering to support any player object
+function drawMage(p = player) {
   const dsize = DISPLAY_SIZE;
-  const drawX = player.x, drawY = player.y;
-  const row = dirToRow(player.direction);
+  const drawX = p.x, drawY = p.y;
+  const row = dirToRow(p.direction);
   let sheet = mageRunSheet;
-  let col = player.frameIndex % 4;
+  let col = p.frameIndex % 4;
 
-  if (player.dying) {
-    drawMonSprite(mageDeathSheet || mageRunSheet, Math.min(player.deathFrame, 3), row, drawX, drawY, dsize, dsize);
+  if (p.dying) {
+    drawMonSprite(mageDeathSheet || mageRunSheet, Math.min(p.deathFrame, 3), row, drawX, drawY, dsize, dsize);
     return;
   }
 
-  drawAttackRange();
-  applyHitFlash(player.hitFlash);
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  applyHitFlash(p.hitFlash);
 
-  if (player.mageBlinkPhase) {
-    const frame = Math.max(0, Math.min(3, player.mageBlinkFrame));
+  if (p.mageBlinkPhase) {
+    const frame = Math.max(0, Math.min(3, p.mageBlinkFrame));
     drawMonSprite(mageBlinkSheet || mageRunSheet, frame, row, drawX, drawY, dsize, dsize);
     ctx.filter = 'none';
-    drawPlayerEffects(drawX, drawY, dsize);
+    drawPlayerEffects(drawX, drawY, dsize, p);
     return;
   }
 
-  if (player.state === 'attacking') {
-    const ab = player.activeAbility;
-    col = player.attackFrame % 4;
+  if (p.state === 'attacking') {
+    const ab = p.activeAbility;
+    col = p.attackFrame % 4;
     if (ab === 'w') {
       sheet = mageFireballCastSheet || mageAtkSheet || mageRunSheet;
     } else if (ab === 'e') {
@@ -7021,14 +7543,14 @@ function drawMage() {
       sheet = mageFrostNovaSheet || mageAtkSheet || mageRunSheet;
       drawMonSprite(sheet || mageRunSheet, col, Math.min(1, row), drawX, drawY, dsize, dsize);
       ctx.filter = 'none';
-      drawPlayerEffects(drawX, drawY, dsize);
+      drawPlayerEffects(drawX, drawY, dsize, p);
       return;
     } else {
       sheet = mageAtkSheet || mageRunSheet;
       if (ab === 'q') {
         drawMonSpriteInset(sheet || mageRunSheet, col, row, drawX, drawY, dsize, dsize, 6);
         ctx.filter = 'none';
-        drawPlayerEffects(drawX, drawY, dsize);
+        drawPlayerEffects(drawX, drawY, dsize, p);
         return;
       }
     }
@@ -7036,34 +7558,52 @@ function drawMage() {
 
   drawMonSprite(sheet || mageRunSheet, col, row, drawX, drawY, dsize, dsize);
   ctx.filter = 'none';
-  drawPlayerEffects(drawX, drawY, dsize);
+  drawPlayerEffects(drawX, drawY, dsize, p);
 }
 
-function drawPlayer() {
-  if (player.className === 'Rogue') return drawRogue();
-  if (player.className === 'Mage') return drawMage();
+// Updated main Player rendering to support drawing remote players
+function drawPlayer(p = player) {
+  if (p.className === 'Rogue') return drawRogue(p);
+  if (p.className === 'Mage') return drawMage(p);
 
-  if (player.dying) {
-    if (player.className === 'Barbarian') {
-      drawBarbarianDeath();
+  if (p.dying) {
+    if (p.className === 'Barbarian') {
+      // Inline Barbarian death to accept custom player 'p'
+      if (!barbDeathSheet) {
+        drawMonSprite(barbWalkSheet, 0, dirToRow(p.direction), p.x, p.y, DISPLAY_SIZE, DISPLAY_SIZE);
+        return;
+      }
+      const frame = Math.min(p.deathFrame, BARB_DEATH_FRAMES - 1);
+      const col = frame;
+      const row = 0;
+      const dsize = Math.round(DISPLAY_SIZE * 1.3);
+      const off = Math.round((dsize - DISPLAY_SIZE) / 2);
+      ctx.drawImage(
+        barbDeathSheet,
+        SLAM_XS[col], row * SLAM_FH, SLAM_FW, SLAM_FH,
+        p.x - off, p.y - off, dsize, dsize
+      );
     } else {
-      drawMonSprite(barbWalkSheet, 0, dirToRow(player.direction), player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE);
+      drawMonSprite(barbWalkSheet, 0, dirToRow(p.direction), p.x, p.y, DISPLAY_SIZE, DISPLAY_SIZE);
     }
     return;
   }
 
-  const isBerserk = player.berserkTimer > 0;
-  const enlarged = player.avatarActive;
+  const isBerserk = p.berserkTimer > 0;
+  const enlarged = p.avatarActive;
   const dsize = enlarged ? DISPLAY_SIZE * 2 : DISPLAY_SIZE;
-  const drawX = enlarged ? player.x - DISPLAY_SIZE / 2 : player.x;
-  const drawY = enlarged ? player.y - DISPLAY_SIZE / 2 : player.y;
+  const drawX = enlarged ? p.x - DISPLAY_SIZE / 2 : p.x;
+  const drawY = enlarged ? p.y - DISPLAY_SIZE / 2 : p.y;
 
-  drawAttackRange();
-  drawPlayerEffects(drawX, drawY, dsize);
-  applyHitFlash(player.hitFlash);
+  if (p === player) {
+    drawAttackRange();
+  }
+  
+  drawPlayerEffects(drawX, drawY, dsize, p);
+  applyHitFlash(p.hitFlash);
 
-  if (player.className === 'Barbarian' && player.berserkCasting) {
-    const frame = Math.min(player.berserkCastFrame, BARB_BERSERK_SKILL_FRAMES - 1);
+  if (p.className === 'Barbarian' && p.berserkCasting) {
+    const frame = Math.min(p.berserkCastFrame, BARB_BERSERK_SKILL_FRAMES - 1);
     const row = Math.floor(frame / 4);
     const col = frame % 4;
     drawMonSprite(barbBerserkSkillSheet || barbBerserkWalkSheet || barbWalkSheet, col, row, drawX, drawY, dsize, dsize);
@@ -7077,13 +7617,13 @@ function drawPlayer() {
   const barbSlamLeftSheet = isBerserk ? (barbBerserkSlamLSheet || barbSlamLSheet) : barbSlamLSheet;
   const barbWhirlSheetActive = isBerserk ? (barbBerserkWhirlSheet || barbWhirlSheet) : barbWhirlSheet;
 
-  if (player.state === 'attacking') {
-    const ab = player.activeAbility;
+  if (p.state === 'attacking') {
+    const ab = p.activeAbility;
     const sd = enlarged ? SLAM_DISP * 2 : SLAM_DISP;
     const wd = enlarged ? WHIRL_DISP * 2 : WHIRL_DISP;
 
     if (ab === 'e') {
-      const useRight = player.direction === 'right' || player.direction === 'down';
+      const useRight = p.direction === 'right' || p.direction === 'down';
       const sheet    = useRight ? barbSlamRightSheet : barbSlamLeftSheet;
       const useBerserkSheet = isBerserk && (useRight ? barbBerserkSlamRSheet : barbBerserkSlamLSheet);
       const fw   = useBerserkSheet ? BERSERK_SLAM_FW   : SLAM_FW;
@@ -7091,25 +7631,25 @@ function drawPlayer() {
       const xsR  = useBerserkSheet ? BERSERK_SLAM_XS   : SLAM_XS;
       const xsL  = useBerserkSheet ? BERSERK_SLAM_XS_R : SLAM_XS_R;
       const xs   = useRight ? xsR : xsL;
-      const col  = player.attackFrame < 4 ? player.attackFrame : player.attackFrame - 4;
-      const srcY = player.attackFrame < 4 ? 0 : fh;
+      const col  = p.attackFrame < 4 ? p.attackFrame : p.attackFrame - 4;
+      const srcY = p.attackFrame < 4 ? 0 : fh;
       const sOff = Math.round((sd - dsize) / 2);
       ctx.drawImage(sheet, xs[col], srcY, fw, fh, drawX - sOff, drawY - sOff, sd, sd);
 
     } else if (ab === 'w') {
-      const whirlRect = barbWhirlFrameRect(barbWhirlSheetActive, isBerserk && barbBerserkWhirlSheet, player.direction, player.attackFrame);
+      const whirlRect = barbWhirlFrameRect(barbWhirlSheetActive, isBerserk && barbBerserkWhirlSheet, p.direction, p.attackFrame);
       const wOff = Math.round((wd - dsize) / 2);
       ctx.drawImage(barbWhirlSheetActive, whirlRect.sx, whirlRect.sy, whirlRect.sw, whirlRect.sh, drawX - wOff, drawY - wOff, wd, wd);
 
     } else {
-      const anim = BARB_ATK[player.direction];
-      const sx   = anim.xs[player.attackFrame];
+      const anim = BARB_ATK[p.direction];
+      const sx   = anim.xs[p.attackFrame];
       ctx.drawImage(barbAttackSheet, sx, anim.srcY, BARB_MOVE_FW, anim.srcH, drawX, drawY, dsize, dsize);
     }
 
   } else {
-    const anim = BARB_WALK[player.direction];
-    const sx   = anim.xs[player.frameIndex];
+    const anim = BARB_WALK[p.direction];
+    const sx   = anim.xs[p.frameIndex];
     ctx.drawImage(barbMoveSheet, sx, anim.srcY, BARB_MOVE_FW, anim.srcH, drawX, drawY, dsize, dsize);
   }
   ctx.filter = 'none';
@@ -9840,6 +10380,14 @@ function runGameFrame() {
     drawProjectiles();
     drawSpellEffects();
     drawPlayer();
+    // Draw remote players
+    for (let id in remotePlayers) {
+      const p = remotePlayers[id];
+      // Don't draw players who are on a different stage
+      if (p.stage === stage) {
+        drawPlayer(p);
+      }
+    }
     drawMarkers();
     drawUI();
     if (gameState === 'levelup') {
