@@ -1,3 +1,9 @@
+// multiplayer server stuff
+let socket;
+const remotePlayers = {}; // Stores other players keyed by their socket ID
+
+
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1926,6 +1932,68 @@ function orderedAbilities(list = abilities) {
   return [...list].sort((a, b) => orderOf(a) - orderOf(b));
 }
 
+
+function initMultiplayer() {
+  // Establish connection to our Node server
+  socket = io();
+
+  // Tell the server we are entering the game with our setup
+  socket.emit('joinGame', {
+    x: player.x,
+    y: player.y,
+    direction: player.direction,
+    className: player.className,
+    state: player.state,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    dying: player.dying
+  });
+
+  // Get list of existing players when we join
+  socket.on('currentPlayers', (serverPlayers) => {
+    Object.keys(serverPlayers).forEach((id) => {
+      if (id !== socket.id) {
+        remotePlayers[id] = serverPlayers[id];
+      }
+    });
+  });
+
+  // When a new player connects
+  socket.on('newPlayer', (playerInfo) => {
+    remotePlayers[playerInfo.id] = playerInfo;
+  });
+
+  // When another player moves
+  socket.on('playerMoved', (playerInfo) => {
+    if (remotePlayers[playerInfo.id]) {
+      remotePlayers[playerInfo.id].x = playerInfo.x;
+      remotePlayers[playerInfo.id].y = playerInfo.y;
+      remotePlayers[playerInfo.id].direction = playerInfo.direction;
+      remotePlayers[playerInfo.id].state = playerInfo.state;
+      remotePlayers[playerInfo.id].moving = playerInfo.moving;
+    }
+  });
+
+  // When another player casts an ability
+  socket.on('playerActed', (actionData) => {
+    const remoteHero = remotePlayers[actionData.id];
+    if (remoteHero) {
+      remoteHero.state = 'attacking';
+      remoteHero.activeAbility = actionData.action;
+      remoteHero.direction = actionData.direction;
+      
+      // OPTIONAL: Play sound effects locally for remote player actions!
+      if (actionData.action === 'fireball') playsfx('fireballCast');
+    }
+  });
+
+  // Remove a player who left
+  socket.on('playerDisconnected', (id) => {
+    delete remotePlayers[id];
+  });
+}
+
+
 function startGame(classIdx) {
   const cls = CLASSES[classIdx];
   const speed = Math.round(2.5 * (1 + cls.agi * 0.05) * 10) / 10;
@@ -1970,6 +2038,7 @@ function startGame(classIdx) {
   stage = 1;
   spawnStage(1);
   gameState = 'playing';
+  initMultiplayer();
 }
 
 function expForEnemy(e) {
@@ -2318,37 +2387,56 @@ document.addEventListener('keydown', (e) => {
   if (player.state === 'idle') {
     abilities.forEach(ab => {
       if (e.key.toLowerCase() === ab.key && ab.timer === 0 && ab.level > 0) {
-      ab.timer = ab.cooldown;
-      player.castDirection = player.direction;
-      if (ab.name === 'berserk') { registerSkillCast(ab); startBerserkCast(); return; }
-      if (ab.name === 'blink') {
-        if (ab.level >= 2 && player.blinkChargeAvailable) {
-          // Second charge — consume it and start full CD
-          player.blinkChargeAvailable = false;
-          ab.timer = ab.cooldown;
-        } else {
-          // First blink — if Lv 2, short 1s gap before second charge; else full CD
-          if (ab.level >= 2) {
-            player.blinkChargeAvailable = true;
-            ab.timer = 60; // 1s gap
+        ab.timer = ab.cooldown;
+        player.castDirection = player.direction;
+        
+        if (ab.name === 'berserk') { 
+          registerSkillCast(ab); 
+          startBerserkCast(); 
+          if (socket) {
+            socket.emit('playerAction', { action: 'berserk', direction: player.direction });
           }
-          // (Lv 1: ab.timer already set to ab.cooldown above)
+          return; 
         }
+        
+        if (ab.name === 'blink') {
+          if (ab.level >= 2 && player.blinkChargeAvailable) {
+            player.blinkChargeAvailable = false;
+            ab.timer = ab.cooldown;
+          } else {
+            if (ab.level >= 2) {
+              player.blinkChargeAvailable = true;
+              ab.timer = 60; // 1s gap
+            }
+          }
+          registerSkillCast(ab);
+          startMageBlink();
+          if (socket) {
+            socket.emit('playerAction', { action: 'blink', direction: player.direction });
+          }
+          return;
+        }
+        
+        if (ab.name === 'fireball') playsfx('fireballCast');
+        
         registerSkillCast(ab);
-        startMageBlink();
-        return;
-      }
-      if (ab.name === 'fireball') playsfx('fireballCast');
-      registerSkillCast(ab);
-      player.state         = 'attacking';
+        player.state         = 'attacking';
         player.activeAbility = ab.key;
         player.attackFrame   = 0;
         player.atkFrameTick  = 0;
         player.hitDealt      = false;
+        
+        if (socket) {
+          socket.emit('playerAction', {
+            action: ab.name,
+            direction: player.direction
+          });
+        }
       }
     });
   }
-});
+}); // <--- keydown properly ends here!
+
 document.addEventListener('keyup', (e) => {
   keys[e.key] = false;
   if (gameState === 'levelup' && levelupPhase === 'talentConfirm' &&
@@ -2356,6 +2444,7 @@ document.addEventListener('keyup', (e) => {
     talentConfirmData.armed = true;
   }
 });
+
 document.addEventListener('mousemove', (ev) => {
   const rect = canvas.getBoundingClientRect();
   mouseX = ev.clientX - rect.left;
@@ -2370,6 +2459,7 @@ document.addEventListener('mousemove', (ev) => {
     applyGameVolume();
   }
 });
+
 document.addEventListener('mousedown', (ev) => {
   const rect = canvas.getBoundingClientRect();
   const x = ev.clientX - rect.left;
@@ -2390,7 +2480,9 @@ document.addEventListener('mousedown', (ev) => {
     }
   }
 });
+
 document.addEventListener('mouseup', () => { volDragging = false; });
+
 document.addEventListener('click', (ev) => {
   tryStartMusic();
   const rect = canvas.getBoundingClientRect();
@@ -3729,6 +3821,17 @@ function updatePlayer() {
   }
 
   if (player.hitFlash > 0) player.hitFlash--;
+
+  if (socket) {
+    socket.emit('playerMovement', {
+      x: player.x,
+      y: player.y,
+      direction: player.direction,
+      state: player.state,
+      moving: player.moving
+    });
+}
+
 }
 
 function updateGolem(e) {
