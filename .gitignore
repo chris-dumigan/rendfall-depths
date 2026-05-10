@@ -6,3 +6,5 @@ Assets/
 Thumbs.db
 .chrome-profile/
 .edge-profile/
+.claude/
+CLAUDE.md
