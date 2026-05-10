@@ -16,59 +16,42 @@ app.use(express.static(path.join(__dirname, './')));
 // Keep track of all active players in memory
 const activePlayers = {};
 
+let hostId = null;
+
 io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
+  console.log(`Player connected: ${socket.id}`);
 
-    // 1. Tell the newly connected player about everyone else already in the game
-    socket.emit('currentPlayers', activePlayers);
+  // Assign host if none exists
+  if (!hostId) {
+    hostId = socket.id;
+    socket.emit('initSession', { isHost: true });
+    console.log(`Player ${socket.id} assigned as HOST.`);
+  } else {
+    socket.emit('initSession', { isHost: false });
+    console.log(`Player ${socket.id} assigned as CLIENT.`);
+  }
 
-    // 2. Broadcast the newly joined player's default state to everyone else
-    socket.on('joinGame', (playerData) => {
-        activePlayers[socket.id] = {
-            id: socket.id,
-            x: playerData.x,
-            y: playerData.y,
-            direction: playerData.direction,
-            className: playerData.className,
-            state: playerData.state,
-            hp: playerData.hp,
-            maxHp: playerData.maxHp,
-            dying: playerData.dying,
-            activeAbility: playerData.activeAbility
-        };
-        // Tell everyone a new player has arrived
-        socket.broadcast.emit('newPlayer', activePlayers[socket.id]);
-    });
+  // Forward player actions/positions
+  socket.on('playerUpdate', (data) => {
+    socket.broadcast.emit('playerUpdate', { id: socket.id, ...data });
+  });
 
-    // 3. Relay movement updates
-    socket.on('playerMovement', (movementData) => {
-        if (activePlayers[socket.id]) {
-            activePlayers[socket.id].x = movementData.x;
-            activePlayers[socket.id].y = movementData.y;
-            activePlayers[socket.id].direction = movementData.direction;
-            activePlayers[socket.id].state = movementData.state;
-            activePlayers[socket.id].moving = movementData.moving;
+  // Host broadcasts enemy state updates
+  socket.on('hostEnemySync', (data) => {
+    socket.broadcast.emit('clientEnemySync', data);
+  });
 
-            // Send to everyone EXCEPT the sender
-            socket.broadcast.emit('playerMoved', activePlayers[socket.id]);
-        }
-    });
+  // Host broadcasts door open state
+  socket.on('hostDoorSync', (data) => {
+    socket.broadcast.emit('clientDoorSync', data);
+  });
 
-    // 4. Relay action events (like attacks or spell casts)
-    socket.on('playerAction', (actionData) => {
-        socket.broadcast.emit('playerActed', {
-            id: socket.id,
-            action: actionData.action, // e.g. 'slash', 'fireball', 'whirlwind'
-            direction: actionData.direction
-        });
-    });
-
-    // 5. Clean up when someone leaves
-    socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
-        delete activePlayers[socket.id];
-        io.emit('playerDisconnected', socket.id);
-    });
+  socket.on('disconnect', () => {
+    console.log(`Player disconnected: ${socket.id}`);
+    if (socket.id === hostId) {
+      hostId = null; // Reset host so next connection can take over
+    }
+  });
 });
 
 

@@ -1,7 +1,7 @@
 // multiplayer server stuff
 let socket;
 const remotePlayers = {}; // Stores other players keyed by their socket ID
-
+let isHost = false; // Determined by the server upon connecting
 
 
 const canvas = document.getElementById('gameCanvas');
@@ -1582,6 +1582,26 @@ function spawnStage(n) {
   doorOpen = false;
   resumeCountdown = 0;
   abilities.forEach(ab => { ab.timer = 0; });
+
+  // MULTIPLAYER CHECK: Only the host spawns enemies.
+  // If we are a client, we exit early and let the Host's sync handle creating enemies.
+  if (!isHost && socket) {
+    return; 
+  }
+  // single player stage spawn
+  player.x = Math.floor(MAP_COLS / 2) * TILE_SIZE;
+  player.y = (MAP_ROWS - 3) * TILE_SIZE;
+  player.direction = 'up';
+  enemies.length = 0;
+  projectiles.forEach(p => stopSfxInstance(p.flySound));
+  projectiles.length = 0;
+  spellEffects.length = 0;
+  markers.length = 0;
+  hazards.length = 0;
+  telegraphs.length = 0;
+  doorOpen = false;
+  resumeCountdown = 0;
+  abilities.forEach(ab => { ab.timer = 0; });
   if      (n === 1)  { for (let i=0;i<6;i++)  enemies.push(spawnGoblin()); }
   else if (n === 2)  {
     placePlayerAt(0.50, 0.705);
@@ -1990,6 +2010,48 @@ function initMultiplayer() {
   // Remove a player who left
   socket.on('playerDisconnected', (id) => {
     delete remotePlayers[id];
+  });
+  
+  socket.on('initSession', (data) => {
+    isHost = data.isHost;
+    console.log(isHost ? "You are the HOST. You control the monsters." : "You are the CLIENT. Synced to Host.");
+    // Force a fresh stage spawn now that we officially know our role!
+    spawnStage(stage);
+  });
+
+  socket.on('playerUpdate', (data) => {
+    remotePlayers[data.id] = data;
+  });
+
+  // Client receives enemy positions from Host
+  socket.on('clientEnemySync', (syncData) => {
+    if (isHost) return; // Host ignores syncs
+    // Temporary debug log: Open your browser F12 console on the client window.
+    // If you see this printing rapidly, the network sync is working perfectly!
+    console.log("Received enemy positions from Host:", syncData.enemies.length);
+    // Reconstruct/update enemies array on the Client side to match the Host
+    // 1. Map the incoming sync data to actual enemy objects
+    const updatedEnemies = syncData.enemies.map(syncE => {
+      // Find an existing local enemy by ID, or start a new empty object
+      let localE = enemies.find(e => e.id === syncE.id);
+      if (!localE) {
+        localE = { id: syncE.id };
+      }
+      return Object.assign(localE, syncE);
+    });
+
+    // 2. Clear the const array without breaking its reference
+    enemies.length = 0;
+
+    // 3. Repopulate the original array with the updated enemies
+    enemies.push(...updatedEnemies);
+  });
+
+  // Client receives door status
+  socket.on('clientDoorSync', (data) => {
+    if (!isHost) {
+      doorOpen = data.doorOpen;
+    }
   });
 }
 
@@ -2960,6 +3022,7 @@ function getHitbox() {
 }
 
 function damagePlayer(baseDmg, flashDur) {
+  return; // GOD MODE for testing multiplayer
   if (player.slamImmunity > 0) return 0;
   if (player.enlightenShield && player.enlightenShieldCD <= 0) {
     player.enlightenShieldCD = 900;
@@ -3830,6 +3893,28 @@ function updatePlayer() {
       state: player.state,
       moving: player.moving
     });
+  // Send local player updates to the server so other players can see us
+  if (socket && socket.connected) {
+    socket.emit('playerUpdate', {
+      x: player.x,
+      y: player.y,
+      className: player.className,
+      direction: player.direction,
+      frameIndex: player.frameIndex,
+      state: player.state,
+      activeAbility: player.activeAbility,
+      attackFrame: player.attackFrame,
+      dying: player.dying,
+      deathFrame: player.deathFrame,
+      hitFlash: player.hitFlash,
+      berserkTimer: player.berserkTimer,
+      avatarActive: player.avatarActive,
+      slowTimer: player.slowTimer,
+      windwalkActive: player.windwalkActive,
+      sliceDiceTimer: player.sliceDiceTimer,
+      stage: stage // Crucial: so we only draw players on the same level!
+    });
+  }
 }
 
 }
@@ -6633,30 +6718,40 @@ function restartCurrentStageSoftcore() {
 
 function update() {
   updatePlayer();
-  enemies.forEach(updateEnemy);
-  updateProjectiles();
-  updateSpellEffects();
-  updateHazards();
-  updateTelegraphs();
-  abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
-  // Slice and dice: extra cooldown tick for double recharge rate
-  if (player.sliceDiceTimer > 0) {
-    player.sliceDiceTimer--;
+  
+  if (isHost || !socket) {
+    // Only host runs enemy updates and AI
+    enemies.forEach(updateEnemy);
+    updateProjectiles();
+    updateSpellEffects();
+    updateHazards();
+    updateTelegraphs();
+  } else {
+    // Client skips calculations and just handles local player timer-ticks
+    // Client-side visual projectiles can still tick locally if needed,
+    // but enemy tracking is forced by the host
   }
+
+  abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
+  
+  if (player.sliceDiceTimer > 0) player.sliceDiceTimer--;
   if (player.enlightenShieldCD > 0) player.enlightenShieldCD--;
   if (player.assassinProcCD > 0) {
     player.assassinProcCD--;
   } else if (player.assassinTalent || (player.pendants && player.pendants.some(p => p.name === 'the Assassin'))) {
     player.assassinProc = true;
   }
+
   for (let i = markers.length - 1; i >= 0; i--) {
     if (--markers[i].life <= 0) markers.splice(i, 1);
   }
+
+  // Handle Local Player Death
   if (player.hp <= 0) {
     if (!player.dying) {
       player.dying = true;
       player.deathFrame = 0; player.deathTick = 0; player.deathTimer = 0;
-      if (player.className === 'Barbarian')     playsfx('barbarianDeath');
+      if (player.className === 'Barbarian')      playsfx('barbarianDeath');
       else if (player.className === 'Rogue')    playsfx('rogueDeath');
       else if (player.className === 'Mage')     playsfx('mageDeath');
     }
@@ -6675,40 +6770,82 @@ function update() {
       }
     }
   }
-  // Advance death animations then hold corpse on screen
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    if (e.deathDone) {
-      if (e.corpseTimer > 0) { e.corpseTimer--; }
-      else { enemies.splice(i, 1); }
-      continue;
-    }
-    if (!e.dying) continue;
-    if (++e.deathTick >= FRAME_SPEED) {
-      e.deathTick = 0;
-      e.deathFrame++;
-      if (e.deathFrame >= 4) {
-        e.deathFrame = 3; // freeze on last frame
-        e.dying = false;
-        e.deathDone = true;
+
+  // Advance death animations for enemies (Only Host processes this locally)
+  if (isHost || !socket) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.deathDone) {
+        if (e.corpseTimer > 0) { e.corpseTimer--; }
+        else { enemies.splice(i, 1); }
+        continue;
+      }
+      if (!e.dying) continue;
+      if (++e.deathTick >= FRAME_SPEED) {
+        e.deathTick = 0;
+        e.deathFrame++;
+        if (e.deathFrame >= 4) {
+          e.deathFrame = 3; 
+          e.dying = false;
+          e.deathDone = true;
+        }
       }
     }
-  }
-  // Ghoul pit waves: next side wave spawns only after every ghoul is gone.
-  if (stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1) {
-    const ghoulsRemaining = enemies.some(e => e.type === 'ghoul' && e.hp > 0);
-    if (!ghoulsRemaining) {
-      ghoulWaveIndex++;
-      spawnGhoulWave(ghoulWaveIndex);
-    }
-  }
 
-  // Door opens / stage ends once all enemies are at least dying
-  const stageCombatDone = enemies.length === 0 || enemies.every(e => e.dying || e.deathDone);
-  const waitingForGhoulWave = stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1;
-  if (stageCombatDone && !waitingForGhoulWave) {
-    if (!doorOpen && stage < 11) doorOpen = true;
-    if (stage >= 11) { gameState = 'win'; return; }
+    // Ghoul pit waves
+    if (stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1) {
+      const ghoulsRemaining = enemies.some(e => e.type === 'ghoul' && e.hp > 0);
+      if (!ghoulsRemaining) {
+        ghoulWaveIndex++;
+        spawnGhoulWave(ghoulWaveIndex);
+      }
+    }
+
+    // Door opens / stage ends once all enemies are at least dying
+    const stageCombatDone = enemies.length === 0 || enemies.every(e => e.dying || e.deathDone);
+    const waitingForGhoulWave = stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1;
+    if (stageCombatDone && !waitingForGhoulWave) {
+      if (!doorOpen && stage < 11) {
+        doorOpen = true;
+        if (socket) socket.emit('hostDoorSync', { doorOpen: true });
+      }
+      if (stage >= 11) { gameState = 'win'; return; }
+    }
+
+    // HOST SYNC PACKET: Send enemy states down to client
+    if (socket && enemies.length > 0) {
+      // Map out only the essential attributes we need to render the enemy
+      const enemySyncPacket = enemies.map((e, index) => {
+        // Ensure every enemy has a unique ID for synchronization tracking
+        if (!e.id) e.id = `enemy_${stage}_${index}_${Date.now()}`;
+        return {
+          id: e.id,
+          type: e.type,
+          x: e.x,
+          y: e.y,
+          hp: e.hp,
+          maxHp: e.maxHp,
+          direction: e.direction,
+          frameIndex: e.frameIndex,
+          state: e.state,
+          dying: e.dying,
+          deathDone: e.deathDone,
+          deathFrame: e.deathFrame,
+          deathRow: e.deathRow,
+          hitFlash: e.hitFlash,
+          // Custom class visual states
+          stompTimer: e.stompTimer,
+          stompEffect: e.stompEffect,
+          slamTimer: e.slamTimer,
+          slamEffect: e.slamEffect,
+          enraged: e.enraged,
+          volleyTimer: e.volleyTimer,
+          blockTimer: e.blockTimer,
+          blockCooldown: e.blockCooldown
+        };
+      });
+      socket.emit('hostEnemySync', { enemies: enemySyncPacket });
+    }
   }
 }
 
