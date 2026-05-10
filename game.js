@@ -2006,6 +2006,24 @@ function initMultiplayer() {
       if (actionData.action === 'fireball') playsfx('fireballCast');
     }
   });
+  
+  // --- HOST ONLY LISTENER ---
+  socket.on('hostApplyClientDamage', (data) => {
+    if (!isHost) return;
+  
+    const enemy = enemies.find(e => e.id === data.enemyId);
+    if (enemy && enemy.hp > 0 && !enemy.dying) {
+      // Host runs the full calculation block on behalf of the client
+      applyDamageToEnemy(enemy, data.baseDmg, data.color, data.clientId);
+    }
+  });
+
+  // --- CLIENT ONLY LISTENER ---
+  socket.on('clientEarnXP', (data) => {
+    if (isHost) return;
+    grantExp(data.xp);
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 14, `+${data.xp} EXP`, '#cc88ff');
+  });
 
   // Remove a player who left
   socket.on('playerDisconnected', (id) => {
@@ -3058,11 +3076,25 @@ function berserkTooltipText(levelOrAb = abilities.find(a => a.name === 'berserk'
   return `Berserk rage. ${statFormulaMultiplierText(mult)} dmg dealt, 1.5x dmg taken for 10s.`;
 }
 
-function applyDamageToEnemy(e, baseDmg, color) {
+function applyDamageToEnemy(e, baseDmg, color, sourceClientId = null) {
+  // 📡 MULTIPLAYER CLIENT CHECK
+  if (socket && !isHost) {
+    // If we are the client, we do not run calculations locally.
+    // Instead, we immediately ask the Host to evaluate and apply the hit.
+    socket.emit('clientRequestDamage', {
+      enemyId: e.id,
+      baseDmg: baseDmg,
+      color: color
+    });
+    return; // Exit early! Let the Host do the rest.
+  }
+
+  // 👑 HOST ONLY / SINGLEPLAYER CONTINUES BEYOND THIS POINT:
   let dmg = baseDmg * berserkDamageMultiplier();
   if (e.type === 'mimic' && e.state === 'mimicCast') {
     dmg *= 0.7;
   }
+  
   if (e.type === 'spellblade') {
     if (e.state === 'block' && e.blockTimer > 0) {
       addMarker(e.x + SPELLBLADE_SIZE / 2, e.y - 20, 'BLOCK', '#d9f2ff');
@@ -3083,9 +3115,13 @@ function applyDamageToEnemy(e, baseDmg, color) {
       return;
     }
   }
+
+  // Handle player-specific talents (Targeting the attacker)
+  // Note: Since Host calculates this, we default to the Host's local talent rules.
   if (player.executionerActive && e.hp / e.maxHp <= 0.35) {
     dmg *= 1.25;
   }
+  
   if (player.assassinProc) {
     const assassinBonus = player.assassinTalent ? Math.round((player[player.primaryStat] || 1) * 1.5) : 15;
     dmg += assassinBonus;
@@ -3093,11 +3129,13 @@ function applyDamageToEnemy(e, baseDmg, color) {
     player.assassinProcCD = 900;
     addMarker(e.x + DISPLAY_SIZE / 2, e.y - 20, `+${assassinBonus}!`, '#27ae60');
   }
+
   if (e.type === 'orc' && e.shielded && !e.enraged && isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, ORC_SIZE)) {
     dmg *= 0.45;
     addMarker(e.x + ORC_SIZE / 2, e.y - 20, 'BLOCK', '#b0c4de');
     playsfx('shieldBlock');
   }
+
   if (e.type === 'skeletal_champion' && (e.blockCooldown || 0) <= 0 &&
       isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, SKELETAL_CHAMPION_SIZE)) {
     e.blockCooldown = SKELETAL_CHAMPION_BLOCK_CD;
@@ -3106,35 +3144,43 @@ function applyDamageToEnemy(e, baseDmg, color) {
     playsfx('shieldBlock');
     return;
   }
+
   if (e.type === 'trib_sentinel' && isInFrontArc(e, player.x + DISPLAY_SIZE / 2, player.y + DISPLAY_SIZE / 2, TRIB_SENTINEL_SIZE)) {
     dmg *= 0.6;
     e.blockTimer = 20;
     addMarker(e.x + TRIB_SENTINEL_SIZE / 2, e.y - 22, 'GUARD', '#b0c4de');
     playsfx('shieldBlock');
   }
+
   dmg = Math.round(dmg);
   e.hp -= dmg;
   e.hitFlash = 12;
   addMarker(e.x + DISPLAY_SIZE / 2, e.y, `-${dmg}`, color || '#ff4444');
-  if (player.lifesteal > 0) {
+
+  // Lifesteal targets whoever triggered the hit locally
+  if (player.lifesteal > 0 && !sourceClientId) {
     const steal = player.bloodlustKillTimer > 0 ? player.lifesteal * 2 : player.lifesteal;
     const heal = Math.max(1, Math.round(dmg * steal));
     player.hp = Math.min(player.maxHp, player.hp + heal);
     addMarker(player.x + DISPLAY_SIZE / 2, player.y, `+${heal}`, '#2ecc71');
   }
+
+  // Handle Death Triggers
   if (e.hp <= 0 && !e.dying && !e.deathDone) {
-    // Pick a random death animation row from this enemy's death sheet
     const deathRowCounts = { minotaur: 4, orc: 4 };
     const deathRows = { goblin: [1, 2, 3] };
     const directionalDeath = e.type === 'ghoul' || e.type === 'golem' || e.type === 'skeletal_champion' || e.type === 'spellblade' || e.type === 'trib_sentinel' || e.type === 'trib_warden' || e.type === 'trib_priest';
     const hasCorpse = e.type in deathRowCounts || e.type in deathRows || directionalDeath;
     const rows = deathRowCounts[e.type] || 1;
+    
     e.dying = true; e.deathFrame = 0; e.deathTick = 0; e.deathDone = false;
     e.deathRow = deathRows[e.type]
       ? deathRows[e.type][Math.floor(Math.random() * deathRows[e.type].length)]
       : directionalDeath ? dirToRow(e.direction)
       : Math.floor(Math.random() * rows);
-    e.corpseTimer = hasCorpse ? 999999 : 0; // bodies linger until stage clears
+    e.corpseTimer = hasCorpse ? 999999 : 0; 
+
+    // Goblin scatter behavior
     if (e.type === 'goblin') {
       enemies.forEach(o => {
         if (o.type === 'goblin' && o !== e && !o.dying && o.hp > 0) {
@@ -3146,7 +3192,8 @@ function applyDamageToEnemy(e, baseDmg, color) {
         }
       });
     }
-    // Abomination feeding — ghoul dies near it, heals it and triggers speed lunge
+
+    // Abomination feeding mechanic
     if (e.type === 'ghoul') {
       const abom = enemies.find(a => a.type === 'abomination' && !a.dying && !a.deathDone && a.hp > 0);
       if (abom) {
@@ -3164,9 +3211,14 @@ function applyDamageToEnemy(e, baseDmg, color) {
         }
       }
     }
-    if (player.lifesteal > 0) player.bloodlustKillTimer = 120;
+
+    if (player.lifesteal > 0 && !sourceClientId) player.bloodlustKillTimer = 120;
+    
+    // Drops (Host only handles physical drops)
     if (e.type === 'minotaur') tryDropPendant(e, STAGE3_PENDANTS);
     if (e.type === 'mimic' || e.type === 'spellblade') tryDropPendant(e, STAGE8_PENDANTS);
+
+    // Audio SFX trigger
     if      (e.type === 'goblin')      playsfx('goblinDeath');
     else if (e.type === 'golem')       playsfx('golemDeath');
     else if (e.type === 'archer' || e.type === 'skeletal_champion') playsfx('skeletonDeath');
@@ -3183,10 +3235,18 @@ function applyDamageToEnemy(e, baseDmg, color) {
       else if (mc === 'Mage')  playsfx('mageDeath');
     }
     else if (e.type === 'johnpork')    playsfx('bruteDeath');
+
+    // Distribute EXP
     const xp = expForEnemy(e);
     if (xp > 0) {
-      grantExp(xp);
-      addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+      if (sourceClientId) {
+        // 📡 Send the XP to the Client who got the kill!
+        if (socket) socket.emit('hostConfirmedKill', { clientId: sourceClientId, xp: xp });
+      } else {
+        // Local Host gets the XP
+        grantExp(xp);
+        addMarker(e.x + DISPLAY_SIZE / 2, e.y - 14, `+${xp} EXP`, '#cc88ff');
+      }
     }
   }
 }

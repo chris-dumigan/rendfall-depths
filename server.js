@@ -46,6 +46,19 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('clientDoorSync', data);
   });
 
+  // Forward client attack requests to the Host
+  socket.on('clientRequestDamage', (data) => {
+    socket.broadcast.emit('hostApplyClientDamage', {
+      clientId: socket.id,
+      ...data
+    });
+  });
+
+  // Host confirms a kill and forwards the XP reward back to the specific Client
+  socket.on('hostConfirmedKill', (data) => {
+    io.to(data.clientId).emit('clientEarnXP', { xp: data.xp });
+  });
+
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     if (socket.id === hostId) {
