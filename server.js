@@ -58,6 +58,17 @@ io.on('connection', (socket) => {
   socket.on('hostConfirmedKill', (data) => {
     io.to(data.clientId).emit('clientEarnXP', { xp: data.xp });
   });
+  
+  // Forward projectile spawn data from Client to Host
+  socket.on('spawnProjectile', (data) => {
+    console.log(`[SERVER Log] Received spawnProjectile from Client: ${socket.id} (${data.type}). Broadcasting to others...`);
+    socket.broadcast.emit('spawnProjectile', data);
+  });
+  
+  // Host tells client they took damage from an enemy projectile
+  socket.on('playerForceDamage', (data) => {
+    io.to(data.targetId).emit('applyForcedDamage', data);
+  });
 
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);

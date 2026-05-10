@@ -2007,6 +2007,39 @@ function initMultiplayer() {
     }
   });
   
+  console.log("[Multiplayer Init] Registering network listeners...");
+
+  socket.on('spawnProjectile', (data) => {
+    console.log(`[Network Listener] Received 'spawnProjectile' from server:`, data);
+
+    if (data.ownerId === socket.id) {
+      console.log(`[Network Listener] Ignored packet (we are the creator)`);
+      return;
+    }
+
+    console.log(`[Network Listener] Spawning projectile on remote screen now!`);
+    
+    // Spawns the remote projectile using the exact velocities calculated by the sender!
+    spawnProjectile(
+      data.sx,
+      data.sy,
+      data.dx,
+      data.dy,
+      data.damage,
+      data.type,
+      data.ownerId
+    );
+  });
+  
+  socket.on('applyForcedDamage', (data) => {
+    if (isHost) return;
+    const dmg = damagePlayer(data.amount, 15);
+    if (dmg > 0) {
+      addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, data.type === 'dragonfire' ? '#ff8800' : '#aaccff');
+    }
+    playsfx('damage');
+  });
+  
   // --- HOST ONLY LISTENER ---
   socket.on('hostApplyClientDamage', (data) => {
     if (!isHost) return;
@@ -3404,15 +3437,17 @@ function fireAbility() {
 
   if (ab.name === 'throw') {
     if (player.windwalkActive) startWindwalkExit();
-    // Spawn a dagger projectile in the direction the rogue faces
-    const cx = player.x + DISPLAY_SIZE / 2, cy = player.y + DISPLAY_SIZE / 2;
+    
+    const cx = player.x + DISPLAY_SIZE / 2;
+    const cy = player.y + DISPLAY_SIZE / 2;
     const spd = Math.max(7, Math.round(DISPLAY_SIZE * 0.20));
     const dirs = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
     const [dx, dy] = dirs[player.castDirection || player.direction] || [0, 1];
-    const proj = { x: cx, y: cy, dx: dx * spd, dy: dy * spd,
-      damage: ab.damage, type: 'dagger', life: 500, hit: false };
-    projectiles.push(proj);
-    playsfx('knifeThrow');
+
+    console.log(`[fireAbility] Local Rogue triggering throw! dx: ${dx}, dy: ${dy}`);
+
+    // Call our unified spawn projectile engine!
+    spawnProjectile(cx, cy, dx * spd, dy * spd, ab.damage, 'dagger');
     return;
   }
 
@@ -3446,15 +3481,16 @@ function fireAbility() {
   }
 
   if (ab.name === 'fireball') {
-    const cx = player.x + DISPLAY_SIZE / 2, cy = player.y + DISPLAY_SIZE / 2;
+    const cx = player.x + DISPLAY_SIZE / 2;
+    const cy = player.y + DISPLAY_SIZE / 2;
     const spd = Math.max(5, Math.round(DISPLAY_SIZE * 0.14));
     const dirs = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
     const [dx, dy] = dirs[player.castDirection || player.direction] || [0, 1];
-    projectiles.push({
-      x: cx, y: cy, dx: dx * spd, dy: dy * spd,
-      damage: ab.damage, type: 'fireball', life: 500, hit: false, frame: 0, frameTick: 0,
-      flySound: startLoopingSfx('fireballFly')
-    });
+
+    console.log(`[fireAbility] Local Mage triggering fireball! dx: ${dx}, dy: ${dy}`);
+
+    // Call our unified spawn projectile engine!
+    spawnProjectile(cx, cy, dx * spd, dy * spd, ab.damage, 'fireball');
     return;
   }
 
@@ -4345,43 +4381,104 @@ function updateMinotaur(e) {
 
 // ── Projectile system ─────────────────────────────────────────────────────────
 
-function spawnProjectile(sx, sy, damage, speed, type) {
-  const tx = player.x + DISPLAY_SIZE / 2, ty = player.y + DISPLAY_SIZE / 2;
-  const dx = tx - sx, dy = ty - sy, mag = Math.hypot(dx, dy) || 1;
-  const proj = { x: sx, y: sy, dx: dx/mag * speed, dy: dy/mag * speed,
-    damage, type, life: 400, hit: false };
-  if (type === 'rock') {
-    proj.targetX = tx; proj.targetY = ty;
-    proj.shadowLife = Math.max(20, Math.ceil(Math.hypot(tx - sx, ty - sy) / Math.max(1, speed)));
+function spawnProjectile(sx, sy, dx, dy, damage, type, ownerId = null) {
+  const isLocal = (ownerId === null);
+  const projOwner = isLocal ? (socket && socket.connected ? socket.id : 'local') : ownerId;
+
+  console.log(`[spawnProjectile ENTRY] Type: "${type}", IsLocal: ${isLocal}, Owner: ${projOwner}, Coords: (${sx}, ${sy})`);
+
+  // 1. Build the unified projectile object
+  const proj = {
+    id: `proj_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    ownerId: projOwner,
+    x: sx,
+    y: sy,
+    dx: dx,
+    dy: dy,
+    damage: damage,
+    type: type,
+    life: 500,
+    hit: false,
+    isRemote: !isLocal
+  };
+
+  // Add Mage-specific fireball parameters
+  if (type === 'fireball') {
+    proj.frame = 0;
+    proj.frameTick = 0;
+    try {
+      proj.flySound = startLoopingSfx('fireballFly');
+    } catch (e) {
+      console.warn("Could not start looping fireball sound:", e);
+    }
   }
+
+  // 2. Add to local projectile registry
   projectiles.push(proj);
+  console.log(`[spawnProjectile] Spawned successfully. Active projectiles count: ${projectiles.length}`);
+
+  // 3. Play the audio locally on whichever client is running this function
+  try {
+    if (type === 'dagger') {
+      console.log(`[spawnProjectile Sound] Playing knifeThrow sfx`);
+      playsfx('knifeThrow');
+    } else if (type === 'fireball') {
+      console.log(`[spawnProjectile Sound] Playing fireballCast sfx`);
+      playsfx('fireballCast');
+    }
+  } catch (err) {
+    console.warn("Sound play failed:", err);
+  }
+
+  // 4. 📡 MULTIPLAYER BROADCAST: Send this event to our co-op partner
+  if (isLocal && socket && socket.connected) {
+    console.log(`[spawnProjectile Network] Sending event to server...`);
+    socket.emit('spawnProjectile', {
+      ownerId: socket.id,
+      sx: sx,
+      sy: sy,
+      dx: dx,
+      dy: dy,
+      damage: damage,
+      type: type
+    });
+  }
 }
 
 function updateProjectiles() {
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const p = projectiles[i];
     p.x += p.dx; p.y += p.dy;
+    
     if (p.frameTick !== undefined && ++p.frameTick >= 6) {
       p.frameTick = 0;
       p.frame = ((p.frame || 0) + 1) % 4;
     }
 
+    // A. ROCK LANDING BEHAVIOR
     if (p.type === 'rock') {
       const toTarget = Math.hypot(p.x - p.targetX, p.y - p.targetY);
       const stepDist = Math.hypot(p.dx, p.dy);
       if (--p.life <= 0 || toTarget <= stepDist + 2) {
         p.x = p.targetX; p.y = p.targetY;
-        checkRockSplash(p);
+        
+        // Only run splash mechanics if we are the Host or in Singleplayer
+        if (isHost || !socket) {
+          checkRockSplash(p);
+        }
         spawnTrollRockImpact(p.x, p.y);
         projectiles.splice(i, 1);
       }
       continue;
     }
 
+    // B. WALL / SOLID ENVIRONMENT IMPACTS
     if (--p.life <= 0 || isSolid(p.x, p.y)) {
       if (p.type === 'fireball') {
         stopSfxInstance(p.flySound);
-        applyFireballSplash(p.x, p.y, Math.round(p.damage * 0.65));
+        if (isHost || !socket) {
+          applyFireballSplash(p.x, p.y, Math.round(p.damage * 0.65));
+        }
         spawnFireballExplosion(p.x, p.y);
         playsfx('fireballImpact');
       }
@@ -4393,6 +4490,24 @@ function updateProjectiles() {
       projectiles.splice(i, 1);
       continue;
     }
+
+    // 📡 MULTIPLAYER CHECK: Clients exit update early here.
+    // They visual update positions, but they DO NOT evaluate player or enemy damage.
+    if (socket && !isHost) {
+      continue;
+    }
+
+    // C. ENEMY PROJECTILE COLLISION (Host Only)
+    // Find all targets in game (Host player + any client players)
+    const possibleTargets = [player];
+    for (let id in remotePlayers) {
+      const rp = remotePlayers[id];
+      if (rp.stage === stage) {
+        possibleTargets.push(rp);
+      }
+    }
+
+    // D. FIREBALL COLLISION (Player-fired, hits enemies)
     if (p.type === 'fireball') {
       let hit = false;
       enemies.forEach(e => {
@@ -4409,47 +4524,73 @@ function updateProjectiles() {
       if (hit) projectiles.splice(i, 1);
       continue;
     }
+
+    // E. DAGGER COLLISION (Player-fired, hits enemies)
     if (p.type === 'dagger') {
-      // Dagger hits enemies (player-fired), not the player
       let hit = false;
       enemies.forEach(e => {
         if (hit || e.hp <= 0 || e.dying) return;
         const eb = enemyHitbox(e);
         if (p.x >= eb.x && p.x <= eb.x + eb.w && p.y >= eb.y && p.y <= eb.y + eb.h) {
-          applyDamageToEnemy(e, p.damage, '#2ecc71');
+          // Pass the projectile owner so they get credit for the kill!
+          applyDamageToEnemy(e, p.damage, '#2ecc71', p.ownerId !== socket.id ? p.ownerId : null);
           playsfx('knifeImpact');
           hit = true;
         }
       });
-      if (hit) { projectiles.splice(i, 1); }
+      if (hit) projectiles.splice(i, 1);
       continue;
     }
+
+    // F. DRAGONFIRE COLLISION (Enemy-fired, can hit any player)
     if (p.type === 'dragonfire') {
       if (!p.hit) {
-        const dist = Math.hypot(p.x - (player.x + DISPLAY_SIZE/2), p.y - (player.y + DISPLAY_SIZE/2));
-        if (dist < DISPLAY_SIZE * 0.65) {
-          p.hit = true;
-          if (p.flySound) stopSfxInstance(p.flySound);
-          spawnFireballExplosion(p.x, p.y);
-          playsfx('fireballImpact');
-          const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
-          const dmg = damagePlayer(base, 15);
-          if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800');
-          projectiles.splice(i, 1);
-        }
+        possibleTargets.forEach(t => {
+          if (p.hit) return;
+          const dist = Math.hypot(p.x - (t.x + DISPLAY_SIZE/2), p.y - (t.y + DISPLAY_SIZE/2));
+          if (dist < DISPLAY_SIZE * 0.65) {
+            p.hit = true;
+            if (p.flySound) stopSfxInstance(p.flySound);
+            spawnFireballExplosion(p.x, p.y);
+            playsfx('fireballImpact');
+            
+            const base = t.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+            
+            // Apply damage to whichever player got hit (Host or Client)
+            if (t === player) {
+              const dmg = damagePlayer(base, 15);
+              if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#ff8800');
+            } else {
+              // Tell client they were hit
+              socket.emit('playerForceDamage', { targetId: t.id, amount: base, type: 'dragonfire' });
+            }
+            projectiles.splice(i, 1);
+          }
+        });
       }
       continue;
     }
+
+    // G. DEFAULT ENEMY PROJECTILE COLLISION (Arrows, etc., can hit any player)
     if (!p.hit) {
-      const dist = Math.hypot(p.x - (player.x + DISPLAY_SIZE/2), p.y - (player.y + DISPLAY_SIZE/2));
-      if (dist < DISPLAY_SIZE * 0.6) {
-        p.hit = true;
-        const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
-        const dmg = damagePlayer(base, 15);
-        if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#aaccff');
-        playsfx('damage');
-        projectiles.splice(i, 1);
-      }
+      possibleTargets.forEach(t => {
+        if (p.hit) return;
+        const dist = Math.hypot(p.x - (t.x + DISPLAY_SIZE/2), p.y - (t.y + DISPLAY_SIZE/2));
+        if (dist < DISPLAY_SIZE * 0.6) {
+          p.hit = true;
+          const base = t.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+          
+          if (t === player) {
+            const dmg = damagePlayer(base, 15);
+            if (dmg > 0) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#aaccff');
+            playsfx('damage');
+          } else {
+            // Tell client they were hit
+            socket.emit('playerForceDamage', { targetId: t.id, amount: base, type: 'arrow' });
+          }
+          projectiles.splice(i, 1);
+        }
+      });
     }
   }
 }
@@ -6779,17 +6920,17 @@ function restartCurrentStageSoftcore() {
 function update() {
   updatePlayer();
   
+  // 1. Run visual/movement updates for BOTH Host and Client
+  updateProjectiles();
+  updateSpellEffects();
+
   if (isHost || !socket) {
-    // Only host runs enemy updates and AI
+    // 2. Only the Host runs enemy AI, hazards, and telegraphs
     enemies.forEach(updateEnemy);
-    updateProjectiles();
-    updateSpellEffects();
     updateHazards();
     updateTelegraphs();
   } else {
-    // Client skips calculations and just handles local player timer-ticks
-    // Client-side visual projectiles can still tick locally if needed,
-    // but enemy tracking is forced by the host
+    // Client-specific non-host updates (if any) can go here
   }
 
   abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
