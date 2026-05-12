@@ -7,5 +7,6 @@ Thumbs.db
 .chrome-profile/
 .edge-profile/
 .claude/
+node_modules/
 CLAUDE.md
 AGENTS.md

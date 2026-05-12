@@ -2,6 +2,8 @@
 let socket;
 const remotePlayers = {}; // Stores other players keyed by their socket ID
 let isHost = false; // Determined by the server upon connecting
+let multiplayerRoomId = '';
+let multiplayerHostId = null;
 
 
 const canvas = document.getElementById('gameCanvas');
@@ -409,10 +411,29 @@ const CLASSES = [
 ];
 let selectedClass = 0;
 
-let gameState     = 'title'; // title | menu | classconfirm | playing | levelup | stagechoice | stageclear | gameover | pendant | win | devsetup | johnporkintro
+let gameState     = 'title'; // title | multiplayer | pvprules | pvpbuild | pvpready | menu | classconfirm | playing | levelup | stagechoice | stageclear | gameover | pendant | win | devsetup | johnporkintro
 let titleSelected = 0;
 let devMode = false;
 let gameMode = 'normal';
+let multiplayerSelected = 0;
+let multiplayerIntent = 'host';
+let pvpRules = { level: 5, pendantRule: 'tier1' };
+let pvpRulesCursor = 0;
+let pvpBuildSection = 0;
+let pvpSkillAlloc = [0, 0, 0, 0];
+let pvpSkillCursor = 0;
+let pvpStatAlloc = [0, 0, 0];
+let pvpStatCursor = 0;
+let pvpTalentSlots = [-1, -1, -1];
+let pvpTalentCursor = 0;
+let pvpPendantCursor = 0;
+let pvpSelectedPendants = [false, false, false, false, false, false];
+let pvpBuildReady = false;
+let pvpBuildClickZones = [];
+let pvpBuildTooltip = null;
+let pvpPrimaryStat = null;
+let pvpCountdown = 0;
+let pvpReadyPlayers = [];
 
 // Class confirm splash
 let classConfirmAlpha = 0;
@@ -446,7 +467,13 @@ const DEV_PENDANTS = [
     apply: p => { p.int+=10; abilities.forEach(a=>{a.cooldown=Math.max(30,a.cooldown-150);}); p.enlightenShield=true; p.enlightenShieldCD=0; } },
 ];
 let devSelectedPendants = [false, false, false, false, false, false];
-const TITLE_ITEMS = ['New Game', 'Softcore', 'Dev Test'];
+const TITLE_ITEMS = ['New Game', 'Softcore', 'Multiplayer', 'Dev Test'];
+const MULTIPLAYER_ITEMS = [
+  { label: 'Host Game', mode: 'coop', intent: 'host', group: 'Co-op', desc: 'Create a shared dungeon room.' },
+  { label: 'Join Game', mode: 'coop', intent: 'join', group: 'Co-op', desc: 'Enter a room code and fight together.' },
+  { label: 'Host Game', mode: 'pvp', intent: 'host', group: 'PVP', desc: 'Create a duel room.' },
+  { label: 'Join Game', mode: 'pvp', intent: 'join', group: 'PVP', desc: 'Enter a duel room code.' },
+];
 let levelupPhase  = 'skill'; // skill | stats | talent | talentConfirm | primattr
 let levelupStatsLeft = 0;
 let levelupStatCursor = 0;
@@ -517,6 +544,101 @@ function clampDevChoicesForLevel() {
 
 function devHasPlasticitySelected() {
   return devSetupLevel >= 3 && devTalentSlots[0] === 2;
+}
+
+function pvpSkillPointsForLevel(level = pvpRules.level) {
+  return devSkillPointsForLevel(level);
+}
+
+function pvpSkillBaseLevel(skillIdx) {
+  return devSkillBaseLevel(skillIdx);
+}
+
+function pvpSkillMaxLevel(skillIdx, level = pvpRules.level) {
+  if (skillIdx === 3) return level >= 8 ? 2 : level >= 6 ? 1 : 0;
+  return 3;
+}
+
+function isPvpSkillUnlocked(skillIdx, level = pvpRules.level) {
+  return skillIdx < 3 || level >= 6;
+}
+
+function pvpSkillUsed() {
+  return pvpSkillAlloc.reduce((sum, value) => sum + value, 0);
+}
+
+function pvpStatPointsForLevel(level = pvpRules.level) {
+  return (level - 1) * 3;
+}
+
+function pvpStatUsed() {
+  return pvpStatAlloc.reduce((sum, value) => sum + value, 0);
+}
+
+function pvpPendantTier(index) {
+  return index < 3 ? 1 : 2;
+}
+
+function pvpPendantLimitForTier(tier) {
+  if (pvpRules.pendantRule === 'disabled') return 0;
+  if (pvpRules.pendantRule === 'tier1') return tier === 1 ? 1 : 0;
+  return tier === 1 ? 1 : tier === 2 ? 1 : 0;
+}
+
+function pvpSelectedPendantCount(tier) {
+  return pvpSelectedPendants.reduce((count, selected, index) => (
+    selected && pvpPendantTier(index) === tier ? count + 1 : count
+  ), 0);
+}
+
+function pvpTryTogglePendant(index) {
+  if (pvpRules.pendantRule === 'disabled') return;
+  const tier = pvpPendantTier(index);
+  const limit = pvpPendantLimitForTier(tier);
+  if (pvpSelectedPendants[index]) {
+    pvpSelectedPendants[index] = false;
+  } else if (limit > 0 && pvpSelectedPendantCount(tier) < limit) {
+    pvpSelectedPendants[index] = true;
+  }
+}
+
+function pvpHasPlasticitySelected() {
+  return pvpRules.level >= 3 && pvpTalentSlots[0] === 2;
+}
+
+function pvpTalentSlotCount(level = pvpRules.level) {
+  return [level >= 3, level >= 6, level >= 9].filter(Boolean).length;
+}
+
+function clampPvpChoicesForRules() {
+  const level = pvpRules.level;
+  const totalSkillPts = pvpSkillPointsForLevel(level);
+  pvpSkillAlloc = pvpSkillAlloc.map((value, idx) => {
+    if (!isPvpSkillUnlocked(idx, level)) return 0;
+    const maxExtra = pvpSkillMaxLevel(idx, level) - pvpSkillBaseLevel(idx);
+    return Math.max(0, Math.min(value, maxExtra));
+  });
+  while (pvpSkillUsed() > totalSkillPts) {
+    for (let i = pvpSkillAlloc.length - 1; i >= 0 && pvpSkillUsed() > totalSkillPts; i--) {
+      if (pvpSkillAlloc[i] > 0) pvpSkillAlloc[i]--;
+    }
+  }
+  if (level < 9) pvpTalentSlots[2] = -1;
+  if (level < 6) pvpTalentSlots[1] = -1;
+  if (level < 3) pvpTalentSlots[0] = -1;
+  while (pvpStatUsed() > pvpStatPointsForLevel(level)) {
+    for (let i = pvpStatAlloc.length - 1; i >= 0 && pvpStatUsed() > pvpStatPointsForLevel(level); i--) {
+      if (pvpStatAlloc[i] > 0) pvpStatAlloc[i]--;
+    }
+  }
+  pvpSelectedPendants = pvpSelectedPendants.map((selected, index) => {
+    if (!selected) return false;
+    const tier = pvpPendantTier(index);
+    if (pvpPendantLimitForTier(tier) <= 0) return false;
+    const prior = pvpSelectedPendants.slice(0, index).filter((s, i) => s && pvpPendantTier(i) === tier).length;
+    return prior < pvpPendantLimitForTier(tier);
+  });
+  pvpTalentCursor = Math.min(pvpTalentCursor, Math.max(0, pvpTalentSlotCount(level) - 1));
 }
 
 // ── Sprites ───────────────────────────────────────────────────────────────────
@@ -1256,6 +1378,7 @@ let player = {
   assassinTalent: false, eternalFocusActive: false, eternalFocusCasts: 0,
   pendants: [],
 };
+const localPlayer = player;
 
 // ── Enemies ───────────────────────────────────────────────────────────────────
 
@@ -1587,6 +1710,12 @@ function spawnStage(n) {
   // If we are a client, we exit early and let the Host's sync handle creating enemies.
   if (!isHost && socket) {
     return; 
+  }
+  if (gameMode === 'pvp') {
+    placePlayerAt(isHost ? 0.36 : 0.64, 0.74, 8);
+    player.direction = isHost ? 'right' : 'left';
+    doorOpen = false;
+    return;
   }
   // single player stage spawn
   player.x = Math.floor(MAP_COLS / 2) * TILE_SIZE;
@@ -1952,46 +2081,83 @@ function orderedAbilities(list = abilities) {
   return [...list].sort((a, b) => orderOf(a) - orderOf(b));
 }
 
+function randomRoomCode(prefix = 'rendfall') {
+  return `${prefix}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+function configureMultiplayer(mode, intent) {
+  const defaultCode = intent === 'host'
+    ? randomRoomCode(mode === 'pvp' ? 'duel' : 'rendfall')
+    : multiplayerRoomId || '';
+  const promptText = intent === 'host'
+    ? `Choose a room code for your ${mode === 'pvp' ? 'PVP' : 'Co-op'} game. Share it with players who join.`
+    : `Enter the ${mode === 'pvp' ? 'PVP' : 'Co-op'} room code to join.`;
+  const code = window.prompt(promptText, defaultCode);
+  if (code === null) return false;
+  const trimmed = code.trim().slice(0, 32);
+  if (!trimmed) return false;
+  devMode = false;
+  gameMode = mode;
+  multiplayerIntent = intent;
+  multiplayerRoomId = trimmed;
+  if (mode === 'pvp' && intent === 'join') {
+    selectedClass = 0;
+    gameState = 'multiplayer';
+    initMultiplayer();
+    return true;
+  }
+  selectedClass = 0;
+  if (mode === 'pvp' && intent === 'host') {
+    pvpRulesCursor = 0;
+    clampPvpChoicesForRules();
+    gameState = 'pvprules';
+    return true;
+  }
+  gameState = 'menu';
+  return true;
+}
+
 
 function initMultiplayer() {
+  if (typeof io === 'undefined') {
+    console.error('[Co-op] socket.io not loaded. Make sure the game is accessed via http://localhost:3000, not opened as a file.');
+    return;
+  }
+  if (socket && socket.connected) return;
+  multiplayerRoomId = (multiplayerRoomId || 'rendfall').trim().slice(0, 32) || 'rendfall';
   // Establish connection to our Node server
   socket = io();
 
-  // Tell the server we are entering the game with our setup
-  socket.emit('joinGame', {
-    x: player.x,
-    y: player.y,
-    direction: player.direction,
-    className: player.className,
-    state: player.state,
-    hp: player.hp,
-    maxHp: player.maxHp,
-    dying: player.dying
+  socket.on('connect', () => {
+    socket.emit('joinGame', outboundPlayerState({ roomId: multiplayerRoomId, gameMode, multiplayerIntent, pvpRules }));
+  });
+
+  socket.on('joinError', (data) => {
+    window.alert(data.message || 'Could not join that room.');
+    try { socket.disconnect(); } catch (err) {}
+    socket = null;
+    isHost = false;
+    multiplayerHostId = null;
+    gameState = 'multiplayer';
   });
 
   // Get list of existing players when we join
   socket.on('currentPlayers', (serverPlayers) => {
     Object.keys(serverPlayers).forEach((id) => {
       if (id !== socket.id) {
-        remotePlayers[id] = serverPlayers[id];
+        applyRemotePlayerState(id, serverPlayers[id]);
       }
     });
   });
 
   // When a new player connects
   socket.on('newPlayer', (playerInfo) => {
-    remotePlayers[playerInfo.id] = playerInfo;
+    if (playerInfo.id !== socket.id) applyRemotePlayerState(playerInfo.id, playerInfo);
   });
 
   // When another player moves
   socket.on('playerMoved', (playerInfo) => {
-    if (remotePlayers[playerInfo.id]) {
-      remotePlayers[playerInfo.id].x = playerInfo.x;
-      remotePlayers[playerInfo.id].y = playerInfo.y;
-      remotePlayers[playerInfo.id].direction = playerInfo.direction;
-      remotePlayers[playerInfo.id].state = playerInfo.state;
-      remotePlayers[playerInfo.id].moving = playerInfo.moving;
-    }
+    if (playerInfo.id !== socket.id) applyRemotePlayerState(playerInfo.id, playerInfo);
   });
 
   socket.on('playerAction', (data) => {
@@ -2048,10 +2214,10 @@ function initMultiplayer() {
     
     // Spawns the remote projectile using the exact velocities calculated by the sender!
     spawnProjectile(
-      data.sx,
-      data.sy,
-      data.dx,
-      data.dy,
+      data.snx !== undefined ? netToWorldX(data.snx) : data.sx,
+      data.sny !== undefined ? netToWorldY(data.sny) : data.sy,
+      data.ndx !== undefined ? netToWorldX(data.ndx) : data.dx,
+      data.ndy !== undefined ? netToWorldY(data.ndy) : data.dy,
       data.damage,
       data.type,
       data.ownerId
@@ -2060,11 +2226,23 @@ function initMultiplayer() {
   
   socket.on('applyForcedDamage', (data) => {
     if (isHost) return;
-    const dmg = damagePlayer(data.amount, 15);
+    const dmg = damagePlayer(data.amount, data.flashDur || 15);
     if (dmg > 0) {
       addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, data.type === 'dragonfire' ? '#ff8800' : '#aaccff');
     }
     playsfx('damage');
+  });
+
+  socket.on('applyForcedStatus', (data) => {
+    if (isHost) return;
+    if (data.slowTimer !== undefined) player.slowTimer = Math.max(player.slowTimer || 0, data.slowTimer || 0);
+    if (data.stunTimer !== undefined) player.stunTimer = Math.max(player.stunTimer || 0, data.stunTimer || 0);
+    if (data.knockbackTimer !== undefined) {
+      player.knockbackTimer = Math.max(player.knockbackTimer || 0, data.knockbackTimer || 0);
+      player.knockbackDx = data.knockbackDx || 0;
+      player.knockbackDy = data.knockbackDy || 0;
+    }
+    if (data.hitFlash !== undefined) player.hitFlash = Math.max(player.hitFlash || 0, data.hitFlash || 0);
   });
   
   // --- HOST ONLY LISTENER ---
@@ -2098,38 +2276,41 @@ function initMultiplayer() {
   
   socket.on('initSession', (data) => {
     isHost = data.isHost;
-    console.log(isHost ? "You are the HOST. You control the monsters." : "You are the CLIENT. Synced to Host.");
+    multiplayerRoomId = data.roomId || multiplayerRoomId;
+    multiplayerHostId = data.hostId || null;
+    if (data.gameMode) gameMode = data.gameMode;
+    if (data.pvpRules) {
+      pvpRules = { ...pvpRules, ...data.pvpRules };
+      clampPvpChoicesForRules();
+    }
+    console.log(isHost ? `You are the HOST for room ${multiplayerRoomId}.` : `You are the CLIENT in room ${multiplayerRoomId}. Synced to Host.`);
     // Force a fresh stage spawn now that we officially know our role!
     spawnStage(stage);
+    if (gameMode === 'pvp' && multiplayerIntent === 'join' && gameState === 'multiplayer') {
+      selectedClass = 0;
+      gameState = 'menu';
+    }
+  });
+
+  socket.on('pvpRulesSync', (data) => {
+    if (!data?.pvpRules) return;
+    pvpRules = { ...pvpRules, ...data.pvpRules };
+    clampPvpChoicesForRules();
+  });
+
+  socket.on('pvpReadySync', (data) => {
+    pvpReadyPlayers = data.ready || [];
+  });
+
+  socket.on('pvpStartCountdown', (data) => {
+    pvpCountdown = data.frames || 180;
+    gameState = 'pvpready';
   });
 
   socket.on('playerUpdate', (data) => {
     // Avoid updating ourselves
     if (data.id === socket.id) return;
-
-    const remoteHero = remotePlayers[data.id];
-    if (remoteHero) {
-      // Update their visual properties
-      remoteHero.x = data.x;
-      remoteHero.y = data.y;
-      remoteHero.direction = data.direction;
-      remoteHero.frameIndex = data.frameIndex;
-      remoteHero.state = data.state;
-      remoteHero.activeAbility = data.activeAbility;
-      remoteHero.attackFrame = data.attackFrame;
-      remoteHero.dying = data.dying;
-      remoteHero.deathFrame = data.deathFrame;
-      remoteHero.hitFlash = data.hitFlash;
-      remoteHero.berserkTimer = data.berserkTimer;
-      remoteHero.avatarActive = data.avatarActive;
-      remoteHero.slowTimer = data.slowTimer;
-      remoteHero.windwalkActive = data.windwalkActive;
-      remoteHero.sliceDiceTimer = data.sliceDiceTimer;
-      remoteHero.stage = data.stage;
-    } else {
-      // If the remote player doesn't exist yet, register them
-      remotePlayers[data.id] = { ...data };
-    }
+    applyRemotePlayerState(data.id, data);
   });
 
   // Client receives enemy positions from Host
@@ -2146,6 +2327,8 @@ function initMultiplayer() {
       if (!localE) {
         localE = { id: syncE.id };
       }
+      if (syncE.nx !== undefined) syncE.x = netToWorldX(syncE.nx);
+      if (syncE.ny !== undefined) syncE.y = netToWorldY(syncE.ny);
       return Object.assign(localE, syncE);
     });
 
@@ -2162,6 +2345,87 @@ function initMultiplayer() {
       doorOpen = data.doorOpen;
     }
   });
+
+  socket.on('clientHazardSync', (data) => {
+    if (isHost) return;
+    hazards.length = 0;
+    (data.hazards || []).forEach(h => {
+      hazards.push({
+        ...h,
+        x: h.nx !== undefined ? netToWorldX(h.nx) : h.x,
+        y: h.ny !== undefined ? netToWorldY(h.ny) : h.y,
+        r: h.nr !== undefined ? netToWorldX(h.nr) : h.r
+      });
+    });
+  });
+
+  socket.on('clientStageSync', (data) => {
+    if (isHost) return;
+    applyNetworkStageSync(data);
+  });
+
+  socket.on('hostChanged', (data) => {
+    multiplayerHostId = data.hostId || null;
+    isHost = socket && socket.id === multiplayerHostId;
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 16, isHost ? 'HOST MIGRATED' : 'HOST CHANGED', '#8fd8ff');
+    if (isHost) spawnStage(stage);
+  });
+
+  socket.on('roomRoster', (data) => {
+    multiplayerHostId = data.hostId || multiplayerHostId;
+  });
+}
+
+function emitHostStageSync(data) {
+  if (socket && isHost) socket.emit('hostStageSync', data);
+}
+
+function emitHostPvpRules() {
+  if (socket && socket.connected && isHost) socket.emit('hostPvpRules', { pvpRules });
+}
+
+function applyNetworkStageSync(data) {
+  if (!data || data.stage === undefined) return;
+  player.undyingRageUsed = false;
+  clearMovementKeys();
+  if (data.mode === 'johnporkintro') {
+    stage = data.stage;
+    startJohnPorkIntro();
+    return;
+  }
+  if (data.mode === 'transition') {
+    transitionNextStage = data.stage;
+    transitionFade = 0;
+    transitionPhase = data.phase || 'fade';
+    transitionGatePlayed = false;
+    gameState = 'stagetransition';
+    return;
+  }
+  stage = data.stage;
+  spawnStage(stage);
+  doorOpen = Boolean(data.doorOpen);
+  gameState = data.gameState || 'playing';
+}
+
+function advanceToStage(nextStage) {
+  player.undyingRageUsed = false;
+  clearMovementKeys();
+  if (nextStage === 11) {
+    emitHostStageSync({ stage: nextStage, mode: 'johnporkintro' });
+    startJohnPorkIntro();
+  } else if (getTransitionArt(nextStage)) {
+    transitionNextStage = nextStage;
+    transitionFade = 0;
+    transitionPhase = 'fade';
+    transitionGatePlayed = false;
+    gameState = 'stagetransition';
+    emitHostStageSync({ stage: nextStage, mode: 'transition', phase: 'fade' });
+  } else {
+    stage = nextStage;
+    spawnStage(stage);
+    gameState = 'playing';
+    emitHostStageSync({ stage, mode: 'playing', doorOpen });
+  }
 }
 
 
@@ -2206,10 +2470,31 @@ function startGame(classIdx) {
   player.eternalFocusActive = false; player.eternalFocusCasts = 0;
   player.slamImmunity = 0;
   setupAbilitiesForClass(cls);
+  if (gameMode === 'pvp') {
+    pvpBuildReady = false;
+    pvpBuildSection = 0;
+    pvpSkillAlloc = [0, 0, 0, 0];
+    pvpSkillCursor = 0;
+    pvpStatAlloc = [0, 0, 0];
+    pvpStatCursor = 0;
+    pvpTalentSlots = [-1, -1, -1];
+    pvpTalentCursor = 0;
+    pvpPendantCursor = 0;
+    pvpPrimaryStat = player.primaryStat;
+    pvpSelectedPendants = pvpSelectedPendants.map(() => false);
+    clampPvpChoicesForRules();
+    player.level = pvpRules.level;
+    stage = 8;
+    placePlayerAt(multiplayerIntent === 'host' ? 0.36 : 0.64, 0.74, 8);
+    player.direction = multiplayerIntent === 'host' ? 'right' : 'left';
+    gameState = 'pvpbuild';
+    if (multiplayerIntent === 'host') initMultiplayer();
+    return;
+  }
   stage = 1;
   spawnStage(1);
   gameState = 'playing';
-  initMultiplayer();
+  if (gameMode === 'coop' || gameMode === 'pvp') initMultiplayer();
 }
 
 function expForEnemy(e) {
@@ -2273,8 +2558,110 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       if (TITLE_ITEMS[titleSelected] === 'New Game')  { devMode = false; gameMode = 'normal';   gameState = 'menu'; selectedClass = 0; }
       if (TITLE_ITEMS[titleSelected] === 'Softcore')  { devMode = false; gameMode = 'softcore'; gameState = 'menu'; selectedClass = 0; }
+      if (TITLE_ITEMS[titleSelected] === 'Multiplayer') { multiplayerSelected = 0; gameState = 'multiplayer'; }
       if (TITLE_ITEMS[titleSelected] === 'Dev Test')  { devMode = true;  gameMode = 'dev';      gameState = 'menu'; selectedClass = 0; }
     }
+    return;
+  }
+
+  if (gameState === 'multiplayer') {
+    if (e.key === 'ArrowUp')   multiplayerSelected = (multiplayerSelected - 1 + MULTIPLAYER_ITEMS.length) % MULTIPLAYER_ITEMS.length;
+    if (e.key === 'ArrowDown') multiplayerSelected = (multiplayerSelected + 1) % MULTIPLAYER_ITEMS.length;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      multiplayerSelected = multiplayerSelected < 2 ? multiplayerSelected + 2 : multiplayerSelected - 2;
+    }
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      gameState = 'title';
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      const choice = MULTIPLAYER_ITEMS[multiplayerSelected];
+      configureMultiplayer(choice.mode, choice.intent);
+    }
+    return;
+  }
+
+  if (gameState === 'pvprules') {
+    if (e.key === 'ArrowUp') pvpRulesCursor = (pvpRulesCursor + 2) % 3;
+    if (e.key === 'ArrowDown') pvpRulesCursor = (pvpRulesCursor + 1) % 3;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (pvpRulesCursor === 0) {
+        pvpRules.level = Math.max(1, Math.min(10, pvpRules.level + (e.key === 'ArrowRight' ? 1 : -1)));
+        clampPvpChoicesForRules();
+      } else if (pvpRulesCursor === 1) {
+        const rules = ['disabled', 'tier1', 'tier2'];
+        const idx = rules.indexOf(pvpRules.pendantRule);
+        pvpRules.pendantRule = rules[(idx + (e.key === 'ArrowRight' ? 1 : rules.length - 1)) % rules.length];
+        clampPvpChoicesForRules();
+      }
+    }
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      gameState = 'multiplayer';
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (pvpRulesCursor < 2) pvpRulesCursor = 2;
+      else {
+        selectedClass = 0;
+        gameState = 'menu';
+      }
+    }
+    return;
+  }
+
+  if (gameState === 'pvpbuild') {
+    if (e.key === 'ArrowUp') {
+      pvpBuildSection = (pvpBuildSection + 4) % 5;
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      pvpBuildSection = (pvpBuildSection + 1) % 5;
+      return;
+    }
+    if (pvpBuildSection === 0) {
+      const total = pvpSkillPointsForLevel();
+      const used = pvpSkillUsed();
+      if (e.key === 'ArrowLeft') pvpSkillCursor = (pvpSkillCursor + 3) % 4;
+      if (e.key === 'ArrowRight') pvpSkillCursor = (pvpSkillCursor + 1) % 4;
+      const maxExtra = pvpSkillMaxLevel(pvpSkillCursor) - pvpSkillBaseLevel(pvpSkillCursor);
+      if ((e.key === ' ' || e.key === 'Enter') && used < total && isPvpSkillUnlocked(pvpSkillCursor) && pvpSkillAlloc[pvpSkillCursor] < maxExtra) {
+        pvpSkillAlloc[pvpSkillCursor]++;
+      }
+      if ((e.key === 'Backspace' || e.key.toLowerCase() === 'x') && pvpSkillAlloc[pvpSkillCursor] > 0) {
+        pvpSkillAlloc[pvpSkillCursor]--;
+      }
+    } else if (pvpBuildSection === 1) {
+      const total = pvpStatPointsForLevel();
+      const used = pvpStatUsed();
+      if (e.key === 'ArrowLeft') pvpStatCursor = (pvpStatCursor + 2) % 3;
+      if (e.key === 'ArrowRight') pvpStatCursor = (pvpStatCursor + 1) % 3;
+      if (pvpHasPlasticitySelected() && ['1', '2', '3'].includes(e.key)) pvpPrimaryStat = ['str', 'agi', 'int'][Number(e.key) - 1];
+      if ((e.key === ' ' || e.key === 'Enter') && used < total) pvpStatAlloc[pvpStatCursor]++;
+      if ((e.key === 'Backspace' || e.key.toLowerCase() === 'x') && pvpStatAlloc[pvpStatCursor] > 0) pvpStatAlloc[pvpStatCursor]--;
+    } else if (pvpBuildSection === 2) {
+      const slots = pvpTalentSlotCount();
+      if (slots > 0) {
+        if (['1', '2', '3'].includes(e.key)) pvpTalentCursor = Math.min(slots - 1, Number(e.key) - 1);
+        if (e.key.toLowerCase() === 'w') pvpTalentCursor = (pvpTalentCursor + slots - 1) % slots;
+        if (e.key.toLowerCase() === 's') pvpTalentCursor = (pvpTalentCursor + 1) % slots;
+        if (e.key === 'ArrowLeft') {
+          pvpTalentSlots[pvpTalentCursor] = pvpTalentSlots[pvpTalentCursor] <= -1 ? 2 : pvpTalentSlots[pvpTalentCursor] - 1;
+        }
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+          pvpTalentSlots[pvpTalentCursor] = pvpTalentSlots[pvpTalentCursor] >= 2 ? -1 : pvpTalentSlots[pvpTalentCursor] + 1;
+        }
+        if (e.key.toLowerCase() === 'x' || e.key === 'Backspace') pvpTalentSlots[pvpTalentCursor] = -1;
+      }
+    } else if (pvpBuildSection === 3 && pvpRules.pendantRule !== 'disabled') {
+      if (e.key === 'ArrowLeft') pvpPendantCursor = Math.max(0, pvpPendantCursor - 1);
+      if (e.key === 'ArrowRight') pvpPendantCursor = Math.min(DEV_PENDANTS.length - 1, pvpPendantCursor + 1);
+      if (e.key === ' ' || e.key === 'Enter') {
+        pvpTryTogglePendant(pvpPendantCursor);
+      }
+    } else if (pvpBuildSection === 4) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        applyPvpBuildAndStart();
+      }
+    }
+    if (e.key === 'Escape') gameState = 'menu';
     return;
   }
 
@@ -2498,6 +2885,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (gameState === 'stagechoice') {
+    if (socket && !isHost) return;
     if (e.key === '1') {
       // Rest: full heal, lose EXP progress in current level
       player.hp = player.maxHp;
@@ -2505,40 +2893,17 @@ document.addEventListener('keydown', (e) => {
     }
     // key '2' = Continue: no change
     if (e.key === '1' || e.key === '2') {
-      player.undyingRageUsed = false;
       const nextStage = stage + 1;
-      clearMovementKeys();
-      if (nextStage === 11) {
-        startJohnPorkIntro();
-      } else if (getTransitionArt(nextStage)) {
-        transitionNextStage = nextStage;
-        transitionFade = 0; transitionPhase = 'fade'; transitionGatePlayed = false;
-        gameState = 'stagetransition';
-      } else {
-        stage = nextStage;
-        spawnStage(stage);
-        gameState = 'playing';
-      }
+      advanceToStage(nextStage);
     }
     return;
   }
 
   if (gameState === 'stageclear') {
+    if (socket && !isHost) return;
     if (e.key === 'Enter' || e.key === ' ') {
-      player.undyingRageUsed = false;
       const nextStage = stage + 1;
-      clearMovementKeys();
-      if (nextStage === 11) {
-        startJohnPorkIntro();
-      } else if (getTransitionArt(nextStage)) {
-        transitionNextStage = nextStage;
-        transitionFade = 0; transitionPhase = 'fade'; transitionGatePlayed = false;
-        gameState = 'stagetransition';
-      } else {
-        stage = nextStage;
-        spawnStage(stage);
-        gameState = 'playing';
-      }
+      advanceToStage(nextStage);
     }
     return;
   }
@@ -2549,6 +2914,7 @@ document.addEventListener('keydown', (e) => {
       spawnStage(transitionNextStage);
       clearMovementKeys();
       gameState = 'playing';
+      emitHostStageSync({ stage, mode: 'playing', doorOpen });
     }
     return;
   }
@@ -2663,6 +3029,10 @@ document.addEventListener('click', (ev) => {
 });
 
 function handleGameClick(x, y, shiftKey = false) {
+  if (gameState === 'pvpbuild') {
+    handlePvpBuildClick(x, y, shiftKey);
+    return;
+  }
   if (gameState !== 'levelup') return;
   if (levelupPhase === 'stats') {
     const stats = ['str', 'agi', 'int'];
@@ -2796,6 +3166,71 @@ function placePlayerAt(nx, ny, stageNum = stage) {
   const safe = findNearestPlayerSpawn(pt.x, pt.y);
   player.x = safe.x;
   player.y = safe.y;
+}
+
+function worldToNetX(x) {
+  return canvas.width > 0 ? x / canvas.width : 0;
+}
+
+function worldToNetY(y) {
+  return GAME_HEIGHT > 0 ? y / GAME_HEIGHT : 0;
+}
+
+function netToWorldX(xn) {
+  return (xn || 0) * canvas.width;
+}
+
+function netToWorldY(yn) {
+  return (yn || 0) * GAME_HEIGHT;
+}
+
+function outboundPlayerState(extra = {}) {
+  return {
+    ...extra,
+    x: player.x,
+    y: player.y,
+    nx: worldToNetX(player.x),
+    ny: worldToNetY(player.y),
+    className: player.className,
+    direction: player.direction,
+    frameIndex: player.frameIndex,
+    state: player.state,
+    activeAbility: player.activeAbility,
+    attackFrame: player.attackFrame,
+    dying: player.dying,
+    deathFrame: player.deathFrame,
+    hitFlash: player.hitFlash,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    damageReduction: player.damageReduction || 0,
+    slamImmunity: player.slamImmunity || 0,
+    berserkTimer: player.berserkTimer,
+    avatarActive: player.avatarActive,
+    slowTimer: player.slowTimer,
+    stunTimer: player.stunTimer,
+    windwalkActive: player.windwalkActive,
+    sliceDiceTimer: player.sliceDiceTimer,
+    stage
+  };
+}
+
+function applyNetPosition(obj, data) {
+  obj.x = data.nx !== undefined ? netToWorldX(data.nx) : data.x;
+  obj.y = data.ny !== undefined ? netToWorldY(data.ny) : data.y;
+}
+
+function applyRemotePlayerState(id, data) {
+  const remoteHero = remotePlayers[id] || { id };
+  applyNetPosition(remoteHero, data);
+  Object.assign(remoteHero, data, {
+    id,
+    x: remoteHero.x,
+    y: remoteHero.y,
+    nx: data.nx,
+    ny: data.ny
+  });
+  remotePlayers[id] = remoteHero;
+  return remoteHero;
 }
 
 function getStageDoorRect(stageNum = stage) {
@@ -2942,12 +3377,17 @@ function updateHazards() {
     const h = hazards[i];
     h.tick++;
     if (h.damage && h.tick % (h.damageEvery || 30) === 0) {
-      const pcx = player.x + DISPLAY_SIZE / 2, pcy = player.y + DISPLAY_SIZE / 2;
-      if (Math.hypot(pcx - h.x, pcy - h.y) < h.r) {
-        const base = player.berserkTimer > 0 ? Math.round(h.damage * 1.5) : h.damage;
-        const dmg = damagePlayer(base, 10);
-        if (dmg > 0) addMarker(pcx, player.y, `-${dmg}`, h.color || '#cc8844');
-      }
+      coOpCombatTargets().forEach(target => {
+        const previousPlayer = player;
+        player = target;
+        const pcx = player.x + DISPLAY_SIZE / 2, pcy = player.y + DISPLAY_SIZE / 2;
+        if (Math.hypot(pcx - h.x, pcy - h.y) < h.r) {
+          const base = player.berserkTimer > 0 ? Math.round(h.damage * 1.5) : h.damage;
+          const dmg = damagePlayer(base, 10);
+          if (dmg > 0 && target === localPlayer) addMarker(pcx, player.y, `-${dmg}`, h.color || '#cc8844');
+        }
+        player = previousPlayer;
+      });
     }
     if (--h.life <= 0) hazards.splice(i, 1);
   }
@@ -3131,7 +3571,19 @@ function getHitbox() {
 }
 
 function damagePlayer(baseDmg, flashDur) {
-  return; // GOD MODE for testing multiplayer
+  if (socket && isHost && player !== localPlayer && player.id) {
+    const reduction = player.damageReduction || 0;
+    const d = Math.round(baseDmg * (1 - reduction));
+    player.hp = Math.max(0, (player.hp || player.maxHp || 100) - d);
+    player.hitFlash = flashDur || 15;
+    socket.emit('playerForceDamage', {
+      targetId: player.id,
+      amount: baseDmg,
+      flashDur: flashDur || 15,
+      type: 'enemy'
+    });
+    return d;
+  }
   if (player.slamImmunity > 0) return 0;
   if (player.enlightenShield && player.enlightenShieldCD <= 0) {
     player.enlightenShieldCD = 900;
@@ -3306,8 +3758,8 @@ function applyDamageToEnemy(e, baseDmg, color, sourceClientId = null) {
     if (player.lifesteal > 0 && !sourceClientId) player.bloodlustKillTimer = 120;
     
     // Drops (Host only handles physical drops)
-    if (e.type === 'minotaur') tryDropPendant(e, STAGE3_PENDANTS);
-    if (e.type === 'mimic' || e.type === 'spellblade') tryDropPendant(e, STAGE8_PENDANTS);
+    if (e.type === 'minotaur') e.pendantTable = STAGE3_PENDANTS;
+    if (e.type === 'mimic' || e.type === 'spellblade') e.pendantTable = STAGE8_PENDANTS;
 
     // Audio SFX trigger
     if      (e.type === 'goblin')      playsfx('goblinDeath');
@@ -3443,6 +3895,31 @@ function registerSkillCast(ab) {
   addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, 'ETERNAL FOCUS', '#2ecc71');
 }
 
+function pvpTargetsForLocalPlayer() {
+  if (gameMode !== 'pvp') return [];
+  return Object.values(remotePlayers).filter(rp => rp && rp.stage === stage && !rp.dying && (rp.hp === undefined || rp.hp > 0));
+}
+
+function damagePvpTarget(target, amount, color = '#ff5555', status = {}, attacker = player) {
+  if (!target) return 0;
+  const base = attacker?.berserkTimer > 0 ? Math.round(amount * 1.5) : amount;
+  if (target === localPlayer) {
+    const previousPlayer = player;
+    player = localPlayer;
+    const dmg = damagePlayer(base, 15);
+    player = previousPlayer;
+    if (dmg > 0) addMarker(target.x + DISPLAY_SIZE / 2, target.y, `-${dmg}`, color);
+    return dmg;
+  }
+  target.hp = Math.max(0, (target.hp || target.maxHp || 100) - base);
+  target.hitFlash = 15;
+  if (socket) {
+    socket.emit('playerForceDamage', { targetId: target.id, amount: base, flashDur: 15, type: 'pvp' });
+    if (Object.keys(status).length) socket.emit('playerStatusSync', { targetId: target.id, ...status });
+  }
+  return base;
+}
+
 function fireAbility() {
   const ab = abilities.find(a => a.key === player.activeAbility);
   if (!ab || ab.level === 0) return; // locked until leveled up
@@ -3470,6 +3947,12 @@ function fireAbility() {
         applyDamageToEnemy(e, ab.damage, '#e67e22');
       }
     });
+    pvpTargetsForLocalPlayer().forEach(t => {
+      if (rectsOverlap(cx-r, cy-r, r*2, r*2, t.x, t.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+        landed = true;
+        damagePvpTarget(t, ab.damage, '#e67e22');
+      }
+    });
     playsfx('whirlwind');
     if (landed) playsfx('hitWhirlwind');
     return;
@@ -3487,6 +3970,11 @@ function fireAbility() {
       if (rectsOverlap(cx-r, cy-r, r*2, r*2, eb.x, eb.y, eb.w, eb.h)) {
         e.slowTimer = 120;
         applyDamageToEnemy(e, ab.damage, '#f1c40f');
+      }
+    });
+    pvpTargetsForLocalPlayer().forEach(t => {
+      if (rectsOverlap(cx-r, cy-r, r*2, r*2, t.x, t.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+        damagePvpTarget(t, ab.damage, '#f1c40f', { slowTimer: 120 });
       }
     });
     playsfx('stoneCrash');
@@ -3533,6 +4021,12 @@ function fireAbility() {
         applyDamageToEnemy(e, ab.damage, '#16a085');
       }
     });
+    pvpTargetsForLocalPlayer().forEach(t => {
+      const tx = t.x + DISPLAY_SIZE / 2, ty = t.y + DISPLAY_SIZE / 2;
+      if (Math.hypot(tx - cx, ty - cy) <= ROGUE_SLICE_DICE_RADIUS + DISPLAY_SIZE * 0.25) {
+        damagePvpTarget(t, ab.damage, '#16a085');
+      }
+    });
     player.sliceDiceTimer = 22;
     playSfxBurst('rogueSlash', 3, 150);
     return;
@@ -3566,6 +4060,12 @@ function fireAbility() {
         applyDamageToEnemy(e, ab.damage, '#1abc9c');
       }
     });
+    pvpTargetsForLocalPlayer().forEach(t => {
+      const tx = t.x + DISPLAY_SIZE / 2, ty = t.y + DISPLAY_SIZE / 2;
+      if (Math.hypot(tx - cx, ty - cy) <= r + DISPLAY_SIZE * 0.25) {
+        damagePvpTarget(t, ab.damage, '#1abc9c', { stunTimer: 60, slowTimer: 120 });
+      }
+    });
     playsfx('frostNova');
     return;
   }
@@ -3588,6 +4088,12 @@ function fireAbility() {
     if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, eb.x, eb.y, eb.w, eb.h)) {
       landed = true;
       applyDamageToEnemy(e, ab.damage + windwalkBonus, '#2ecc71');
+    }
+  });
+  pvpTargetsForLocalPlayer().forEach(t => {
+    if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, t.x, t.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+      landed = true;
+      damagePvpTarget(t, ab.damage + windwalkBonus, '#2ecc71');
     }
   });
   if (ab.name === 'blastwave') playsfx('blastwave');
@@ -3982,6 +4488,7 @@ function updatePlayer() {
     playerCx >= stageDoor.x && playerCx <= stageDoor.x + stageDoor.w &&
     playerCy >= stageDoor.y && playerCy <= stageDoor.y + stageDoor.h + TILE_SIZE;
   if (doorOpen && (enteredStageDoor || (!stageDoor && player.y < TILE_SIZE))) {
+    if (socket && !isHost) return;
     player.y = (MAP_ROWS - 3) * TILE_SIZE;
     player.direction = 'up';
     doorOpen = false;
@@ -4040,34 +4547,47 @@ function updatePlayer() {
   if (player.hitFlash > 0) player.hitFlash--;
 
   if (socket) {
-    socket.emit('playerMovement', {
-      x: player.x,
-      y: player.y,
-      direction: player.direction,
-      state: player.state,
-      moving: player.moving
-    });
+    socket.emit('playerMovement', outboundPlayerState({ moving: player.moving }));
   // Send local player updates to the server so other players can see us
   if (socket && socket.connected) {
-    socket.emit('playerUpdate', {
-      x: player.x,
-      y: player.y,
-      className: player.className,
-      direction: player.direction,
-      frameIndex: player.frameIndex,
-      state: player.state,
-      activeAbility: player.activeAbility,
-      attackFrame: player.attackFrame,
-      dying: player.dying,
-      deathFrame: player.deathFrame,
-      hitFlash: player.hitFlash,
-      berserkTimer: player.berserkTimer,
-      avatarActive: player.avatarActive,
-      slowTimer: player.slowTimer,
-      windwalkActive: player.windwalkActive,
-      sliceDiceTimer: player.sliceDiceTimer,
-      stage: stage // Crucial: so we only draw players on the same level!
-    });
+    socket.emit('playerUpdate', outboundPlayerState({ moving: player.moving }));
+  }
+}
+
+function handlePvpBuildClick(x, y, shiftKey = false) {
+  const zone = [...pvpBuildClickZones].reverse().find(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
+  if (!zone) return;
+  clearMovementKeys();
+  pvpBuildSection = zone.section;
+  if (zone.type === 'skill') {
+    pvpSkillCursor = zone.index;
+    const total = pvpSkillPointsForLevel();
+    const maxExtra = pvpSkillMaxLevel(zone.index) - pvpSkillBaseLevel(zone.index);
+    if (shiftKey && pvpSkillAlloc[zone.index] > 0) {
+      pvpSkillAlloc[zone.index]--;
+    } else if (isPvpSkillUnlocked(zone.index) && pvpSkillUsed() < total && pvpSkillAlloc[zone.index] < maxExtra) {
+      pvpSkillAlloc[zone.index]++;
+    }
+  } else if (zone.type === 'stat') {
+    pvpStatCursor = zone.index;
+    if (zone.primary) {
+      pvpPrimaryStat = ['str', 'agi', 'int'][zone.index];
+    } else if (shiftKey && pvpStatAlloc[zone.index] > 0) {
+      pvpStatAlloc[zone.index]--;
+    } else if (pvpStatUsed() < pvpStatPointsForLevel()) {
+      pvpStatAlloc[zone.index]++;
+    }
+  } else if (zone.type === 'talent') {
+    const slots = pvpTalentSlotCount();
+    if (zone.index < slots) {
+      pvpTalentCursor = zone.index;
+      pvpTalentSlots[zone.index] = shiftKey || pvpTalentSlots[zone.index] >= 2 ? -1 : pvpTalentSlots[zone.index] + 1;
+    }
+  } else if (zone.type === 'pendant') {
+    pvpPendantCursor = zone.index;
+    pvpTryTogglePendant(zone.index);
+  } else if (zone.type === 'start') {
+    applyPvpBuildAndStart();
   }
 }
 
@@ -4495,8 +5015,12 @@ function spawnProjectile(sx, sy, dx, dy, damage, type, ownerId = null) {
       ownerId: socket.id,
       sx: sx,
       sy: sy,
+      snx: worldToNetX(sx),
+      sny: worldToNetY(sy),
       dx: dx,
       dy: dy,
+      ndx: worldToNetX(dx),
+      ndy: worldToNetY(dy),
       damage: damage,
       type: type
     });
@@ -4563,6 +5087,30 @@ function updateProjectiles() {
       if (rp.stage === stage) {
         possibleTargets.push(rp);
       }
+    }
+
+    if (gameMode === 'pvp' && (p.type === 'fireball' || p.type === 'dagger')) {
+      let hitPlayer = false;
+      possibleTargets.forEach(t => {
+        if (hitPlayer) return;
+        const targetId = t === localPlayer ? (socket?.id || 'local') : t.id;
+        if (targetId === p.ownerId) return;
+        const dist = Math.hypot(p.x - (t.x + DISPLAY_SIZE / 2), p.y - (t.y + DISPLAY_SIZE / 2));
+        if (dist < DISPLAY_SIZE * 0.6) {
+          hitPlayer = true;
+          if (p.type === 'fireball') {
+            stopSfxInstance(p.flySound);
+            spawnFireballExplosion(p.x, p.y);
+            playsfx('fireballImpact');
+          } else {
+            playsfx('knifeImpact');
+          }
+          const attacker = p.ownerId === socket?.id ? localPlayer : (remotePlayers[p.ownerId] || localPlayer);
+          damagePvpTarget(t, p.damage, p.type === 'fireball' ? '#e74c3c' : '#2ecc71', {}, attacker);
+          projectiles.splice(i, 1);
+        }
+      });
+      if (hitPlayer) continue;
     }
 
     // D. FIREBALL COLLISION (Player-fired, hits enemies)
@@ -4725,12 +5273,18 @@ function checkRockSplash(p) {
   playsfx('slam');
   const cx = p.x, cy = p.y;
   addHazard('rubble', cx, cy, ROCK_AOE * 0.45, TROLL_RUBBLE_DUR, { slow: true, color: '#777' });
-  if (!p.hit && Math.hypot(cx - (player.x + DISPLAY_SIZE/2), cy - (player.y + DISPLAY_SIZE/2)) < ROCK_AOE) {
-    const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
-    const dmg = damagePlayer(base, 15);
-    addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#888');
-    playsfx('damage');
-  }
+  coOpCombatTargets().forEach(target => {
+    if (p.hit) return;
+    const previousPlayer = player;
+    player = target;
+    if (Math.hypot(cx - (player.x + DISPLAY_SIZE/2), cy - (player.y + DISPLAY_SIZE/2)) < ROCK_AOE) {
+      const base = player.berserkTimer > 0 ? Math.round(p.damage * 1.5) : p.damage;
+      const dmg = damagePlayer(base, 15);
+      if (target === localPlayer) addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, '#888');
+      playsfx('damage');
+    }
+    player = previousPlayer;
+  });
 }
 
 // Arrow sprite sheet: row 0=down, row 1=up, row 2=right, row 3=left (each 4 frames wide)
@@ -6893,6 +7447,67 @@ function drawSpellBlade(e) {
   ctx.textAlign = 'left';
 }
 
+function coOpCombatTargets() {
+  const targets = [localPlayer];
+  if (socket && isHost) {
+    Object.values(remotePlayers).forEach(rp => {
+      if (rp && rp.stage === stage && !rp.dying && (rp.hp === undefined || rp.hp > 0)) targets.push(rp);
+    });
+  }
+  return targets;
+}
+
+function enemyTargetFor(e) {
+  const targets = coOpCombatTargets();
+  if (targets.length === 1) return targets[0];
+  const ecx = e.x + (enemyHitbox(e).w || DISPLAY_SIZE) / 2;
+  const ecy = e.y + (enemyHitbox(e).h || DISPLAY_SIZE) / 2;
+  let best = targets[0];
+  let bestDist = Infinity;
+  targets.forEach(t => {
+    const tcx = (t.x || 0) + DISPLAY_SIZE / 2;
+    const tcy = (t.y || 0) + DISPLAY_SIZE / 2;
+    const dist = Math.hypot(tcx - ecx, tcy - ecy);
+    if (dist < bestDist) {
+      best = t;
+      bestDist = dist;
+    }
+  });
+  return best;
+}
+
+function syncRemoteTargetStatus(target, before) {
+  if (!socket || !isHost || !target || target === localPlayer || !target.id) return;
+  const payload = { targetId: target.id };
+  let changed = false;
+  ['slowTimer', 'stunTimer', 'knockbackTimer', 'knockbackDx', 'knockbackDy', 'hitFlash'].forEach(key => {
+    if ((target[key] || 0) !== (before[key] || 0)) {
+      payload[key] = target[key] || 0;
+      changed = true;
+    }
+  });
+  if (changed) socket.emit('playerStatusSync', payload);
+}
+
+function updateEnemyAgainstTarget(e, target) {
+  const previousPlayer = player;
+  const before = target && target !== localPlayer ? {
+    slowTimer: target.slowTimer || 0,
+    stunTimer: target.stunTimer || 0,
+    knockbackTimer: target.knockbackTimer || 0,
+    knockbackDx: target.knockbackDx || 0,
+    knockbackDy: target.knockbackDy || 0,
+    hitFlash: target.hitFlash || 0
+  } : null;
+  if (target) player = target;
+  try {
+    updateEnemy(e);
+  } finally {
+    if (before) syncRemoteTargetStatus(target, before);
+    player = previousPlayer;
+  }
+}
+
 function updateEnemy(e) {
   if (e.dying || e.deathDone) return; // handled in death ticker
   if (e.spawnWarning > 0) {
@@ -6984,7 +7599,7 @@ function update() {
 
   if (isHost || !socket) {
     // 2. Only the Host runs enemy AI, hazards, and telegraphs
-    enemies.forEach(updateEnemy);
+    enemies.forEach(e => updateEnemyAgainstTarget(e, enemyTargetFor(e)));
     updateHazards();
     updateTelegraphs();
   } else {
@@ -7044,9 +7659,13 @@ function update() {
         e.deathTick = 0;
         e.deathFrame++;
         if (e.deathFrame >= 4) {
-          e.deathFrame = 3; 
+          e.deathFrame = 3;
           e.dying = false;
           e.deathDone = true;
+          if (e.pendantTable && !e.pendantDropped) {
+            e.pendantDropped = true;
+            tryDropPendant(e, e.pendantTable);
+          }
         }
       }
     }
@@ -7082,6 +7701,8 @@ function update() {
           type: e.type,
           x: e.x,
           y: e.y,
+          nx: worldToNetX(e.x),
+          ny: worldToNetY(e.y),
           hp: e.hp,
           maxHp: e.maxHp,
           direction: e.direction,
@@ -7104,6 +7725,16 @@ function update() {
         };
       });
       socket.emit('hostEnemySync', { enemies: enemySyncPacket });
+    }
+    if (socket) {
+      socket.emit('hostHazardSync', {
+        hazards: hazards.map(h => ({
+          ...h,
+          nx: worldToNetX(h.x),
+          ny: worldToNetY(h.y),
+          nr: worldToNetX(h.r)
+        }))
+      });
     }
   }
 }
@@ -9180,6 +9811,376 @@ function drawStageStats() {
 
 // ── Dev mode helpers ──────────────────────────────────────────────────────────
 
+function applyPvpBuildAndStart() {
+  clampPvpChoicesForRules();
+  const statKeys = ['str', 'agi', 'int'];
+  const statTotal = pvpStatPointsForLevel();
+  const statRemainder = statTotal - pvpStatUsed();
+  pvpStatAlloc.forEach((amount, idx) => {
+    for (let i = 0; i < amount; i++) applyStatPoint(statKeys[idx]);
+  });
+  for (let i = 0; i < statRemainder; i++) applyStatPoint(player.primaryStat);
+  ABILITY_KEY_ORDER.forEach((key, idx) => {
+    const ab = abilities.find(a => a.key === key);
+    if (!ab) return;
+    for (let i = 0; i < pvpSkillAlloc[idx]; i++) {
+      if (ab.level < ab.maxLevel) levelSkill(ab);
+    }
+  });
+  const slotLevels = [3, 6, 9];
+  pvpTalentSlots.forEach((pi, slotIdx) => {
+    if (pi < 0 || pvpRules.level < slotLevels[slotIdx]) return;
+    markTalentTaken(pi, slotIdx);
+    applyTalentEffect(pi, slotIdx);
+  });
+  if (pvpHasPlasticitySelected() && pvpPrimaryStat) choosePrimaryAttr(pvpPrimaryStat);
+  if (pvpRules.pendantRule !== 'disabled') {
+    DEV_PENDANTS.forEach((p, i) => {
+      if (!pvpSelectedPendants[i]) return;
+      player.pendants.push({ name: p.name, color: p.color, desc: p.desc });
+      p.apply(player);
+    });
+  }
+  pvpBuildReady = true;
+  if (!socket || !socket.connected) initMultiplayer();
+  if (socket && socket.connected) socket.emit('pvpReady');
+  pvpReadyPlayers = socket?.id ? [socket.id] : [];
+  gameState = 'pvpready';
+}
+
+function startPvpArena() {
+  stage = 8;
+  spawnStage(8);
+  pvpCountdown = 0;
+  gameState = 'playing';
+}
+
+function drawPvpRules() {
+  drawMedievalScreenBackdrop(0.62);
+  const W = canvas.width, H = GAME_HEIGHT;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `700 ${Math.round(canvas.height * 0.05)}px 'Cinzel Decorative', serif`;
+  ctx.fillText('Host PVP Duel', W / 2, 78);
+  ctx.fillStyle = '#d8c29a';
+  ctx.font = `600 15px 'Cinzel', serif`;
+  ctx.fillText(`Room: ${multiplayerRoomId}`, W / 2, 108);
+  const panelW = Math.min(620, W * 0.72);
+  const panelH = 300;
+  const px = (W - panelW) / 2;
+  const py = Math.max(140, H / 2 - panelH / 2);
+  drawWoodPanel(px, py, panelW, panelH, '#9b59b6', 3);
+  const rows = [
+    { label: 'Hero Level', value: `${pvpRules.level}`, hint: 'Left / Right to change' },
+    { label: 'Pendants', value: pvpRules.pendantRule === 'disabled' ? 'Disabled' : pvpRules.pendantRule === 'tier1' ? 'Tier 1' : 'Tier 2', hint: 'Left / Right to change' },
+    { label: 'Continue', value: 'Choose Hero', hint: 'Enter to lock duel rules' },
+  ];
+  rows.forEach((row, i) => {
+    const y = py + 58 + i * 74;
+    const active = pvpRulesCursor === i;
+    ctx.fillStyle = active ? 'rgba(212,160,23,0.22)' : 'rgba(255,255,255,0.045)';
+    ctx.fillRect(px + 28, y - 30, panelW - 56, 58);
+    ctx.strokeStyle = active ? '#ffd36b' : 'rgba(210,180,120,0.24)';
+    ctx.strokeRect(px + 28, y - 30, panelW - 56, 58);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = active ? '#fff1b8' : '#ead9b9';
+    ctx.font = `800 18px 'Cinzel', serif`;
+    ctx.fillText(row.label, px + 52, y - 4);
+    ctx.fillStyle = '#c7b08c';
+    ctx.font = `600 12px 'Cinzel', serif`;
+    ctx.fillText(row.hint, px + 52, y + 16);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = active ? '#ffd36b' : '#d8b45d';
+    ctx.font = `800 20px 'Cinzel', serif`;
+    ctx.fillText(row.value, px + panelW - 52, y + 4);
+  });
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(220,200,155,0.72)';
+  ctx.font = `600 13px 'Cinzel', serif`;
+  ctx.fillText('Esc returns to Multiplayer', W / 2, py + panelH + 38);
+  ctx.textAlign = 'left';
+}
+
+function drawPvpBuild() {
+  drawMedievalScreenBackdrop(0.58);
+  pvpBuildClickZones = [];
+  pvpBuildTooltip = null;
+  const W = canvas.width, H = GAME_HEIGHT;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `700 ${Math.round(canvas.height * 0.036)}px 'Cinzel Decorative', serif`;
+  ctx.fillText('Prepare Duel Build', W / 2, 54);
+  ctx.fillStyle = '#d8c29a';
+  const pendantRuleText = pvpRules.pendantRule === 'disabled' ? 'Pendants Disabled' : pvpRules.pendantRule === 'tier1' ? 'Tier 1 Pendants' : 'Tier 2 Pendants';
+  ctx.font = `600 12px 'Cinzel', serif`;
+  ctx.fillText(`${player.className} - Level ${pvpRules.level} - ${pendantRuleText} - Room ${multiplayerRoomId}`, W / 2, 80);
+
+  const bodyY = 104;
+  const margin = 44;
+  const gap = 14;
+  const colW = (W - margin * 2 - gap) / 2;
+  const leftX = margin;
+  const rightX = margin + colW + gap;
+  const topH = 184;
+  const bottomH = Math.max(168, H - bodyY - topH - 96);
+  const bottomY = bodyY + topH + gap;
+  const focusColors = ['#ffd36b', '#55c7ff', '#b985ff', '#77dd77', '#e94560'];
+
+  function panel(x, y, w, h, title, focusIdx, color = '#7a512e') {
+    pvpBuildClickZones.push({ type: 'section', section: focusIdx, x, y, w, h });
+    drawWoodPanel(x, y, w, h, pvpBuildSection === focusIdx ? focusColors[focusIdx] : color, pvpBuildSection === focusIdx ? 3 : 1);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = pvpBuildSection === focusIdx ? '#fff1b8' : '#f1d27a';
+    ctx.font = `800 14px 'Cinzel', serif`;
+    ctx.fillText(title, x + 14, y + 24);
+    ctx.textAlign = 'center';
+  }
+
+  panel(leftX, bodyY, colW, topH, `Skills ${pvpSkillUsed()}/${pvpSkillPointsForLevel()}`, 0);
+  const skillCellW = (colW - 38) / 4;
+  ABILITY_KEY_ORDER.forEach((key, i) => {
+    const ab = abilities.find(a => a.key === key);
+    const x = leftX + 12 + i * (skillCellW + 4);
+    const y = bodyY + 44;
+    const unlocked = isPvpSkillUnlocked(i);
+    const sel = pvpBuildSection === 0 && i === pvpSkillCursor;
+    const finalLevel = pvpSkillBaseLevel(i) + pvpSkillAlloc[i];
+    pvpBuildClickZones.push({ type: 'skill', section: 0, index: i, x, y, w: skillCellW, h: 104 });
+    ctx.fillStyle = sel ? 'rgba(255,211,107,0.28)' : unlocked ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.28)';
+    ctx.fillRect(x, y, skillCellW, 104);
+    ctx.strokeStyle = sel ? '#ffd36b' : 'rgba(210,180,120,0.22)';
+    ctx.strokeRect(x, y, skillCellW, 104);
+    const icon = skillIcons[player.className.toLowerCase() + '_' + (ab?.name || '')] || skillIcons[ab?.name];
+    if (icon) ctx.drawImage(icon, x + skillCellW / 2 - 14, y + 7, 28, 28);
+    ctx.fillStyle = unlocked ? '#ead9b9' : '#666';
+    ctx.font = `800 12px 'Cinzel', serif`;
+    ctx.fillText(key.toUpperCase(), x + skillCellW / 2, y + 48);
+    ctx.fillStyle = sel ? '#ffd36b' : '#f2e3bd';
+    ctx.font = `800 20px 'Cinzel', serif`;
+    ctx.fillText(`Lv ${finalLevel}`, x + skillCellW / 2, y + 72);
+    ctx.fillStyle = '#a9926d';
+    ctx.font = `600 9px 'Cinzel', serif`;
+    ctx.fillText(unlocked ? `${ab?.name || ''}` : 'Locked', x + skillCellW / 2, y + 94);
+    if (mouseX >= x && mouseX <= x + skillCellW && mouseY >= y && mouseY <= y + 104) {
+      pvpBuildTooltip = {
+        title: `${key.toUpperCase()} ${ab?.name || ''} Lv ${finalLevel}/${pvpSkillMaxLevel(i)}`,
+        body: unlocked ? `${ab?.tooltip || ''} Click to add a level. Shift-click removes one.` : 'This skill is locked by the duel level.'
+      };
+    }
+  });
+
+  panel(rightX, bodyY, colW, topH, `Stats ${pvpStatUsed()}/${pvpStatPointsForLevel()}`, 1);
+  const statKeys = ['str', 'agi', 'int'];
+  const statLabels = ['STR', 'AGI', 'INT'];
+  const statW = (colW - 42) / 3;
+  const statTotal = pvpStatPointsForLevel();
+  const statUsed = pvpStatUsed();
+  statKeys.forEach((key, i) => {
+    const x = rightX + 14 + i * (statW + 7);
+    const y = bodyY + 46;
+    const active = pvpBuildSection === 1 && i === pvpStatCursor;
+    const baseVal = CLASSES.find(c => c.name === player.className)?.[key] || player[key] || 0;
+    const finalVal = baseVal + pvpStatAlloc[i] + (key === player.primaryStat ? Math.max(0, statTotal - statUsed) : 0);
+    pvpBuildClickZones.push({ type: 'stat', section: 1, index: i, x, y, w: statW, h: 102 });
+    ctx.fillStyle = active ? 'rgba(85,199,255,0.24)' : 'rgba(255,255,255,0.055)';
+    ctx.fillRect(x, y, statW, 102);
+    ctx.strokeStyle = active ? '#55c7ff' : 'rgba(210,180,120,0.22)';
+    ctx.strokeRect(x, y, statW, 102);
+    ctx.fillStyle = key === player.primaryStat ? '#ffd36b' : '#ead9b9';
+    ctx.font = `800 13px 'Cinzel', serif`;
+    ctx.fillText(statLabels[i], x + statW / 2, y + 23);
+    ctx.fillStyle = '#f2e3bd';
+    ctx.font = `800 18px 'Cinzel', serif`;
+    ctx.fillText(`${baseVal}->${finalVal}`, x + statW / 2, y + 56);
+    ctx.fillStyle = '#a9926d';
+    ctx.font = `600 9px 'Cinzel', serif`;
+    ctx.fillText(`+${pvpStatAlloc[i]} assigned`, x + statW / 2, y + 82);
+    if (mouseX >= x && mouseX <= x + statW && mouseY >= y && mouseY <= y + 102) {
+      pvpBuildTooltip = {
+        title: statLabels[i],
+        body: `${key.toUpperCase()} affects ${key === 'str' ? 'max health and Strength scaling' : key === 'agi' ? 'movement speed and Agility scaling' : 'cooldowns and Intellect scaling'}. Click to assign. Shift-click removes.`
+      };
+    }
+  });
+  if (pvpHasPlasticitySelected()) {
+    ctx.fillStyle = '#c7b08c';
+    ctx.font = `700 10px 'Cinzel', serif`;
+    ctx.fillText('Plasticity Primary', rightX + colW / 2, bodyY + 158);
+    const btnW = 42, btnGap = 8;
+    const btnStart = rightX + colW / 2 - (btnW * 3 + btnGap * 2) / 2;
+    statKeys.forEach((key, i) => {
+      const bx = btnStart + i * (btnW + btnGap), by = bodyY + 164;
+      const active = (pvpPrimaryStat || player.primaryStat) === key;
+      pvpBuildClickZones.push({ type: 'stat', section: 1, index: i, primary: true, x: bx, y: by, w: btnW, h: 22 });
+      ctx.fillStyle = active ? 'rgba(255,211,107,0.28)' : 'rgba(255,255,255,0.06)';
+      ctx.fillRect(bx, by, btnW, 22);
+      ctx.strokeStyle = active ? '#ffd36b' : 'rgba(210,180,120,0.28)';
+      ctx.strokeRect(bx, by, btnW, 22);
+      ctx.fillStyle = active ? '#ffd36b' : '#ead9b9';
+      ctx.font = `800 10px 'Cinzel', serif`;
+      ctx.fillText(statLabels[i], bx + btnW / 2, by + 15);
+      if (mouseX >= bx && mouseX <= bx + btnW && mouseY >= by && mouseY <= by + 22) {
+        pvpBuildTooltip = { title: 'Plasticity Primary', body: `Choose ${statLabels[i]} as your primary damage scaling stat for this duel.` };
+      }
+    });
+  }
+
+  panel(leftX, bottomY, colW, bottomH, 'Talents', 2);
+  const slotLevels = [3, 6, 9];
+  for (let i = 0; i < 3; i++) {
+    const y = bottomY + 44 + i * 48;
+    const unlocked = pvpRules.level >= slotLevels[i];
+    const active = pvpBuildSection === 2 && pvpTalentCursor === i && unlocked;
+    const choice = pvpTalentSlots[i];
+    const label = choice < 0 ? 'None' : TALENT_TREE[choice].path;
+    pvpBuildClickZones.push({ type: 'talent', section: 2, index: i, x: leftX + 14, y, w: colW - 28, h: 38 });
+    ctx.fillStyle = active ? 'rgba(185,133,255,0.26)' : 'rgba(255,255,255,0.055)';
+    ctx.fillRect(leftX + 14, y, colW - 28, 38);
+    ctx.strokeStyle = active ? '#b985ff' : 'rgba(210,180,120,0.22)';
+    ctx.strokeRect(leftX + 14, y, colW - 28, 38);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = unlocked ? '#ead9b9' : '#666';
+    ctx.font = `800 12px 'Cinzel', serif`;
+    ctx.fillText(`Tier ${i + 1}  L${slotLevels[i]}`, leftX + 26, y + 24);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = choice >= 0 ? TALENT_TREE[choice].color : '#d8b45d';
+    ctx.fillText(unlocked ? label : 'Locked', leftX + colW - 26, y + 24);
+    ctx.textAlign = 'center';
+    if (mouseX >= leftX + 14 && mouseX <= leftX + colW - 14 && mouseY >= y && mouseY <= y + 38) {
+      const tier = choice >= 0 ? TALENT_TREE[choice].tiers[i] : null;
+      pvpBuildTooltip = {
+        title: unlocked ? `Talent Tier ${i + 1}: ${label}` : `Talent Tier ${i + 1}`,
+        body: unlocked ? (tier ? tier.desc : 'Click to cycle Offensive, Defensive, Utility, and None. Shift-click clears.') : `Unlocks at level ${slotLevels[i]}.`
+      };
+    }
+  }
+
+  panel(rightX, bottomY, colW, bottomH, 'Pendants', 3);
+  if (pvpRules.pendantRule === 'disabled') {
+    ctx.fillStyle = '#c7b08c';
+    ctx.font = `700 16px 'Cinzel', serif`;
+    ctx.fillText('Pendants disabled', rightX + colW / 2, bottomY + 88);
+  } else {
+    const slot = Math.min(62, (colW - 56) / 6);
+    const startX = rightX + (colW - (slot * 6 + 5 * 6)) / 2;
+    DEV_PENDANTS.forEach((p, i) => {
+      const x = startX + i * (slot + 6);
+      const y = bottomY + 50;
+      const active = pvpBuildSection === 3 && i === pvpPendantCursor;
+      const selected = pvpSelectedPendants[i];
+      const tier = pvpPendantTier(i);
+      const allowed = pvpPendantLimitForTier(tier) > 0;
+      pvpBuildClickZones.push({ type: 'pendant', section: 3, index: i, x, y, w: slot, h: slot + 34 });
+      ctx.fillStyle = active ? 'rgba(119,221,119,0.22)' : selected ? 'rgba(119,221,119,0.14)' : allowed ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.25)';
+      ctx.fillRect(x, y, slot, slot + 34);
+      ctx.strokeStyle = active ? '#77dd77' : selected ? p.color : 'rgba(210,180,120,0.22)';
+      ctx.strokeRect(x, y, slot, slot + 34);
+      drawPendantIcon(p, x + 8, y + 6, slot - 16);
+      ctx.fillStyle = allowed ? (selected ? p.color : '#d8c29a') : '#555';
+      ctx.font = `700 8px 'Cinzel', serif`;
+      ctx.fillText(`T${tier}`, x + slot / 2, y + slot + 12);
+      ctx.fillText(selected ? 'ON' : p.name.split(' ')[0].slice(0, 6), x + slot / 2, y + slot + 26);
+      if (mouseX >= x && mouseX <= x + slot && mouseY >= y && mouseY <= y + slot + 34) {
+        pvpBuildTooltip = {
+          title: `Tier ${tier} Pendant of ${p.name}`,
+          body: allowed ? `${p.desc}. Click to toggle. ${pvpRules.pendantRule === 'tier1' ? 'Tier 1 rule allows one Tier 1 pendant.' : 'Tier 2 rule allows one Tier 1 and one Tier 2 pendant.'}` : 'This pendant tier is not allowed by the duel rules.'
+        };
+      }
+    });
+    ctx.fillStyle = '#c7b08c';
+    ctx.font = `600 10px 'Cinzel', serif`;
+    ctx.fillText(pvpRules.pendantRule === 'tier1' ? 'Pick one Tier 1 pendant' : 'Pick one Tier 1 and one Tier 2 pendant', rightX + colW / 2, bottomY + bottomH - 18);
+  }
+
+  const startY = H - 58;
+  pvpBuildClickZones.push({ type: 'start', section: 4, x: W / 2 - 185, y: startY - 20, w: 370, h: 36 });
+  ctx.fillStyle = pvpBuildSection === 4 ? 'rgba(233,69,96,0.28)' : 'rgba(0,0,0,0.38)';
+  ctx.fillRect(W / 2 - 185, startY - 20, 370, 36);
+  ctx.strokeStyle = pvpBuildSection === 4 ? '#e94560' : 'rgba(210,180,120,0.35)';
+  ctx.strokeRect(W / 2 - 185, startY - 20, 370, 36);
+  ctx.fillStyle = pvpBuildSection === 4 ? '#fff1b8' : '#e94560';
+  ctx.font = `800 15px 'Cinzel', serif`;
+  ctx.fillText('Start Duel', W / 2, startY + 4);
+  ctx.fillStyle = 'rgba(220,200,155,0.75)';
+  ctx.font = `600 11px 'Cinzel', serif`;
+  ctx.fillText('Up / Down moves panels - Left / Right edits - Space adds/toggles - Backspace removes - Talents: 1/2/3 or W/S chooses tier - Enter starts on Start Duel', W / 2, H - 18);
+  if (mouseX >= W / 2 - 185 && mouseX <= W / 2 + 185 && mouseY >= startY - 20 && mouseY <= startY + 16) {
+    pvpBuildTooltip = { title: 'Start Duel', body: 'Locks your build, loads the stage 8 duel arena, and joins the room.' };
+  }
+  drawPvpBuildTooltip();
+  ctx.textAlign = 'left';
+}
+
+function drawPvpBuildTooltip() {
+  if (!pvpBuildTooltip) return;
+  const pad = 10;
+  const tw = 280;
+  const titleH = 18;
+  const lines = [];
+  ctx.save();
+  ctx.font = `600 12px 'Cinzel', serif`;
+  const words = String(pvpBuildTooltip.body || '').split(/\s+/);
+  let line = '';
+  words.forEach(word => {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > tw - pad * 2 && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  });
+  if (line) lines.push(line);
+  const th = pad * 2 + titleH + lines.length * 15;
+  const tx = Math.min(Math.max(mouseX + 16, 8), canvas.width - tw - 8);
+  const ty = Math.min(Math.max(mouseY + 16, 8), GAME_HEIGHT - th - 8);
+  ctx.fillStyle = 'rgba(16,10,8,0.94)';
+  ctx.fillRect(tx, ty, tw, th);
+  ctx.strokeStyle = '#d8b45d';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(tx, ty, tw, th);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd36b';
+  ctx.font = `800 13px 'Cinzel', serif`;
+  ctx.fillText(pvpBuildTooltip.title, tx + pad, ty + pad + 12);
+  ctx.fillStyle = '#ead9b9';
+  ctx.font = `600 12px 'Cinzel', serif`;
+  lines.forEach((l, i) => ctx.fillText(l, tx + pad, ty + pad + titleH + 14 + i * 15));
+  ctx.restore();
+}
+
+function drawPvpReady() {
+  drawMap();
+  drawPlayer();
+  Object.values(remotePlayers).forEach(p => {
+    if (p.stage === stage) drawPlayer(p);
+  });
+  ctx.fillStyle = 'rgba(0,0,0,0.68)';
+  ctx.fillRect(0, 0, canvas.width, GAME_HEIGHT);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `800 ${Math.round(canvas.height * 0.05)}px 'Cinzel Decorative', serif`;
+  ctx.fillText('Duel Ready', canvas.width / 2, GAME_HEIGHT / 2 - 78);
+  if (pvpCountdown > 0) {
+    const seconds = Math.max(1, Math.ceil(pvpCountdown / 60));
+    ctx.fillStyle = '#ffd36b';
+    ctx.font = `900 ${Math.round(canvas.height * 0.13)}px 'Cinzel Decorative', serif`;
+    ctx.fillText(String(seconds), canvas.width / 2, GAME_HEIGHT / 2 + 24);
+    ctx.fillStyle = '#ead9b9';
+    ctx.font = `700 17px 'Cinzel', serif`;
+    ctx.fillText('GET READY', canvas.width / 2, GAME_HEIGHT / 2 + 72);
+    if (--pvpCountdown <= 0) startPvpArena();
+  } else {
+    ctx.fillStyle = '#ead9b9';
+    ctx.font = `700 18px 'Cinzel', serif`;
+    ctx.fillText('Waiting for both players to finish their builds...', canvas.width / 2, GAME_HEIGHT / 2);
+    ctx.fillStyle = '#c7b08c';
+    ctx.font = `600 13px 'Cinzel', serif`;
+    ctx.fillText(`${pvpReadyPlayers.length}/2 ready`, canvas.width / 2, GAME_HEIGHT / 2 + 34);
+  }
+  ctx.textAlign = 'left';
+}
+
 function applyDevConfig() {
   // ── Stat points: use manual allocation, remainder to primary stat ──────────
   const totalPts = (devSetupLevel - 1) * 3;
@@ -9718,6 +10719,96 @@ function drawTitle() {
     ctx.fillText('PRESS ENTER', W / 2, H * 0.88);
     ctx.restore();
   }
+}
+
+function drawMultiplayerMenu() {
+  const W = canvas.width, H = canvas.height;
+  if (titleBgImg) {
+    const scale = Math.max(W / titleBgImg.width, H / titleBgImg.height);
+    const dw = titleBgImg.width * scale;
+    const dh = titleBgImg.height * scale;
+    ctx.drawImage(titleBgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = '#111118';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const overlay = ctx.createLinearGradient(0, 0, 0, H);
+  overlay.addColorStop(0, 'rgba(0,0,0,0.46)');
+  overlay.addColorStop(0.5, 'rgba(0,0,0,0.70)');
+  overlay.addColorStop(1, 'rgba(0,0,0,0.82)');
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d8b45d';
+  ctx.shadowColor = 'rgba(0,0,0,0.95)';
+  ctx.shadowBlur = 14;
+  ctx.font = `900 ${Math.round(H * 0.07)}px 'Cinzel Decorative', serif`;
+  ctx.fillText('Multiplayer', W / 2, H * 0.18);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(230,210,165,0.78)';
+  ctx.font = `600 ${Math.round(H * 0.018)}px 'Cinzel', serif`;
+  ctx.fillText('Choose a mode, then host a room or join with a room code.', W / 2, H * 0.225);
+  ctx.restore();
+
+  const panelW = Math.min(760, W * 0.78);
+  const panelH = Math.min(390, H * 0.52);
+  const panelX = (W - panelW) / 2;
+  const panelY = H * 0.30;
+  ctx.fillStyle = 'rgba(15,10,7,0.76)';
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = 'rgba(212,160,23,0.45)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+  const colGap = 28;
+  const colW = (panelW - colGap - 56) / 2;
+  const colY = panelY + 42;
+  const rowH = 82;
+  const groups = ['Co-op', 'PVP'];
+  groups.forEach((group, groupIdx) => {
+    const colX = panelX + 28 + groupIdx * (colW + colGap);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = groupIdx === 0 ? '#9bd7ff' : '#ffb56b';
+    ctx.font = `800 ${Math.round(H * 0.03)}px 'Cinzel Decorative', serif`;
+    ctx.fillText(group, colX + colW / 2, colY);
+    ctx.restore();
+
+    MULTIPLAYER_ITEMS.filter(item => item.group === group).forEach((item, rowIdx) => {
+      const itemIdx = MULTIPLAYER_ITEMS.indexOf(item);
+      const selected = itemIdx === multiplayerSelected;
+      const y = colY + 36 + rowIdx * rowH;
+      ctx.fillStyle = selected ? 'rgba(212,160,23,0.22)' : 'rgba(255,255,255,0.055)';
+      ctx.fillRect(colX, y, colW, rowH - 12);
+      ctx.strokeStyle = selected ? 'rgba(245,200,80,0.95)' : 'rgba(210,180,120,0.22)';
+      ctx.lineWidth = selected ? 2 : 1;
+      ctx.strokeRect(colX, y, colW, rowH - 12);
+
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = selected ? '#fff1b8' : '#e4d0a5';
+      ctx.font = `800 ${Math.round(H * 0.022)}px 'Cinzel', serif`;
+      ctx.fillText(item.label, colX + 20, y + 28);
+      ctx.fillStyle = selected ? 'rgba(255,245,200,0.84)' : 'rgba(220,205,165,0.62)';
+      ctx.font = `600 ${Math.round(H * 0.014)}px 'Cinzel', serif`;
+      ctx.fillText(item.desc, colX + 20, y + 52);
+      ctx.restore();
+    });
+  });
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(210,190,145,0.72)';
+  ctx.font = `600 ${Math.round(H * 0.016)}px 'Cinzel', serif`;
+  ctx.fillText('Arrow keys to choose - Enter to continue - Esc to return', W / 2, panelY + panelH + 36);
+  if (multiplayerRoomId) {
+    ctx.fillStyle = 'rgba(245,210,120,0.76)';
+    ctx.fillText(`Last room: ${multiplayerRoomId}`, W / 2, panelY + panelH + 62);
+  }
+  ctx.restore();
 }
 
 function drawMenu() {
@@ -10356,6 +11447,14 @@ function drawResumeCountdown() {
 function runGameFrame() {
   if (gameState === 'title') {
     drawTitle();
+  } else if (gameState === 'multiplayer') {
+    drawMultiplayerMenu();
+  } else if (gameState === 'pvprules') {
+    drawPvpRules();
+  } else if (gameState === 'pvpbuild') {
+    drawPvpBuild();
+  } else if (gameState === 'pvpready') {
+    drawPvpReady();
   } else if (gameState === 'classconfirm') {
     drawClassConfirm();
   } else if (gameState === 'devsetup') {
@@ -10413,7 +11512,7 @@ function loop(now = performance.now()) {
 
   let steps = 0;
   while (fixedLoopAccumulator >= FIXED_STEP_MS && steps < MAX_STEPS_PER_RAF) {
-    runGameFrame();
+    try { runGameFrame(); } catch (err) { console.error('[GameLoop]', err); }
     fixedLoopAccumulator -= FIXED_STEP_MS;
     steps++;
   }
