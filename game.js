@@ -2225,7 +2225,7 @@ function initMultiplayer() {
   });
   
   socket.on('applyForcedDamage', (data) => {
-    if (isHost) return;
+    if (isHost && data.type !== 'pvp') return;
     const dmg = damagePlayer(data.amount, data.flashDur || 15);
     if (dmg > 0) {
       addMarker(player.x + DISPLAY_SIZE/2, player.y, `-${dmg}`, data.type === 'dragonfire' ? '#ff8800' : '#aaccff');
@@ -2540,6 +2540,7 @@ function clearMovementKeys() {
 ['pointerdown', 'mousedown', 'touchstart'].forEach(eventName => {
   document.addEventListener(eventName, tryStartMusic, { passive: true });
 });
+window.addEventListener('blur', () => { Object.keys(keys).forEach(k => { keys[k] = false; }); });
 
 document.addEventListener('keydown', (e) => {
   tryStartMusic();
@@ -4393,7 +4394,10 @@ function applyTalentEffect(pi, ti) {
 // ── Update ────────────────────────────────────────────────────────────────────
 
 function updatePlayer() {
-  if (player.dying) return;
+  if (player.dying) {
+    if (socket && socket.connected) socket.emit('playerUpdate', outboundPlayerState({ moving: false }));
+    return;
+  }
   if (player.slowTimer > 0)    player.slowTimer--;
   if (player.stunTimer > 0)    player.stunTimer--;
   if (player.berserkTimer > 0) player.berserkTimer--;
@@ -5492,7 +5496,8 @@ function updateArcher(e) {
 
   if (e.state === 'volley') {
     if (--e.volleyTimer <= 0) {
-      spawnProjectile(e.x + ARCHER_SIZE/2, e.y + ARCHER_SIZE/2, ARCHER_DAMAGE, ARROW_SPEED, 'arrow');
+      const vdx = dx / (dist || 1), vdy = dy / (dist || 1);
+      spawnProjectile(e.x + ARCHER_SIZE/2, e.y + ARCHER_SIZE/2, vdx * ARROW_SPEED, vdy * ARROW_SPEED, ARCHER_DAMAGE, 'arrow');
       playsfx('bowShot');
       e.shootTimer = ARCHER_SHOOT_CD;
       e.state = 'idle';
@@ -5520,7 +5525,8 @@ function updateArcher(e) {
           o.shootTimer = ARCHER_SHOOT_CD;
         });
       } else {
-        spawnProjectile(e.x + DISPLAY_SIZE/2, e.y + DISPLAY_SIZE/2, ARCHER_DAMAGE, ARROW_SPEED, 'arrow');
+        const adx = dx / (dist || 1), ady = dy / (dist || 1);
+        spawnProjectile(e.x + DISPLAY_SIZE/2, e.y + DISPLAY_SIZE/2, adx * ARROW_SPEED, ady * ARROW_SPEED, ARCHER_DAMAGE, 'arrow');
         playsfx('bowShot');
         e.shootTimer = ARCHER_SHOOT_CD;
         e.state = 'attacking';
@@ -7521,6 +7527,10 @@ function updateEnemy(e) {
   // Dragon is static — immune to windwalk tracking loss
   if (e.type === 'dragon') return updateDragon(e);
   if (player.windwalkActive && e.hp > 0) {
+    // Minotaur completes a committed windup or charge even if rogue turns invisible
+    if (e.type === 'minotaur' && (e.state === 'windup' || e.state === 'charging')) {
+      if (e.type === 'minotaur') return updateMinotaur(e);
+    }
     // Enemies wander aimlessly while player is invisible
     if (e.hitFlash > 0) e.hitFlash--;
     e.wanderDx = e.wanderDx || 0;
