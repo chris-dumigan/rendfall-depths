@@ -274,6 +274,11 @@ const TRIB_WARDEN_CHAIN_WIDTH = DISPLAY_SIZE * 0.82;
 const TRIB_PRIEST_HEAL_CD  = 210;
 const TRIB_PRIEST_HEAL     = 100;
 const ROGUE_SLICE_DICE_RADIUS = Math.round(DISPLAY_SIZE * 2.15);
+const SHAMAN_CHARGE_DURATION = 32;
+const SHAMAN_CHARGE_ANTICIPATION = 3;
+const SHAMAN_LEAP_STUN = 15;
+const SHAMAN_LIGHTNING_RANGE = DISPLAY_SIZE * 4.6 * 1.3;
+const SHAMAN_LIGHTNING_VISUAL_RANGE = DISPLAY_SIZE * 4.9 * 1.3;
 
 // Per-monster rendered sizes (affects both draw and hitbox)
 const GOBLIN_SIZE   = Math.round(DISPLAY_SIZE * 0.70);
@@ -399,6 +404,12 @@ const CLASSES = [
     desc: 'Arcane master. Devastating spells from a distance.',
     str: 4, agi: 6, int: 12,
     abilityLabels: 'Q: Blastwave  W: Fireball  E: Frost Nova  R: Blink',
+  },
+  {
+    name: 'Shaman', primaryStat: 'str', color: '#e67e22',
+    desc: 'Primal spirit warrior. Each ability draws on a different power.',
+    str: 8, agi: 6, int: 8,
+    abilityLabels: 'Q: Claw  W: Ancestral Leap  E: Lightning  R: Primal Shift',
   },
 ];
 let selectedClass = 0;
@@ -613,21 +624,103 @@ function makeMonsterSheetKeepDarkPixels(img, cols = 4, rows = 4) {
   return oc;
 }
 
+function measureSpriteFrameBounds(img, cols, rows, alphaThreshold = 8) {
+  const oc = document.createElement('canvas');
+  const octx = oc.getContext('2d');
+  oc.width = img.width;
+  oc.height = img.height;
+  octx.drawImage(img, 0, 0);
+  const id = octx.getImageData(0, 0, img.width, img.height);
+  const data = id.data;
+  const cellW = img.width / cols;
+  const cellH = img.height / rows;
+  const frames = [];
+
+  for (let row = 0; row < rows; row++) {
+    frames[row] = [];
+    for (let col = 0; col < cols; col++) {
+      const x0 = Math.floor(col * cellW);
+      const y0 = Math.floor(row * cellH);
+      const x1 = Math.min(img.width - 1, Math.floor((col + 1) * cellW) - 1);
+      const y1 = Math.min(img.height - 1, Math.floor((row + 1) * cellH) - 1);
+      let minX = x1, minY = y1, maxX = x0, maxY = y0, found = false;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (data[(y * img.width + x) * 4 + 3] <= alphaThreshold) continue;
+          found = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+      frames[row][col] = found
+        ? { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 }
+        : { sx: x0, sy: y0, sw: x1 - x0 + 1, sh: y1 - y0 + 1 };
+    }
+  }
+  return frames;
+}
+
+function exactSpriteFrameRects(img, cols, rows) {
+  const cellW = img.width / cols;
+  const cellH = img.height / rows;
+  const frames = [];
+  for (let row = 0; row < rows; row++) {
+    frames[row] = [];
+    for (let col = 0; col < cols; col++) {
+      frames[row][col] = {
+        sx: Math.round(col * cellW),
+        sy: Math.round(row * cellH),
+        sw: Math.round(cellW),
+        sh: Math.round(cellH)
+      };
+    }
+  }
+  return frames;
+}
+
+function drawImageTintedByAlpha(img, sx, sy, sw, sh, dx, dy, dw, dh, color, alpha) {
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  if (!color || alpha <= 0) return;
+  const mask = drawImageTintedByAlpha.mask || (drawImageTintedByAlpha.mask = document.createElement('canvas'));
+  const mctx = mask.getContext('2d');
+  if (mask.width !== sw || mask.height !== sh) {
+    mask.width = sw;
+    mask.height = sh;
+  }
+  mctx.clearRect(0, 0, sw, sh);
+  mctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  mctx.globalCompositeOperation = 'source-atop';
+  mctx.fillStyle = color;
+  mctx.fillRect(0, 0, sw, sh);
+  mctx.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(mask, dx, dy, dw, dh);
+  ctx.restore();
+}
+
 let barbWalkSheet, barbAtkSheet, jpMasterSheet, darkSummonSheet;
 let barbSlamRSheet, barbSlamLSheet, barbWhirlSheet, barbDeathSheet;
 let barbBerserkWalkSheet, barbBerserkAtkSheet, barbBerserkSkillSheet;
 let barbBerserkSlamRSheet, barbBerserkSlamLSheet, barbBerserkWhirlSheet;
 // Portraits
-let barbPortrait, roguePortrait, magePortrait;
+let barbPortrait, roguePortrait, magePortrait, shamanPortrait;
 // Skill icons — keyed by ability name matching the mkab 'name' field
 const skillIcons = {};
 const pendantIcons = {};
 // Class confirm splash art (fullscreen selected images — optional per class)
-let barbSelectedImg = null, rogueSelectedImg = null, mageSelectedImg = null;
+let barbSelectedImg = null, rogueSelectedImg = null, mageSelectedImg = null, shamanSelectedImg = null;
 // Rogue sheets
 let rogueRunSheet, rogueAtkSheet, rogueThrowSheet, rogueWindwalkSheet, rogueSliceDiceSheet, rogueDeathSheet, daggerSheet;
 // Mage sheets
 let mageRunSheet, mageAtkSheet, mageDeathSheet, mageFireballCastSheet, mageFireballProjSheet, mageFireballExplosionSheet, mageFrostNovaSheet, mageBlinkSheet;
+// Shaman sheets
+let shamanSheet, shamanPrimalShiftSheet, shamanSpiritOrbSheet, shamanLightningSheet, shamanLeapRightSheet, shamanLeapLeftSheet;
+let shamanPrimalShiftFrames = null;
+let shamanSpiritOrbFrames = null;
+let shamanLeapRightFrames = null, shamanLeapLeftFrames = null;
 // Monster sprite sheets
 let goblinRunSheet, goblinAtkSheet, goblinDeathSheet;
 let golemRunSheet,  golemAtkSheet,  golemDeathSheet, golemSheet;
@@ -707,7 +800,7 @@ const STAGE_PLAY_AREAS = {
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 125;
+const TOTAL_IMAGES = 135;
 let audioAssetCount = 0;
 let gameLoopStarted = false;
 let startupRegistrationComplete = false;
@@ -926,9 +1019,10 @@ darkSummonImg.onerror = () => { onLoad(); };
 
 // Portraits — loaded raw (no background strip)
 (function loadPortraits() {
-  [['Game Art/Barbarian portrait.png', i => barbPortrait  = i],
-   ['Game Art/Rogue Portrait.png',     i => roguePortrait = i],
-   ['Game Art/Mage portrait.png',      i => magePortrait  = i]].forEach(([src, assign]) => {
+  [['Game Art/Barbarian portrait.png', i => barbPortrait   = i],
+   ['Game Art/Rogue Portrait.png',     i => roguePortrait  = i],
+   ['Game Art/Mage portrait.png',      i => magePortrait   = i],
+   ['Game Art/Shaman portrait.png',    i => shamanPortrait = i]].forEach(([src, assign]) => {
     const img = new Image();
     img.src = assetUrl(src);
     img.onload = () => { assign(img); onLoad(); };
@@ -951,9 +1045,13 @@ darkSummonImg.onerror = () => { onLoad(); };
   const mageSel = new Image();
   mageSel.src = 'Game Art/Mage Selected.png';
   mageSel.onload = () => { mageSelectedImg = mageSel; };
+
+  const shamanSel = new Image();
+  shamanSel.src = 'Game Art/Shaman Selected.png';
+  shamanSel.onload = () => { shamanSelectedImg = shamanSel; };
 })();
 
-// Skill icons — counted in TOTAL_IMAGES (8 icons); Berserk2 optional
+// Skill icons — counted in TOTAL_IMAGES; Berserk2 optional
 (function loadSkillIcons() {
   const icons = [
     ['Game Art/Game Icons/Barbarian/Slash.png',         'slash'],
@@ -968,6 +1066,10 @@ darkSummonImg.onerror = () => { onLoad(); };
     ['Game Art/Game Icons/Mage/Fireball.png',           'mage_fireball'],
     ['Game Art/Game Icons/Mage/Frost Nova.png',         'mage_frostnova'],
     ['Game Art/Game Icons/Mage/Blink.png',              'mage_blink'],
+    ['Game Art/Game Icons/Shaman/Claw Icon.png',        'shaman_claw'],
+    ['Game Art/Game Icons/Shaman/Ancestral Leap Icon.png', 'shaman_ancestralleap'],
+    ['Game Art/Game Icons/Shaman/Lightning Icon.png',   'shaman_lightning'],
+    ['Game Art/Game Icons/Shaman/Primal Shift Icon.png', 'shaman_primalshift'],
   ];
   icons.forEach(([src, key]) => {
     const img = new Image();
@@ -1037,6 +1139,55 @@ function pendantIconKey(name) {
     img.onload = () => { assign(makeMonsterSheet(img)); onLoad(); };
     img.onerror = () => { onLoad(); };
   }
+})();
+
+// Shaman sheets
+(function loadShamanSheets() {
+  const img = new Image();
+  img.src = assetUrl('Shaman Animations/Shaman Master.png');
+  img.onload = () => { shamanSheet = makeMonsterSheet(img); onLoad(); };
+  img.onerror = () => { onLoad(); };
+
+  const primal = new Image();
+  primal.src = assetUrl('Shaman Animations/Primal Shift.png');
+  primal.onload = () => {
+    shamanPrimalShiftSheet = primal;
+    shamanPrimalShiftFrames = exactSpriteFrameRects(primal, 5, 3);
+    onLoad();
+  };
+  primal.onerror = () => { onLoad(); };
+
+  const spirits = new Image();
+  spirits.src = assetUrl('Shaman Animations/Primal Spirits.png');
+  spirits.onload = () => {
+    shamanSpiritOrbSheet = spirits;
+    shamanSpiritOrbFrames = exactSpriteFrameRects(spirits, 3, 1);
+    onLoad();
+  };
+  spirits.onerror = () => { onLoad(); };
+
+  const lightning = new Image();
+  lightning.src = assetUrl('Shaman Animations/Lightning.png');
+  lightning.onload = () => { shamanLightningSheet = lightning; onLoad(); };
+  lightning.onerror = () => { onLoad(); };
+
+  const leapRight = new Image();
+  leapRight.src = assetUrl('Shaman Animations/Ancestral Leap Right2.png');
+  leapRight.onload = () => {
+    shamanLeapRightSheet = leapRight;
+    shamanLeapRightFrames = measureSpriteFrameBounds(leapRight, 8, 1);
+    onLoad();
+  };
+  leapRight.onerror = () => { onLoad(); };
+
+  const leapLeft = new Image();
+  leapLeft.src = assetUrl('Shaman Animations/Ancestral Leap Left2.png');
+  leapLeft.onload = () => {
+    shamanLeapLeftSheet = leapLeft;
+    shamanLeapLeftFrames = measureSpriteFrameBounds(leapLeft, 8, 1);
+    onLoad();
+  };
+  leapLeft.onerror = () => { onLoad(); };
 })();
 
 // Monster sheets
@@ -1240,6 +1391,11 @@ let player = {
   windwalkEntering: false, windwalkEnterFrame: 0, windwalkEnterTick: 0,
   windwalkExiting: false, windwalkExitFrame: 0, windwalkExitTick: 0,
   mageBlinkPhase: null, mageBlinkFrame: 0, mageBlinkTick: 0, mageBlinkTargetX: 0, mageBlinkTargetY: 0,
+  shamanLastSpirit: null, shamanSpiritChain: [],
+  shamanPrimalTimer: 0, shamanPrimalStat: null, shamanPrimalStats: [], shamanPrimalAmount: 0, shamanPrimalMode: null,
+  shamanPrimalCastTimer: 0, shamanPrimalCastStat: null, shamanPrimalCastStats: [],
+  shamanChargeDx: 0, shamanChargeDy: 0, shamanChargeMoved: 0, shamanChargeMax: 0,
+  shamanChargeStopped: false, shamanChargeTick: 0, shamanChargePrevProgress: 0, shamanChargeMissPlayed: false,
   dying: false, deathFrame: 0, deathTick: 0, deathTimer: 0,
   talentPaths: [-1,-1,-1],
   talentTaken: [[false,false,false], [false,false,false], [false,false,false]],
@@ -1755,6 +1911,12 @@ const sfx = {
   demonRoar:      new Audio('sounds/fx/Demon Roar.wav'),
   frostNova:      new Audio('sounds/fx/Forst Nova.wav'),
   mageBlink:      new Audio('sounds/fx/Mage Blink.mp3'),
+  lightning:      new Audio('sounds/fx/lightning.mp3'),
+  ancestralLeap:  new Audio('sounds/fx/Ancestral leap.wav'),
+  shamanDamage:   new Audio('sounds/fx/shaman hit.wav'),
+  bearSpirit:     new Audio('sounds/fx/bear spirit.wav'),
+  wolfSpirit:     new Audio('sounds/fx/wolf spirit.wav'),
+  owlSpirit:      new Audio('sounds/fx/owl spirit.wav'),
 };
 sfx.hit.volume            = 0.7;
 sfx.swing.volume          = 0.5;
@@ -1798,16 +1960,24 @@ sfx.heavyGate.volume      = 1.0;
 sfx.demonRoar.volume      = 1.0;
 sfx.frostNova.volume      = 0.8;
 sfx.mageBlink.volume      = 0.8;
+sfx.lightning.volume      = 0.85;
+sfx.ancestralLeap.volume  = 0.85;
+sfx.shamanDamage.volume   = 0.8;
+sfx.bearSpirit.volume     = 0.9;
+sfx.wolfSpirit.volume     = 0.9;
+sfx.owlSpirit.volume      = 0.9;
 
 // Character select voice lines (one per class — Mage added when file is available)
 const charSelectVoice = {
   Barbarian: new Audio(assetUrl('sounds/Voice lines/Barbarian Character Select.mp3')),
   Rogue:     new Audio(assetUrl('sounds/Voice lines/Rogue Character Select.mp3')),
   Mage:      new Audio(assetUrl('sounds/Voice lines/Mage Character selected.mp3')),
+  Shaman:    new Audio(assetUrl('sounds/Voice lines/Shaman Character Selected.mp3')),
 };
 charSelectVoice.Barbarian.volume = 1.0;
 charSelectVoice.Rogue.volume     = 1.0;
 charSelectVoice.Mage.volume      = 1.0;
+charSelectVoice.Shaman.volume    = 1.0;
 startupRegistrationComplete = true;
 drawLoadingScreen();
 if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
@@ -1856,6 +2026,7 @@ function playsfx(name) {
   if (name === 'damage') {
     if (player.className === 'Rogue' && sfx.rogueHit) name = 'rogueHit';
     else if (player.className === 'Mage' && sfx.mageHit) name = 'mageHit';
+    else if (player.className === 'Shaman' && sfx.shamanDamage) name = 'shamanDamage';
   }
   if (!sfx[name]) return;
   const s = sfx[name].cloneNode();
@@ -1908,6 +2079,13 @@ function setupAbilitiesForClass(cls) {
       mkab('e','E','windwalk',  '#1abc9c', 840,  0,                   windwalkTooltipText(1, cls.primaryStat, cls[cls.primaryStat])),
       mkab('r','R','slicedice', '#16a085', 1800, Math.round(ps*3),   `Slice and Dice. ${Math.round(ps*3)} AoE damage around you (3x ${primaryStatLabel(cls.primaryStat)} base).`)
     );
+  } else if (cls.name === 'Shaman') {
+    abilities.push(
+      mkab('q','Q','claw',          '#e67e22', 240, Math.round(cls.str*1.5), shamanTooltipText('claw', Math.round(cls.str*1.5), cls)),
+      mkab('w','W','ancestralleap', '#d35400', 600, Math.round(cls.agi*1.5), shamanTooltipText('ancestralleap', Math.round(cls.agi*1.5), cls)),
+      mkab('e','E','lightning',     '#f1c40f', 600, Math.round(cls.int*1.5), shamanTooltipText('lightning', Math.round(cls.int*1.5), cls)),
+      mkab('r','R','primalshift',   '#9b59b6',1200, 0,                       shamanTooltipText('primalshift', 0, cls))
+    );
   } else {
     abilities.push(
       mkab('q','Q','blastwave','#3498db', 240, ps,                   qTooltipText('blastwave', ps, cls.primaryStat, cls[cls.primaryStat])),
@@ -1951,6 +2129,11 @@ function startGame(classIdx) {
   player.windwalkEntering = false; player.windwalkEnterFrame = 0; player.windwalkEnterTick = 0;
   player.windwalkExiting = false; player.windwalkExitFrame = 0; player.windwalkExitTick = 0;
   player.mageBlinkPhase = null; player.mageBlinkFrame = 0; player.mageBlinkTick = 0;
+  player.shamanLastSpirit = null; player.shamanSpiritChain = [];
+  player.shamanPrimalTimer = 0; player.shamanPrimalStat = null; player.shamanPrimalStats = []; player.shamanPrimalAmount = 0; player.shamanPrimalMode = null;
+  player.shamanPrimalCastTimer = 0; player.shamanPrimalCastStat = null; player.shamanPrimalCastStats = [];
+  player.shamanChargeDx = 0; player.shamanChargeDy = 0; player.shamanChargeMoved = 0; player.shamanChargeMax = 0;
+  player.shamanChargeStopped = false; player.shamanChargeTick = 0; player.shamanChargePrevProgress = 0; player.shamanChargeMissPlayed = false;
   player.blinkChargeAvailable = false;
   player.talentPaths = [-1,-1,-1];
   player.talentTaken = [[false,false,false], [false,false,false], [false,false,false]];
@@ -2094,7 +2277,7 @@ document.addEventListener('keydown', (e) => {
           if (!devHasPlasticitySelected()) devPrimaryStat = null;
         }
         const statMap = { '1': 'str', '2': 'agi', '3': 'int' };
-        if (devHasPlasticitySelected() && statMap[e.key]) devPrimaryStat = statMap[e.key];
+        if (player.className !== 'Shaman' && devHasPlasticitySelected() && statMap[e.key]) devPrimaryStat = statMap[e.key];
       }
 
     } else if (devSetupSection === 4) { // ── Pendants ──
@@ -2321,6 +2504,7 @@ document.addEventListener('keydown', (e) => {
       ab.timer = ab.cooldown;
       player.castDirection = player.direction;
       if (ab.name === 'berserk') { registerSkillCast(ab); startBerserkCast(); return; }
+      if (ab.name === 'primalshift') { registerSkillCast(ab); startShamanPrimalShift(); return; }
       if (ab.name === 'blink') {
         if (ab.level >= 2 && player.blinkChargeAvailable) {
           // Second charge — consume it and start full CD
@@ -2340,6 +2524,11 @@ document.addEventListener('keydown', (e) => {
       }
       if (ab.name === 'fireball') playsfx('fireballCast');
       registerSkillCast(ab);
+      if (ab.name === 'ancestralleap') {
+        shamanMarkSpirit(ab.name);
+        playsfx('ancestralLeap');
+        startShamanCharge();
+      }
       player.state         = 'attacking';
         player.activeAbility = ab.key;
         player.attackFrame   = 0;
@@ -3026,6 +3215,7 @@ function applyDamageToEnemy(e, baseDmg, color) {
       if (mc === 'Barbarian') playsfx('barbarianDeath');
       else if (mc === 'Rogue') playsfx('rogueDeath');
       else if (mc === 'Mage')  playsfx('mageDeath');
+      else if (mc === 'Shaman') playsfx('mageDeath');
     }
     else if (e.type === 'johnpork')    playsfx('bruteDeath');
     const xp = expForEnemy(e);
@@ -3129,12 +3319,293 @@ function startMageBlink() {
   playsfx('mageBlink');
 }
 
+function adjustShamanPrimalStat(stat, amount) {
+  if (!stat || !amount) return;
+  player[stat] += amount;
+  if (stat === 'str') {
+    player.maxHp = Math.max(1, player.maxHp + amount * 10);
+    if (amount > 0) player.hp = Math.min(player.maxHp, player.hp + amount * 10);
+    else player.hp = Math.min(player.hp, player.maxHp);
+  } else if (stat === 'agi') {
+    player.baseSpeed = Math.round(2.5 * (1 + player.agi * 0.05) * 10) / 10;
+    player.speed = player.baseSpeed;
+  } else if (stat === 'int') {
+    abilities.forEach(a => {
+      a.cooldown = Math.max(30, a.cooldown - amount * 12);
+      if (a.timer > 0) a.timer = Math.min(a.timer, a.cooldown);
+    });
+  }
+}
+
+function adjustShamanPrimalStats(stats, amount) {
+  (stats || []).forEach(stat => adjustShamanPrimalStat(stat, amount));
+}
+
+function clearShamanPrimalShift() {
+  if (!player.shamanPrimalAmount || !(player.shamanPrimalStats || []).length) return;
+  adjustShamanPrimalStats(player.shamanPrimalStats, -player.shamanPrimalAmount);
+  player.shamanPrimalStat = null;
+  player.shamanPrimalStats = [];
+  player.shamanPrimalAmount = 0;
+  player.shamanPrimalMode = null;
+  player.shamanPrimalTimer = 0;
+  refreshShamanTooltipsAndDamage();
+}
+
+function shamanHasPrimalShiftLearned() {
+  return player.className === 'Shaman' && abilities.some(a => a.name === 'primalshift' && a.level > 0);
+}
+
+function shamanPrimalShiftLevel() {
+  const primal = abilities.find(a => a.name === 'primalshift');
+  return primal?.level || 0;
+}
+
+function shamanSpiritChainInfo(chain = player.shamanSpiritChain || []) {
+  const spirits = chain.filter(Boolean).slice(-3);
+  const unique = [...new Set(spirits)];
+  const key = spirits.join(',');
+  const primalLevel = shamanPrimalShiftLevel();
+  const dominanceAmount = primalLevel >= 2 ? 25 : 20;
+  const harmonyAmount = primalLevel >= 2 ? 7 : 5;
+  const perfectAmount = primalLevel >= 2 ? 10 : 8;
+  if (!spirits.length) return null;
+  if (spirits.length >= 3 && (key === 'str,agi,int' || key === 'int,agi,str')) {
+    return { mode: 'perfect', stats: ['str', 'agi', 'int'], scaleStat: null, amount: perfectAmount, label: 'PERFECT HARMONY' };
+  }
+  if (unique.length === 1) return { mode: 'dominance', stats: [unique[0]], scaleStat: unique[0], amount: dominanceAmount, label: `${shamanSpiritLabel(unique[0]).toUpperCase()} DOMINANCE` };
+  return { mode: 'harmony', stats: spirits, scaleStat: null, amount: harmonyAmount, label: 'SPIRIT HARMONY' };
+}
+
+function startShamanPrimalShift() {
+  const info = shamanSpiritChainInfo(player.shamanSpiritChain);
+  if (!info) {
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, 'NO SPIRIT', '#9b59b6');
+    const primal = abilities.find(a => a.name === 'primalshift');
+    if (primal) primal.timer = 0;
+    return;
+  }
+  clearShamanPrimalShift();
+  player.shamanPrimalStat = info.scaleStat;
+  player.shamanPrimalStats = info.stats;
+  player.shamanPrimalAmount = info.amount;
+  player.shamanPrimalMode = info.mode;
+  player.shamanPrimalTimer = 600;
+  player.shamanPrimalCastTimer = 45;
+  player.shamanPrimalCastStat = info.scaleStat || info.stats[0];
+  player.shamanPrimalCastStats = info.stats;
+  player.shamanSpiritChain = [];
+  adjustShamanPrimalStats(info.stats, info.amount);
+  refreshShamanTooltipsAndDamage();
+  addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, info.label, '#9b59b6');
+  info.stats.forEach((stat, i) => setTimeout(() => playsfx(shamanSpiritSfx(stat)), i * 120));
+}
+
 function registerSkillCast(ab) {
   if (!player.eternalFocusActive || !ab) return;
   player.eternalFocusCasts = (player.eternalFocusCasts || 0) + 1;
   if (player.eternalFocusCasts % 4 !== 0) return;
   ab.timer = Math.max(0, Math.round(ab.timer * 0.5));
   addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, 'ETERNAL FOCUS', '#2ecc71');
+}
+
+function shamanMarkSpirit(abName) {
+  const base = shamanAbilityBase(abName);
+  if (!base) return;
+  player.shamanLastSpirit = base.stat;
+  if (shamanHasPrimalShiftLearned()) {
+    player.shamanSpiritChain = [...(player.shamanSpiritChain || []), base.stat].slice(-3);
+  }
+  const primal = abilities.find(a => a.name === 'primalshift');
+  if (primal) primal.tooltip = shamanTooltipText('primalshift');
+}
+
+function damageEnemiesInRect(rect, damage, color) {
+  let landed = false;
+  enemies.forEach(e => {
+    if (e.hp <= 0 || e.dying) return;
+    const eb = enemyHitbox(e);
+    if (rectsOverlap(rect.x, rect.y, rect.w, rect.h, eb.x, eb.y, eb.w, eb.h)) {
+      landed = true;
+      applyDamageToEnemy(e, damage, color);
+    }
+  });
+  return landed;
+}
+
+function directionVector(dir) {
+  if (dir === 'up') return [0, -1];
+  if (dir === 'down') return [0, 1];
+  if (dir === 'left') return [-1, 0];
+  return [1, 0];
+}
+
+function shamanChargeArc() {
+  const dir = player.castDirection || player.direction;
+  const [fx, fy] = directionVector(dir);
+  return {
+    cx: player.x + DISPLAY_SIZE / 2 + fx * DISPLAY_SIZE * 0.5,
+    cy: player.y + DISPLAY_SIZE / 2 + fy * DISPLAY_SIZE * 0.5,
+    radius: DISPLAY_SIZE * 1.08,
+    direction: dir
+  };
+}
+
+function damageEnemiesInForwardArc(arc, damage, color, onHit = null) {
+  const [fx, fy] = directionVector(arc.direction);
+  let landed = false;
+  enemies.forEach(e => {
+    if (e.hp <= 0 || e.dying) return;
+    const eb = enemyHitbox(e);
+    const ex = eb.x + eb.w / 2;
+    const ey = eb.y + eb.h / 2;
+    const dx = ex - arc.cx;
+    const dy = ey - arc.cy;
+    const reach = arc.radius + Math.max(eb.w, eb.h) * 0.12;
+    if (Math.hypot(dx, dy) <= reach && dx * fx + dy * fy >= 0) {
+      landed = true;
+      applyDamageToEnemy(e, damage, color);
+      if (onHit) onHit(e);
+    }
+  });
+  return landed;
+}
+
+function applyShamanLeapStun(e) {
+  e.frozenTimer = Math.max(e.frozenTimer || 0, SHAMAN_LEAP_STUN);
+  e.hitFlash = Math.max(e.hitFlash || 0, SHAMAN_LEAP_STUN);
+}
+
+function startShamanCharge() {
+  const dir = player.castDirection || player.direction;
+  const [dx, dy] = directionVector(dir);
+  player.shamanChargeDx = dx;
+  player.shamanChargeDy = dy;
+  player.shamanChargeMoved = 0;
+  player.shamanChargeMax = DISPLAY_SIZE * 4.2;
+  player.shamanChargeStopped = false;
+  player.shamanChargeTick = 0;
+  player.shamanChargePrevProgress = 0;
+  player.shamanChargeMissPlayed = false;
+  player.attackFrame = 0;
+  player.atkFrameTick = 0;
+  player.hitDealt = false;
+}
+
+function resetShamanCharge() {
+  player.shamanChargeDx = 0;
+  player.shamanChargeDy = 0;
+  player.shamanChargeMoved = 0;
+  player.shamanChargeMax = 0;
+  player.shamanChargeStopped = false;
+  player.shamanChargeTick = 0;
+  player.shamanChargePrevProgress = 0;
+  player.shamanChargeMissPlayed = false;
+}
+
+function shamanChargeProgress(tick) {
+  const travelTicks = Math.max(1, SHAMAN_CHARGE_DURATION - SHAMAN_CHARGE_ANTICIPATION);
+  return Math.max(0, Math.min(1, (tick - SHAMAN_CHARGE_ANTICIPATION) / travelTicks));
+}
+
+function shamanChargeEase(t) {
+  const p = Math.max(0, Math.min(1, t));
+  return 1 - Math.pow(1 - p, 3);
+}
+
+function shamanChargeHit(ab) {
+  if (player.hitDealt) return false;
+  const landed = damageEnemiesInForwardArc(shamanChargeArc(), ab.damage, '#d35400', applyShamanLeapStun);
+  if (landed) {
+    player.hitDealt = true;
+    player.shamanChargeStopped = true;
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, 'IMPACT', '#d35400');
+    playsfx('hit');
+  }
+  return landed;
+}
+
+function updateShamanCharge(ab) {
+  if (player.shamanChargeMax <= 0) startShamanCharge();
+  player.shamanChargeTick = Math.min(player.shamanChargeTick + 1, SHAMAN_CHARGE_DURATION);
+  player.attackFrame = Math.min(7, Math.floor(player.shamanChargeTick / SHAMAN_CHARGE_DURATION * 8));
+  player.atkFrameTick = player.shamanChargeTick;
+
+  if (!player.shamanChargeStopped) {
+    const eased = shamanChargeEase(shamanChargeProgress(player.shamanChargeTick));
+    const nextProgress = Math.max(player.shamanChargePrevProgress, eased);
+    const step = Math.max(0, (nextProgress - player.shamanChargePrevProgress) * player.shamanChargeMax);
+    player.shamanChargePrevProgress = nextProgress;
+
+    if (step > 0 && player.shamanChargeMoved < player.shamanChargeMax) {
+      const remaining = player.shamanChargeMax - player.shamanChargeMoved;
+      const move = Math.min(step, remaining);
+      const slices = Math.max(1, Math.ceil(move / Math.max(6, DISPLAY_SIZE * 0.18)));
+      const sliceMove = move / slices;
+      for (let i = 0; i < slices && !player.shamanChargeStopped; i++) {
+        const nx = player.x + player.shamanChargeDx * sliceMove;
+        const ny = player.y + player.shamanChargeDy * sliceMove;
+        if (canPlayerMoveTo(nx, ny)) {
+          player.x = nx;
+          player.y = ny;
+          player.shamanChargeMoved += sliceMove;
+          if (player.shamanChargeTick >= SHAMAN_CHARGE_ANTICIPATION && shamanChargeHit(ab)) break;
+        } else {
+          player.shamanChargeStopped = true;
+        }
+      }
+    }
+
+    if (!player.hitDealt && player.shamanChargeTick >= SHAMAN_CHARGE_ANTICIPATION) {
+      shamanChargeHit(ab);
+    }
+  } else if (!player.hitDealt && player.attackFrame >= 6) {
+    shamanChargeHit(ab);
+  }
+
+  if (!player.hitDealt && player.attackFrame >= 7) {
+    shamanChargeHit(ab);
+  }
+
+  if (player.shamanChargeTick >= SHAMAN_CHARGE_DURATION) {
+    if (!player.hitDealt && !player.shamanChargeMissPlayed) {
+      playsfx('swing');
+      player.shamanChargeMissPlayed = true;
+    }
+    player.attackFrame = 0;
+    player.state = 'idle';
+    player.activeAbility = null;
+    player.hitDealt = false;
+    resetShamanCharge();
+  }
+}
+
+function shamanLightningStrike(ab) {
+  const dir = player.castDirection || player.direction;
+  const caster = {
+    x: player.x,
+    y: player.y,
+    direction: dir
+  };
+  const line = rectInFrontOf(caster, SHAMAN_LIGHTNING_RANGE, DISPLAY_SIZE * 0.72, DISPLAY_SIZE);
+  const landed = damageEnemiesInRect(line, ab.damage, '#f1c40f');
+  const [fx, fy] = directionVector(dir);
+  const cx = player.x + DISPLAY_SIZE / 2;
+  const cy = player.y + DISPLAY_SIZE / 2;
+  spellEffects.push({
+    type: 'shamanLightning',
+    x: cx,
+    y: cy,
+    dx: fx,
+    dy: fy,
+    frame: 0,
+    tick: 0,
+    life: 20,
+    length: SHAMAN_LIGHTNING_VISUAL_RANGE,
+    width: DISPLAY_SIZE * 1.15
+  });
+  playsfx('lightning');
+  if (landed) playsfx('hit');
 }
 
 function fireAbility() {
@@ -3230,6 +3701,18 @@ function fireAbility() {
     return;
   }
 
+  if (ab.name === 'ancestralleap') {
+    shamanMarkSpirit(ab.name);
+    if (!shamanChargeHit(ab)) playsfx('swing');
+    return;
+  }
+
+  if (ab.name === 'lightning') {
+    shamanMarkSpirit(ab.name);
+    shamanLightningStrike(ab);
+    return;
+  }
+
   if (ab.name === 'fireball') {
     const cx = player.x + DISPLAY_SIZE / 2, cy = player.y + DISPLAY_SIZE / 2;
     const spd = Math.max(5, Math.round(DISPLAY_SIZE * 0.14));
@@ -3278,10 +3761,12 @@ function fireAbility() {
     const eb = enemyHitbox(e);
     if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, eb.x, eb.y, eb.w, eb.h)) {
       landed = true;
-      applyDamageToEnemy(e, ab.damage + windwalkBonus, '#2ecc71');
+      applyDamageToEnemy(e, ab.damage + windwalkBonus, ab.name === 'claw' ? '#e67e22' : '#2ecc71');
     }
   });
+  if (ab.name === 'claw') shamanMarkSpirit(ab.name);
   if (ab.name === 'blastwave') playsfx('blastwave');
+  else if (ab.name === 'claw') playsfx(landed ? 'hit' : 'swing');
   else if (windwalkBonus > 0) playsfx('rogueSlash');
   else playsfx(landed ? 'hit' : 'swing');
 }
@@ -3340,6 +3825,10 @@ function getLevelableSkills() {
 function levelSkill(ab) {
   ab.level++;
   if (ab.damage > 0) ab.damage = Math.round(ab.damage * 1.3);
+  if (player.className === 'Shaman') {
+    refreshShamanTooltipsAndDamage();
+    return;
+  }
   if (ab.key === 'q') {
     refreshQTooltip(ab);
     return;
@@ -3372,12 +3861,141 @@ function primaryStatFullLabel(stat = player.primaryStat) {
 function qTooltipText(name, damage, stat = player.primaryStat, statValue = player[stat]) {
   const value = Math.max(1, statValue || player[stat] || 1);
   const mult = statFormulaMultiplierText(damage / value);
-  const label = name === 'blastwave' ? 'Blastwave' : 'Slash';
+  const label = name === 'blastwave' ? 'Blastwave' : name === 'claw' ? 'Claw' : 'Slash';
   return `${label}. Deals ${mult} ${primaryStatFullLabel(stat)} in damage in front (${damage} dmg).`;
 }
 
 function refreshQTooltip(ab = abilities.find(a => a.key === 'q')) {
-  if (ab) ab.tooltip = qTooltipText(ab.name, ab.damage);
+  if (!ab) return;
+  if (player.className === 'Shaman') ab.tooltip = shamanTooltipText(ab.name, ab.damage);
+  else ab.tooltip = qTooltipText(ab.name, ab.damage);
+}
+
+function shamanStatLabel(stat) {
+  return stat === 'str' ? 'Strength' : stat === 'agi' ? 'Agility' : 'Intelligence';
+}
+
+function shamanSpiritLabel(stat) {
+  return stat === 'str' ? 'Bear' : stat === 'agi' ? 'Wolf' : 'Owl';
+}
+
+function shamanSpiritSfx(stat) {
+  return stat === 'str' ? 'bearSpirit' : stat === 'agi' ? 'wolfSpirit' : 'owlSpirit';
+}
+
+function shamanSpiritRow(stat) {
+  return stat === 'str' ? 0 : stat === 'agi' ? 1 : 2;
+}
+
+function shamanShiftColor(stat) {
+  return stat === 'str' ? '#e74c3c' : stat === 'agi' ? '#2ecc71' : '#3498db';
+}
+
+function shamanVisualStats(stats = player.shamanPrimalStats) {
+  const list = [...new Set((stats || []).filter(Boolean))];
+  return list.length ? list : (player.shamanPrimalStat ? [player.shamanPrimalStat] : ['int']);
+}
+
+function shamanCycleColor(stats = player.shamanPrimalStats, speed = 280) {
+  const list = shamanVisualStats(stats);
+  return shamanShiftColor(list[Math.floor(Date.now() / speed) % list.length]);
+}
+
+function shamanAbilityBase(name) {
+  if (name === 'claw') return { stat: 'str', mult: 1.5, label: 'Claw' };
+  if (name === 'ancestralleap') return { stat: 'agi', mult: 1.5, label: 'Ancestral Leap' };
+  if (name === 'lightning') return { stat: 'int', mult: 1.5, label: 'Lightning' };
+  return null;
+}
+
+function abilityDisplayName(abOrName) {
+  const name = typeof abOrName === 'string' ? abOrName : abOrName?.name;
+  const labels = {
+    ancestralleap: 'Ancestral Leap',
+    primalshift: 'Primal Shift',
+    slicedice: 'Slice and Dice',
+    frostnova: 'Frost Nova',
+    blastwave: 'Blastwave',
+    windwalk: 'Windwalk',
+    fireball: 'Fireball',
+    lightning: 'Lightning',
+    berserk: 'Berserk',
+    whirlwind: 'Whirlwind',
+    claw: 'Claw',
+    slash: 'Slash',
+    throw: 'Throw',
+    slam: 'Slam',
+    blink: 'Blink'
+  };
+  return labels[name] || String(name || '').replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
+function shamanActiveScalingStat(base) {
+  return player.shamanPrimalTimer > 0 && player.shamanPrimalMode === 'dominance' && player.shamanPrimalStat
+    ? player.shamanPrimalStat
+    : base.stat;
+}
+
+function shamanAbilityDamage(name, levelOrAb = 1) {
+  const base = shamanAbilityBase(name);
+  if (!base) return 0;
+  const lvl = typeof levelOrAb === 'number' ? levelOrAb : (levelOrAb?.level || 1);
+  const scalingStat = shamanActiveScalingStat(base);
+  const statValue = player[scalingStat] || 1;
+  return Math.max(1, Math.round(statValue * base.mult * Math.pow(1.3, Math.max(0, lvl - 1))));
+}
+
+function shamanBonusSummary(stats = [], amount = 0) {
+  const totals = { str: 0, agi: 0, int: 0 };
+  (stats || []).forEach(stat => {
+    if (stat in totals) totals[stat] += amount;
+  });
+  return ['str', 'agi', 'int']
+    .filter(stat => totals[stat] > 0)
+    .map(stat => `+${totals[stat]} ${shamanStatLabel(stat)}`)
+    .join(', ');
+}
+
+function shamanTooltipText(name, damage = 0, statSource = player) {
+  const base = shamanAbilityBase(name);
+  if (base) {
+    const scalingStat = statSource === player ? shamanActiveScalingStat(base) : base.stat;
+    const statValue = statSource[scalingStat] || player[scalingStat] || 1;
+    const dmg = damage || Math.round(statValue * base.mult);
+    const scaleLabel = shamanStatLabel(scalingStat);
+    const shifted = scalingStat !== base.stat
+      ? ` Primal Shift: scaling changed from ${shamanStatLabel(base.stat)} to ${scaleLabel}.`
+      : player.shamanPrimalMode === 'perfect' ? ` Perfect Harmony: +${player.shamanPrimalAmount} to all stats.`
+      : player.shamanPrimalMode === 'harmony' ? ` Spirit Harmony: ${shamanBonusSummary(player.shamanPrimalStats, player.shamanPrimalAmount)}.`
+      : '';
+    if (name === 'claw') return `Claw. Deals 1.5x ${scaleLabel} in damage in front (${dmg} dmg).${shifted}`;
+    if (name === 'ancestralleap') return `Ancestral Leap. Charge forward a short distance, damaging enemies hit for 1.5x ${scaleLabel} and stunning them for 0.25s (${dmg} dmg).${shifted}`;
+    return `Lightning. Strike a straight line forward for 1.5x ${scaleLabel} (${dmg} dmg).${shifted}`;
+  }
+  const info = shamanSpiritChainInfo(player.shamanSpiritChain);
+  const queued = info ? `${info.label}: ${info.stats.map(shamanSpiritLabel).join(' + ')}` : 'cast Q/W/E to gather spirits';
+  if (player.shamanPrimalTimer > 0 && player.shamanPrimalMode) {
+    if (player.shamanPrimalMode === 'dominance') {
+      const active = `${shamanSpiritLabel(player.shamanPrimalStat)} / ${shamanStatLabel(player.shamanPrimalStat)}`;
+      return `Primal Shift. Active: +${player.shamanPrimalAmount} ${active}; all Shaman damage scales with ${shamanStatLabel(player.shamanPrimalStat)} for ${Math.ceil(player.shamanPrimalTimer / 60)}s.`;
+    }
+    const label = player.shamanPrimalMode === 'perfect' ? 'Perfect Harmony' : 'Spirit Harmony';
+    const bonus = player.shamanPrimalMode === 'perfect'
+      ? `+${player.shamanPrimalAmount} all stats`
+      : shamanBonusSummary(player.shamanPrimalStats, player.shamanPrimalAmount);
+    return `Primal Shift. Active: ${label}; ${bonus} for ${Math.ceil(player.shamanPrimalTimer / 60)}s.`;
+  }
+  return `Primal Shift. Consume your spirit chain (${queued}). Repeat one spirit for Dominance: +20 to that stat at Lv1 (+25 at Lv2) and all Shaman damage scales with it. Mixed chains trigger Harmony: each consumed spirit gives +5 to its stat at Lv1 (+7 at Lv2), so Q-Q-W gives +10 Strength and +5 Agility at Lv1. Cast Q-W-E or E-W-Q for Perfect Harmony: +8 all stats at Lv1 (+10 at Lv2).`;
+}
+
+function refreshShamanTooltipsAndDamage() {
+  if (player.className !== 'Shaman') return;
+  abilities.forEach(ab => {
+    if (shamanAbilityBase(ab.name)) ab.damage = shamanAbilityDamage(ab.name, ab);
+    if (ab.name === 'claw' || ab.name === 'ancestralleap' || ab.name === 'lightning' || ab.name === 'primalshift') {
+      ab.tooltip = shamanTooltipText(ab.name, ab.damage);
+    }
+  });
 }
 
 function refreshBerserkTooltip(ab = abilities.find(a => a.name === 'berserk')) {
@@ -3443,6 +4061,7 @@ function applyStatPoint(stat) {
   refreshWindwalkTooltip();
   refreshSliceDiceTooltip();
   refreshMageSkillTooltips();
+  refreshShamanTooltipsAndDamage();
 }
 
 function finishLevelupStatsIfDone() {
@@ -3501,8 +4120,18 @@ function confirmPendingTalent() {
   markTalentTaken(pathIdx, ti);
   applyTalentEffect(pathIdx, ti);
   if (pathIdx === 2 && ti === 0) {
-    talentConfirmData = null;
-    levelupPhase = 'primattr';
+    if (player.className === 'Shaman') {
+      talentConfirmData = {
+        mode: 'acquired',
+        name: 'Plasticity',
+        desc: 'Shaman gains +3 to all stats and keeps Balance.',
+        color: TALENT_TREE[pathIdx].color
+      };
+      levelupPhase = 'talentConfirm';
+    } else {
+      talentConfirmData = null;
+      levelupPhase = 'primattr';
+    }
   } else {
     const path = TALENT_TREE[pathIdx];
     const tier = path.tiers[ti];
@@ -3523,6 +4152,7 @@ function choosePrimaryAttr(newStat) {
   refreshWindwalkTooltip();
   refreshSliceDiceTooltip();
   refreshMageSkillTooltips();
+  refreshShamanTooltipsAndDamage();
 }
 
 function primaryStatColor(stat) {
@@ -3582,6 +4212,13 @@ function updatePlayer() {
   if (player.slowTimer > 0)    player.slowTimer--;
   if (player.stunTimer > 0)    player.stunTimer--;
   if (player.berserkTimer > 0) player.berserkTimer--;
+  if (player.shamanPrimalTimer > 0 && --player.shamanPrimalTimer <= 0) {
+    clearShamanPrimalShift();
+  }
+  if (player.shamanPrimalCastTimer > 0 && --player.shamanPrimalCastTimer <= 0) {
+    player.shamanPrimalCastStat = null;
+    player.shamanPrimalCastStats = [];
+  }
   if (player.bloodlustKillTimer > 0) player.bloodlustKillTimer--;
   if (player.knockbackTimer > 0) {
     const nx = player.x + player.knockbackDx;
@@ -3649,9 +4286,10 @@ function updatePlayer() {
   }
   const hazardSlow = playerHazardSlowMult();
   const spd = (player.slowTimer > 0 ? Math.max(1, player.speed * 0.5) : player.speed) * hazardSlow;
+  const shamanCharging = player.state === 'attacking' && player.className === 'Shaman' && player.activeAbility === 'w';
 
   let dx = 0, dy = 0;
-  if (player.stunTimer <= 0 && player.knockbackTimer <= 0) {
+  if (!shamanCharging && player.stunTimer <= 0 && player.knockbackTimer <= 0) {
     if (keys['ArrowUp'])    { dy = -spd; player.direction = 'up'; }
     if (keys['ArrowDown'])  { dy =  spd; player.direction = 'down'; }
     if (keys['ArrowLeft'])  { dx = -spd; player.direction = 'left'; }
@@ -3699,20 +4337,26 @@ function updatePlayer() {
     const ab = player.activeAbility;
     const isRogue = player.className === 'Rogue';
     const isMage = player.className === 'Mage';
-    const maxFrames  = isMage || isRogue ? 4 : ab === 'e' ? SLAM_FRAMES   : ab === 'w' ? WHIRL_FRAMES : 4;
-    const impactAt   = isMage ? 2 : isRogue ? IMPACT_FRAME : ab === 'e' ? SLAM_IMPACT : ab === 'w' ? WHIRL_IMPACT : IMPACT_FRAME;
-    if (!player.hitDealt && player.attackFrame === impactAt) {
-      player.hitDealt = true;
-      fireAbility();
-    }
-    player.atkFrameTick++;
-    if (player.atkFrameTick >= ATK_SPEED) {
-      player.atkFrameTick = 0;
-      player.attackFrame++;
-      if (player.attackFrame >= maxFrames) {
-        player.attackFrame = 0;
-        player.state = 'idle';
-        player.activeAbility = null;
+    const isShaman = player.className === 'Shaman';
+    const shamanLeap = isShaman && ab === 'w';
+    const maxFrames  = shamanLeap ? 8 : isMage || isRogue || isShaman ? 4 : ab === 'e' ? SLAM_FRAMES   : ab === 'w' ? WHIRL_FRAMES : 4;
+    const impactAt   = shamanLeap ? 7 : isMage ? 2 : isShaman ? 2 : isRogue ? IMPACT_FRAME : ab === 'e' ? SLAM_IMPACT : ab === 'w' ? WHIRL_IMPACT : IMPACT_FRAME;
+    if (shamanLeap) {
+      updateShamanCharge(abilities.find(a => a.key === 'w') || { damage: 0 });
+    } else {
+      if (!player.hitDealt && player.attackFrame === impactAt) {
+        player.hitDealt = true;
+        fireAbility();
+      }
+      player.atkFrameTick++;
+      if (player.atkFrameTick >= ATK_SPEED) {
+        player.atkFrameTick = 0;
+        player.attackFrame++;
+        if (player.attackFrame >= maxFrames) {
+          player.attackFrame = 0;
+          player.state = 'idle';
+          player.activeAbility = null;
+        }
       }
     }
   } else {
@@ -4258,7 +4902,7 @@ function applyFireballSplash(x, y, damage, directHit = null) {
 function updateSpellEffects() {
   for (let i = spellEffects.length - 1; i >= 0; i--) {
     const fx = spellEffects[i];
-    const frameSpeed = fx.type === 'trollRockImpact' ? 2 : fx.type === 'darkSummon' ? 4 : 4;
+    const frameSpeed = fx.type === 'trollRockImpact' ? 2 : fx.type === 'shamanLightning' ? 3 : fx.type === 'darkSummon' ? 4 : 4;
     if (++fx.tick >= frameSpeed) {
       fx.tick = 0;
       fx.frame++;
@@ -4269,6 +4913,7 @@ function updateSpellEffects() {
     }
     const maxFrames = fx.type === 'fireballExplosion' ? FIREBALL_EXPLOSION_FRAMES :
       fx.type === 'trollRockImpact' ? TROLL_BOULDER_IMPACT_FRAMES :
+      fx.type === 'shamanLightning' ? 6 :
       fx.type === 'darkSummon' ? DARK_SUMMON_FRAMES : 4;
     if (--fx.life <= 0 || fx.frame >= maxFrames) spellEffects.splice(i, 1);
   }
@@ -4376,6 +5021,37 @@ function drawSpellEffects() {
       ctx.save();
       ctx.globalAlpha = Math.max(0.2, fx.life / 32);
       drawMonSprite(mageFrostNovaSheet, col, 2, fx.x - sz / 2, fx.y - sz / 2, sz, sz);
+      ctx.restore();
+    } else if (fx.type === 'shamanLightning') {
+      const progress = Math.min(1, (fx.frame + 1) / 6);
+      const alpha = Math.max(0.16, Math.min(1, fx.life / 10));
+      const angle = Math.atan2(-fx.dx, fx.dy);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.globalCompositeOperation = 'screen';
+      if (shamanLightningSheet) {
+        drawOneRowEffectFrame(
+          shamanLightningSheet,
+          Math.min(5, fx.frame),
+          6,
+          fx.x,
+          fx.y,
+          fx.width,
+          fx.length,
+          angle,
+          -fx.width / 2,
+          -DISPLAY_SIZE * 0.12
+        );
+      } else {
+        ctx.strokeStyle = `rgba(241, 196, 15, ${0.55 + progress * 0.35})`;
+        ctx.shadowColor = '#f1c40f';
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = fx.width * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(fx.x, fx.y);
+        ctx.lineTo(fx.x + fx.dx * fx.length, fx.y + fx.dy * fx.length);
+        ctx.stroke();
+      }
       ctx.restore();
     } else if (fx.type === 'trollRockImpact' && trollBoulderSheet) {
       const frame = Math.min(15, fx.frame + 1);
@@ -6556,6 +7232,7 @@ function update() {
       if (player.className === 'Barbarian')     playsfx('barbarianDeath');
       else if (player.className === 'Rogue')    playsfx('rogueDeath');
       else if (player.className === 'Mage')     playsfx('mageDeath');
+      else if (player.className === 'Shaman')   playsfx('mageDeath');
     }
     if (++player.deathTick >= FRAME_SPEED) {
       player.deathTick = 0;
@@ -6841,6 +7518,8 @@ function drawAttackRange() {
   const isBarbAoE = player.className === 'Barbarian' && (ab === 'w' || ab === 'e');
   const isMageAoE = player.className === 'Mage' && ab === 'e';
   const isRogueUlt = player.className === 'Rogue' && ab === 'r';
+  const isShamanLeap = player.className === 'Shaman' && ab === 'w';
+  const isShamanLightning = player.className === 'Shaman' && ab === 'e';
 
   if (isBarbAoE) {
     const r = ab === 'w'
@@ -6855,6 +7534,24 @@ function drawAttackRange() {
   } else if (isRogueUlt) {
     ctx.strokeStyle = 'rgba(22, 160, 133, 0.8)';
     ctx.beginPath(); ctx.arc(cx, cy, ROGUE_SLICE_DICE_RADIUS, 0, Math.PI * 2); ctx.stroke();
+  } else if (isShamanLeap) {
+    const arc = shamanChargeArc();
+    ctx.strokeStyle = 'rgba(211, 84, 0, 0.75)';
+    ctx.fillStyle = 'rgba(211, 84, 0, 0.10)';
+    const angles = {
+      right: [-Math.PI / 2, Math.PI / 2],
+      down: [0, Math.PI],
+      left: [Math.PI / 2, Math.PI * 1.5],
+      up: [Math.PI, Math.PI * 2]
+    }[arc.direction] || [-Math.PI / 2, Math.PI / 2];
+    ctx.beginPath();
+    ctx.moveTo(arc.cx, arc.cy);
+    ctx.arc(arc.cx, arc.cy, arc.radius, angles[0], angles[1]);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (isShamanLightning) {
+    // Lightning uses its animated sprite as the combat read; no dashed melee box.
   } else {
     const hb = getHitbox();
     if (hb) {
@@ -6873,6 +7570,24 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.shadowColor = '#cc00ff'; ctx.shadowBlur = 22;
     ctx.strokeStyle = '#cc00ff'; ctx.lineWidth = 3;
     ctx.strokeRect(drawX + 2, drawY + 2, dsize - 4, dsize - 4);
+    ctx.restore();
+  }
+  if (player.shamanPrimalTimer > 0) {
+    const stats = shamanVisualStats(player.shamanPrimalStats);
+    const color = shamanCycleColor(stats);
+    const cx = drawX + dsize / 2;
+    const cy = drawY + dsize / 2;
+    ctx.save();
+    ctx.globalAlpha = 0.22 + 0.10 * Math.sin(player.shamanPrimalTimer / 6);
+    ctx.shadowColor = color; ctx.shadowBlur = 18;
+    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    stats.forEach((stat, i) => {
+      ctx.strokeStyle = shamanShiftColor(stat);
+      ctx.globalAlpha = 0.18 + 0.08 * Math.sin(player.shamanPrimalTimer / 6 + i);
+      ctx.beginPath();
+      ctx.arc(cx, cy, dsize * (0.58 + i * 0.12), 0, Math.PI * 2);
+      ctx.stroke();
+    });
     ctx.restore();
   }
   if (player.avatarActive) {
@@ -7039,9 +7754,163 @@ function drawMage() {
   drawPlayerEffects(drawX, drawY, dsize);
 }
 
+function drawShamanPrimalShiftBehind(drawX, drawY, dsize) {
+  if (!shamanPrimalShiftSheet || !shamanPrimalShiftFrames || player.shamanPrimalCastTimer <= 0) return;
+  const stats = shamanVisualStats(player.shamanPrimalCastStats?.length ? player.shamanPrimalCastStats : [player.shamanPrimalCastStat]);
+  const total = 45;
+  const elapsed = Math.max(0, total - player.shamanPrimalCastTimer);
+  const t = Math.min(1, elapsed / total);
+  const frame = Math.min(4, Math.floor(t * 5));
+  const frameSwell = [0.72, 0.96, 1.18, 1.52, 1.18][frame] || 1;
+  const pulse = Math.sin(t * Math.PI);
+  const impactPulse = frame === 3 ? 1 + pulse * 0.10 : 1;
+  const color = shamanCycleColor(stats, 180);
+  const cx = drawX + dsize / 2;
+  const cy = drawY + dsize / 2;
+
+  ctx.save();
+  ctx.globalAlpha = 0.16 + pulse * 0.12;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 4;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 22 + 12 * pulse;
+  ctx.beginPath();
+  ctx.arc(cx, cy, dsize * (0.42 + t * 0.68), 0, Math.PI * 2);
+  ctx.stroke();
+
+  stats.forEach((stat, i) => {
+    const row = shamanSpiritRow(stat);
+    const src = shamanPrimalShiftFrames[row]?.[frame];
+    if (!src) return;
+    const fan = stats.length > 1 ? (i - (stats.length - 1) / 2) * dsize * 0.34 : 0;
+    const scale = (dsize / 512) * frameSwell * impactPulse * (stats.length > 1 ? 0.94 : 1);
+    const dw = src.sw * scale;
+    const dh = src.sh * scale;
+    const dx = drawX + dsize / 2 - dw / 2 + fan;
+    const dy = drawY + dsize * 0.98 - dh;
+    const statColor = shamanShiftColor(stat);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.18 + pulse * 0.32;
+    ctx.shadowColor = statColor;
+    ctx.shadowBlur = 20 + 20 * pulse;
+    ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, dx, dy, dw, dh);
+
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = frame === 3 ? 0.18 + pulse * 0.16 : 0.07 + pulse * 0.10;
+    ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, dx - dw * 0.035, dy - dh * 0.035, dw * 1.07, dh * 1.07);
+  });
+  ctx.restore();
+}
+
+function drawShamanFrameTinted(sx, sy, sw, sh, dx, dy, dw, dh) {
+  const active = player.shamanPrimalTimer > 0 && player.shamanPrimalMode;
+  const color = active ? shamanCycleColor(player.shamanPrimalStats) : null;
+  const alpha = active ? 0.24 + 0.06 * Math.sin(player.shamanPrimalTimer / 5) : 0;
+  drawImageTintedByAlpha(shamanSheet, sx, sy, sw, sh, dx, dy, dw, dh, color, alpha);
+  if (!active) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.10;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
+  ctx.drawImage(shamanSheet, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.restore();
+}
+
+function drawShamanAncestralLeap(drawX, drawY, dsize) {
+  const facingLeft = player.direction === 'left' || player.direction === 'up';
+  const sheet = facingLeft ? shamanLeapLeftSheet : shamanLeapRightSheet;
+  const frames = facingLeft ? shamanLeapLeftFrames : shamanLeapRightFrames;
+  if (!sheet || !frames) return false;
+  const frameCount = 8;
+  const frame = Math.max(0, Math.min(frameCount - 1, player.attackFrame || 0));
+  const src = frames[0]?.[facingLeft ? frameCount - 1 - frame : frame];
+  if (!src) return false;
+  const dh = Math.round(dsize * 1.08);
+  const dw = Math.round(dh * (src.sw / src.sh));
+  const dx = drawX + dsize / 2 - dw / 2;
+  const dy = drawY + dsize - dh;
+
+  ctx.save();
+  const active = player.shamanPrimalTimer > 0 && player.shamanPrimalMode;
+  drawImageTintedByAlpha(
+    sheet, src.sx, src.sy, src.sw, src.sh, dx, dy, dw, dh,
+    active ? shamanCycleColor(player.shamanPrimalStats) : null,
+    active ? 0.24 + 0.06 * Math.sin(player.shamanPrimalTimer / 5) : 0
+  );
+  ctx.restore();
+  return true;
+}
+
+function drawShamanSpiritOrbs(drawX, drawY, dsize) {
+  if (!shamanSpiritOrbSheet || !shamanSpiritOrbFrames || !shamanHasPrimalShiftLearned()) return;
+  const chain = (player.shamanSpiritChain || []).slice(-3);
+  if (!chain.length) return;
+  const t = Date.now() / 620;
+  const cx = drawX + dsize / 2;
+  const cy = drawY + dsize * 0.45;
+  const radius = dsize * 0.58;
+  const size = dsize * 0.32;
+  const alphaBase = player.shamanPrimalTimer > 0 ? 0.42 : 0.70;
+  ctx.save();
+  chain.forEach((stat, i) => {
+    const src = shamanSpiritOrbFrames[0]?.[stat === 'str' ? 0 : stat === 'agi' ? 1 : 2];
+    if (!src) return;
+    const angle = t + i * (Math.PI * 2 / Math.max(3, chain.length));
+    const x = cx + Math.cos(angle) * radius - size / 2;
+    const y = cy + Math.sin(angle) * radius * 0.55 - size / 2;
+    const color = shamanShiftColor(stat);
+    ctx.globalAlpha = alphaBase;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, x, y, size, size);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.16;
+    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, x - size * 0.06, y - size * 0.06, size * 1.12, size * 1.12);
+    ctx.globalCompositeOperation = 'source-over';
+  });
+  ctx.restore();
+}
+
+function drawShaman() {
+  const dsize = DISPLAY_SIZE;
+  const row = dirToRow(player.direction);
+
+  if (!shamanSheet) return;
+
+  if (player.dying) {
+    const frame = Math.min(player.deathFrame, 3);
+    drawShamanFrameTinted(1024 + frame * 256, 1024 + row * 256, 256, 256, player.x, player.y, dsize, dsize);
+    return;
+  }
+
+  drawAttackRange();
+  applyHitFlash(player.hitFlash);
+  drawShamanPrimalShiftBehind(player.x, player.y, dsize);
+
+  if (player.state === 'attacking') {
+    const frame = (player.attackFrame || 0) % 4;
+    if (player.activeAbility === 'w' && drawShamanAncestralLeap(player.x, player.y, dsize)) {
+      ctx.filter = 'none';
+      drawShamanSpiritOrbs(player.x, player.y, dsize);
+      drawPlayerEffects(player.x, player.y, dsize);
+      return;
+    }
+    drawShamanFrameTinted(1024 + frame * 256, row * 256, 256, 256, player.x, player.y, dsize, dsize);
+  } else {
+    const frame = (player.frameIndex || 0) % 4;
+    drawShamanFrameTinted(frame * 256, row * 256, 256, 256, player.x, player.y, dsize, dsize);
+  }
+
+  ctx.filter = 'none';
+  drawShamanSpiritOrbs(player.x, player.y, dsize);
+  drawPlayerEffects(player.x, player.y, dsize);
+}
+
 function drawPlayer() {
   if (player.className === 'Rogue') return drawRogue();
   if (player.className === 'Mage') return drawMage();
+  if (player.className === 'Shaman') return drawShaman();
 
   if (player.dying) {
     if (player.className === 'Barbarian') {
@@ -8149,11 +9018,12 @@ function drawUI() {
   // ── Left: portrait filling full UI height ───────────────────────────────
   const portSize = UI_HEIGHT - 4, portX = 2, portY = U + 2;
   const cls = CLASSES.find(c => c.name === player.className);
-  const pColor = primaryStatColor(player.primaryStat) || cls?.color || '#e94560';
+  const pColor = player.className === 'Shaman' ? '#e67e22' : (primaryStatColor(player.primaryStat) || cls?.color || '#e94560');
   ctx.fillStyle = '#1a1a3a'; ctx.fillRect(portX, portY, portSize, portSize);
   const portrait = player.className === 'Barbarian' ? barbPortrait
                  : player.className === 'Rogue'     ? roguePortrait
-                 : player.className === 'Mage'      ? magePortrait : null;
+                 : player.className === 'Mage'      ? magePortrait
+                 : player.className === 'Shaman'    ? shamanPortrait : null;
   if (portrait) {
     ctx.drawImage(portrait, portX, portY, portSize, portSize);
   } else {
@@ -8278,25 +9148,25 @@ function drawUI() {
       ctx.restore();
       // Key label — small badge top-left
       ctx.fillStyle = cd ? '#555' : 'rgba(255,255,255,0.9)';
-      ctx.font = 'bold 13px Arial'; ctx.textAlign = 'left';
+      ctx.font = `700 13px 'Cinzel', serif`; ctx.textAlign = 'left';
       ctx.fillText(ab.label, x + 6, slotY + 16);
     } else {
       // Fallback: large key label centred (no icon)
-      ctx.fillStyle = cd ? '#555' : '#fff'; ctx.font = 'bold 20px Arial';
+      ctx.fillStyle = cd ? '#555' : '#fff'; ctx.font = `700 20px 'Cinzel', serif`;
       ctx.textAlign = 'center';
       ctx.fillText(ab.label, x + slotSize/2, slotY + slotSize/2 + 6);
     }
 
     // Skill name — bottom centre
-    const skillDisplayName = ab.name.charAt(0).toUpperCase() + ab.name.slice(1);
+    const skillDisplayName = abilityDisplayName(ab);
     ctx.textAlign = 'center';
-    ctx.fillStyle = cd ? '#444' : '#aaddff'; ctx.font = '9px Arial';
+    ctx.fillStyle = cd ? '#5f533f' : '#f1d27a'; ctx.font = `700 9px 'Cinzel', serif`;
     ctx.fillText(skillDisplayName, x + slotSize/2, slotY + slotSize - 17);
     // Level / cooldown indicator
-    ctx.fillStyle = cd ? '#444' : '#666'; ctx.font = '10px Arial';
+    ctx.fillStyle = cd ? '#5f533f' : '#a99062'; ctx.font = `600 10px 'Cinzel', serif`;
     ctx.fillText(`Lv ${ab.level}`, x + slotSize/2, slotY + slotSize - 6);
     if (cd) {
-      ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
+      ctx.fillStyle = '#d8c29a'; ctx.font = `700 12px 'Cinzel', serif`;
       ctx.fillText(Math.ceil(ab.timer / 60) + 's', x + slotSize/2, slotY + slotSize - 18);
     }
     if (mouseX >= x && mouseX <= x + slotSize && mouseY >= slotY && mouseY <= slotY + slotSize) {
@@ -8379,9 +9249,9 @@ function drawUI() {
     const ty = slotY - th - 8;
     ctx.fillStyle = '#1a1a2e'; ctx.fillRect(tx, ty, tw, th);
     ctx.strokeStyle = ab.color; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, th);
-    ctx.fillStyle = '#ffd700'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'left';
-    ctx.fillText(`${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)} (Lv ${ab.level}/${ab.maxLevel})`, tx+6, ty+16);
-    ctx.fillStyle = '#ddd'; ctx.font = '11px Arial';
+    ctx.fillStyle = '#d8b45d'; ctx.font = `700 12px 'Cinzel', serif`; ctx.textAlign = 'left';
+    ctx.fillText(`${abilityDisplayName(ab)} (Lv ${ab.level}/${ab.maxLevel})`, tx+6, ty+16);
+    ctx.fillStyle = '#ead9b9'; ctx.font = `600 11px 'Cinzel', serif`;
     const words = ab.tooltip.split(' ');
     let line = '', ly = ty+32;
     words.forEach(w => {
@@ -8671,7 +9541,7 @@ function applyDevConfig() {
     if (pi === 2 && ti === 0) plasticityApplied = true;
   });
 
-  if (plasticityApplied && devPrimaryStat) choosePrimaryAttr(devPrimaryStat);
+  if (plasticityApplied && devPrimaryStat && player.className !== 'Shaman') choosePrimaryAttr(devPrimaryStat);
   player.level = devSetupLevel;
 
   // ── Pendants ───────────────────────────────────────────────────────────────
@@ -8822,11 +9692,15 @@ function drawDevSetup() {
 
   // ── 3: Pendants ──────────────────────────────────────────────────────────
   sectionLabel(4, '── PENDANTS ──');
-  if (devHasPlasticitySelected()) {
+  if (devHasPlasticitySelected() && player.className !== 'Shaman') {
     const chosenPrimary = devPrimaryStat || player.primaryStat;
     ctx.fillStyle = primaryStatColor(chosenPrimary);
     ctx.font = 'bold 10px Arial';
     ctx.fillText(`Plasticity primary: ${primaryStatLabel(chosenPrimary)}   press 1 STR / 2 AGI / 3 INT`, W/2, SEC[3] + 98);
+  } else if (devHasPlasticitySelected() && player.className === 'Shaman') {
+    ctx.fillStyle = '#e67e22';
+    ctx.font = 'bold 10px Arial';
+    ctx.fillText('Plasticity: +3 all stats; Shaman keeps Balance', W/2, SEC[3] + 98);
   }
   {
     const slotW = 100, gap = 8;
@@ -9225,7 +10099,7 @@ function drawMenu() {
   const startX = (canvas.width - totalW) / 2;
   const cardTop = Math.max(116, (GAME_HEIGHT - cardH) / 2 + 24);
 
-  const portraits = { Barbarian: barbPortrait, Rogue: roguePortrait, Mage: magePortrait };
+  const portraits = { Barbarian: barbPortrait, Rogue: roguePortrait, Mage: magePortrait, Shaman: shamanPortrait };
 
   CLASSES.forEach((cls, i) => {
     const cx = startX + i * (cardW + gap);
@@ -9325,19 +10199,21 @@ function drawMenu() {
 
     // ── Summary line ─────────────────────────────────────────────────────
     const dspd = Math.round(2.5 * (1 + cls.agi * 0.05) * 10) / 10;
-    const primaryText = `Primary: ${primaryStatLabel(cls.primaryStat)}`;
+    const primaryText = cls.name === 'Shaman' ? 'Primary: Balance' : `Primary: ${primaryStatLabel(cls.primaryStat)}`;
     ctx.fillStyle = '#d8c29a'; ctx.font = `600 11px 'Cinzel', serif`;
     ctx.fillText(`HP ${cls.str * 10}  ·  DMG ${cls[cls.primaryStat]}  ·  SPD ${dspd}`, cx + cardW / 2, sy + 88);
 
     // ── Abilities ────────────────────────────────────────────────────────
     ctx.fillStyle = '#ffd700'; ctx.font = `700 11px 'Cinzel', serif`;
-    ctx.fillStyle = primaryStatColor(cls.primaryStat); ctx.font = `700 11px 'Cinzel', serif`;
+    ctx.fillStyle = cls.name === 'Shaman' ? '#e67e22' : primaryStatColor(cls.primaryStat);
+    ctx.font = `700 11px 'Cinzel', serif`;
     ctx.fillText(primaryText, cx + cardW / 2, sy + 104);
     ctx.fillStyle = '#f1d27a'; ctx.font = `700 11px 'Cinzel', serif`;
     ctx.fillText('Abilities', cx + cardW / 2, sy + 118);
     ctx.fillStyle = '#c7b08c'; ctx.font = `600 10px 'Cinzel', serif`;
     cls.abilityLabels.split('  ').forEach((l, li) =>
       ctx.fillText(l, cx + cardW / 2, sy + 132 + li * 14));
+
   });
 
   ctx.textAlign = 'left';
@@ -9379,8 +10255,8 @@ function drawClassConfirm() {
   ctx.fillRect(0, 0, W, H);
 
   // ── Art cover-fitted, faded ──────────────────────────────────────────────
-  const selectedImgs = { Barbarian: barbSelectedImg, Rogue: rogueSelectedImg, Mage: mageSelectedImg };
-  const portraitImgs = { Barbarian: barbPortrait,    Rogue: roguePortrait,    Mage: magePortrait };
+  const selectedImgs = { Barbarian: barbSelectedImg, Rogue: rogueSelectedImg, Mage: mageSelectedImg, Shaman: shamanSelectedImg };
+  const portraitImgs = { Barbarian: barbPortrait,    Rogue: roguePortrait,    Mage: magePortrait, Shaman: shamanPortrait };
   const art = selectedImgs[cls.name] || portraitImgs[cls.name];
 
   if (art) {
@@ -9525,8 +10401,11 @@ function drawLevelupSkill() {
   const cardH = 176;
   const totalW = levelable.length * cardW + (levelable.length - 1) * gap;
   const startX = (canvas.width - totalW) / 2;
-  const scaleText = `Scales with ${primaryStatLabel()} (${player[player.primaryStat]})`;
-  ctx.fillStyle = primaryStatColor(player.primaryStat); ctx.font = `700 12px 'Cinzel', serif`;
+  const scaleText = player.className === 'Shaman'
+    ? `Q STR (${player.str})  /  W AGI (${player.agi})  /  E INT (${player.int})`
+    : `Scales with ${primaryStatLabel()} (${player[player.primaryStat]})`;
+  ctx.fillStyle = player.className === 'Shaman' ? '#e67e22' : primaryStatColor(player.primaryStat);
+  ctx.font = `700 12px 'Cinzel', serif`;
   ctx.fillText(`Damage skills: ${scaleText}`, canvas.width/2, 99);
 
   levelable.forEach((ab, i) => {
@@ -9545,7 +10424,7 @@ function drawLevelupSkill() {
       const tW = cardW - iconSize - 42;
       ctx.textAlign = 'left';
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 17px 'Cinzel', serif`;
-      ctx.fillText(`[${i+1}] ${ab.label} — ${ab.name.charAt(0).toUpperCase()+ab.name.slice(1)}`, tx, cy + 22);
+      ctx.fillText(`[${i+1}] ${ab.label} - ${abilityDisplayName(ab)}`, tx, cy + 22);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 13px 'Cinzel', serif`;
       ctx.fillText(`Lv ${ab.level} → ${ab.level+1}  (max ${ab.maxLevel})`, tx, cy + 38);
       if (ab.damage > 0) {
@@ -9573,7 +10452,7 @@ function drawLevelupSkill() {
       ctx.fillStyle = '#d8b45d'; ctx.font = `700 20px 'Cinzel', serif`;
       ctx.fillText(`[${i+1}]  ${ab.label}`, cx + cardW/2, cy + 28);
       ctx.fillStyle = '#f2e3bd'; ctx.font = `700 14px 'Cinzel', serif`;
-      ctx.fillText(ab.name.charAt(0).toUpperCase() + ab.name.slice(1), cx + cardW/2, cy + 54);
+      ctx.fillText(abilityDisplayName(ab), cx + cardW/2, cy + 54);
       ctx.fillStyle = '#d8c29a'; ctx.font = `600 12px 'Cinzel', serif`;
       ctx.fillText(`Lv ${ab.level} → ${ab.level+1}  (max ${ab.maxLevel})`, cx + cardW/2, cy + 70);
       if (ab.damage > 0) {
@@ -9612,7 +10491,7 @@ function drawLevelupSkill() {
       ctx.restore();
     }
     ctx.fillStyle = '#7d6a50'; ctx.font = `700 15px 'Cinzel', serif`;
-    ctx.fillText(`${ab.label}: ${ab.name.charAt(0).toUpperCase() + ab.name.slice(1)}`, cx + cardW/2, cy + 44);
+    ctx.fillText(`${ab.label}: ${abilityDisplayName(ab)}`, cx + cardW/2, cy + 44);
     ctx.fillStyle = '#d8b45d'; ctx.font = `700 13px 'Cinzel', serif`;
     ctx.fillText('MAX LEVEL', cx + cardW/2, cy + 65);
   });
