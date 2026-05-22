@@ -81,6 +81,19 @@ Mage:
   R Blink: teleports up to 8x hero dimensions in facing direction.
     Lv2 grants a second charge after 1s; cooldown begins after second charge.
 
+Shaman
+The Shaman is a powerful spiritualistic strength based warrior male. He has a large powerful build and is wearing a wolf hood. He has two
+powerful claw weapons and is wearing leather hide armor
+STR 8 / AGI 6 / INT 8, HP 80, Primary: Balance
+
+Q	Claw: deals 1.5x Strength in damage in front.
+W	Ancestral Leap: charges forward over an 8-frame animation, dealing 1.5x Agility to enemies hit and mini-stunning them for 0.25s.
+E	Lightning: strikes a straight line forward for 1.5x Intelligence. Base cooldown is 10s before Intelligence cooldown reduction.
+R	Primal Shift: consumes the Shaman's current spirit chain after R has been learned. Q adds Bear/Strength, W adds Wolf/Agility, and E adds Owl/Intelligence. Buff lasts 10s.
+	Dominance (three matching spirits): Lv1 +20 to that stat; Lv2 +25 to that stat. All Shaman damage scales with the Dominance stat while active.
+	Spirit Harmony (mixed non-perfect chain): each consumed spirit gives Lv1 +5 to its stat or Lv2 +7 to its stat. Example: Q-Q-W gives Lv1 +10 Strength and +5 Agility. Damage keeps native scaling.
+	Perfect Harmony (Q-W-E or E-W-Q): Lv1 +8 to all stats; Lv2 +10 to all stats. Damage keeps native scaling.
+
 
 LEVELING
 EXP to level is 100 flat.
@@ -263,6 +276,7 @@ Hero sounds:
   Rogue Death.wav, Rogue hit.wav, Rogue slash.wav, Knife Throw.mp3, Knife Throw Impact.wav
   Mage Death.wav, Mage hit.wav, Blastwave.wav, Fireballcast.mp3, Fireball flying.wav,
   Fireball impact.wav, Forst Nova.wav, Mage Blink.mp3
+  Shaman temporarily uses Mage Death.wav for death.
 
 Monster/stage sounds:
   Goblin death.wav
