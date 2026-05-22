@@ -809,7 +809,8 @@ const MAX_FRAME_CATCHUP_MS = 100;
 const MAX_STEPS_PER_RAF = 5;
 let fixedLoopLastTime = 0;
 let fixedLoopAccumulator = 0;
-const ASSET_VERSION = '2026-05-02-v1';
+const ASSET_VERSION = '2026-05-22-v1';
+const AUDIO_STARTUP_TIMEOUT_MS = 4500;
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
@@ -874,6 +875,12 @@ function trackStartupAudio(audio, src) {
     console.warn('Audio failed to load:', label || src);
     settle();
   }, { once: true });
+  setTimeout(() => {
+    if (!settled) {
+      console.warn('Audio startup timed out, continuing:', label || src);
+      settle();
+    }
+  }, AUDIO_STARTUP_TIMEOUT_MS);
 }
 
 const NativeAudio = window.Audio;
@@ -2855,6 +2862,7 @@ function applyFreezeStatus(e) {
 
 function tickEnemyControlStatus(e) {
   if (e.frostTintTimer > 0) e.frostTintTimer--;
+  if (e.shamanStunTimer > 0) e.shamanStunTimer--;
   if (e.frozenTimer > 0) {
     e.frozenTimer--;
     if (e.hitFlash > 0) e.hitFlash--;
@@ -3473,7 +3481,10 @@ function damageEnemiesInForwardArc(arc, damage, color, onHit = null) {
 
 function applyShamanLeapStun(e) {
   e.frozenTimer = Math.max(e.frozenTimer || 0, SHAMAN_LEAP_STUN);
+  e.shamanStunTimer = Math.max(e.shamanStunTimer || 0, SHAMAN_LEAP_STUN);
   e.hitFlash = Math.max(e.hitFlash || 0, SHAMAN_LEAP_STUN);
+  const hb = enemyHitbox(e);
+  addMarker(hb.x + hb.w / 2, hb.y - 12, 'STUN', '#ffd166');
 }
 
 function startShamanCharge() {
@@ -3985,7 +3996,7 @@ function shamanTooltipText(name, damage = 0, statSource = player) {
       : shamanBonusSummary(player.shamanPrimalStats, player.shamanPrimalAmount);
     return `Primal Shift. Active: ${label}; ${bonus} for ${Math.ceil(player.shamanPrimalTimer / 60)}s.`;
   }
-  return `Primal Shift. Consume your spirit chain (${queued}). Repeat one spirit for Dominance: +20 to that stat at Lv1 (+25 at Lv2) and all Shaman damage scales with it. Mixed chains trigger Harmony: each consumed spirit gives +5 to its stat at Lv1 (+7 at Lv2), so Q-Q-W gives +10 Strength and +5 Agility at Lv1. Cast Q-W-E or E-W-Q for Perfect Harmony: +8 all stats at Lv1 (+10 at Lv2).`;
+  return `Primal Shift. Consume spirits (${queued}). Same x3: Dominance, +20 stat at Lv1/+25 at Lv2 and all damage scales with it. Mixed: Harmony, each orb gives +5 stat at Lv1/+7 at Lv2. Q-W-E or E-W-Q: Perfect Harmony, +8 all stats at Lv1/+10 at Lv2.`;
 }
 
 function refreshShamanTooltipsAndDamage() {
@@ -8953,11 +8964,12 @@ function drawEnemy(e) {
 }
 
 function drawFrostTint(e) {
-  if (!e.frostTintTimer || e.dying || e.deathDone || e.hp <= 0) return;
+  if ((!e.frostTintTimer && !e.shamanStunTimer) || e.dying || e.deathDone || e.hp <= 0) return;
   const hb = enemyHitbox(e);
   ctx.save();
-  ctx.globalAlpha = e.frozenTimer > 0 ? 0.38 : 0.22;
-  ctx.fillStyle = '#62c7ff';
+  const shamanStunned = e.shamanStunTimer > 0;
+  ctx.globalAlpha = shamanStunned ? 0.32 : e.frozenTimer > 0 ? 0.38 : 0.22;
+  ctx.fillStyle = shamanStunned ? '#ffd166' : '#62c7ff';
   ctx.beginPath();
   ctx.ellipse(hb.x + hb.w / 2, hb.y + hb.h / 2, hb.w * 0.48, hb.h * 0.48, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -10262,7 +10274,10 @@ function drawClassConfirm() {
   if (art) {
     ctx.save();
     ctx.globalAlpha = alpha;
-    const scale = Math.max(W / art.width, H / art.height);
+    const shamanSelectedArt = cls.name === 'Shaman' && art === shamanSelectedImg;
+    const scale = shamanSelectedArt
+      ? Math.min(W / art.width, H / art.height) * 0.96
+      : Math.max(W / art.width, H / art.height);
     const dw = art.width  * scale;
     const dh = art.height * scale;
     ctx.drawImage(art, (W - dw) / 2, (H - dh) / 2, dw, dh);
