@@ -198,7 +198,7 @@ const TROLL_SPEED      = Math.max(1, Math.round(DISPLAY_SIZE / 72));
 const TROLL_THROW_CD   = 300;
 const TROLL_THROW_RANGE = DISPLAY_SIZE * 999;
 const TROLL_KEEP_DISTANCE = Math.round(DISPLAY_SIZE * 3.0);
-const TROLL_KICK_RANGE = Math.round(DISPLAY_SIZE * 1.15);
+const TROLL_KICK_RANGE = Math.round(DISPLAY_SIZE * 1.15 * 1.3);
 const TROLL_KICK_WINDUP = 28;
 const TROLL_KICK_CD = 120;
 const TROLL_KNOCKBACK_DIST = Math.round(DISPLAY_SIZE * 2.2);
@@ -331,6 +331,28 @@ const DRAGON_ATTACKS    = ['fireball', 'bite', 'claw', 'breath'];
 const DRAGON_TELEGRAPH  = { fireball: 60, bite: 80, claw: 48, breath: 90 };
 const DRAGON_ATTACK_DUR = { fireball: 12, bite: 32, claw: 26, breath: 120 };
 
+const RIFT_TRIAL_STAGE = 100;
+const RIFT_TRIAL_PULSE_CD = 260;
+const RIFT_TRIAL_WARNING = 70;
+const RIFT_TRIAL_ZONE_LIFE = 90;
+const RIFT_TRIAL_DAMAGE = 8;
+
+const ALEK_RAT_STAGE = 101;
+const ALEK_RAT_KING_SIZE = Math.round(DISPLAY_SIZE * 1.25);
+const ALEK_RAT_SIZE = Math.round(DISPLAY_SIZE * 0.68);
+const ALEK_RAT_KING_HP = 42;
+const ALEK_RAT_HP = 10;
+const ALEK_RAT_KING_DAMAGE = 7;
+const ALEK_RAT_DAMAGE = 4;
+const ALEK_RAT_BURROW_WARNING = 60;
+
+const BLOODHIDE_STAGE = 102;
+const BLOODHIDE_BOND_RANGE = DISPLAY_SIZE * 2.35;
+const BLOODHIDE_BOND_REDUCTION = 0.25;
+const BLOODHIDE_RAGE_DUR = 240;
+const BLOODHIDE_WALL_STUN = 15;
+const BLOODHIDE_STAGGER = 10;
+
 function dragonPositions() {
   const bodyW  = DISPLAY_SIZE * 5;
   const bodyH  = DISPLAY_SIZE * 2.2;
@@ -414,7 +436,7 @@ const CLASSES = [
 ];
 let selectedClass = 0;
 
-let gameState     = 'title'; // title | menu | classconfirm | playing | levelup | stagechoice | stageclear | gameover | pendant | win | devsetup | johnporkintro
+let gameState     = 'title'; // title | menu | classconfirm | playing | paused | levelup | stagechoice | stageclear | gameover | pendant | win | devsetup | johnporkintro
 let titleSelected = 0;
 let devMode = false;
 let gameMode = 'normal';
@@ -428,6 +450,8 @@ let pendingClassIdx   = 0;
 let devSetupLevel   = 1;
 let devSetupStage   = 1;
 let devSetupSection = 0;      // 0=level, 1=skills, 2=stats, 3=talents, 4=pendants, 5=stage
+let riftTrialPulseTimer = RIFT_TRIAL_PULSE_CD;
+let riftTrialSurgeCount = 0;
 let devPendantCursor = 0;
 let devSkillAlloc   = [0, 0, 0, 0];    // extra skill levels assigned to [Q, W, E, R]
 let devSkillCursor  = 0;               // 0=Q 1=W 2=E 3=R
@@ -462,6 +486,8 @@ let talentConfirmData = null; // { mode, pathIdx, tierIdx, name, desc, color }
 let doorOpen = false;         // true when all enemies dead and exit door is unlocked
 let ghoulWaveIndex = 0;       // stage 7 wave tracker
 let resumeCountdown = 0;
+let runTimerFrames = 0;
+let victoryRunFrames = 0;
 // Stage transition (fade → art reveal → key to continue)
 let transitionFade = 0;
 let transitionPhase = 'fade'; // 'fade' | 'art'
@@ -742,6 +768,7 @@ let dragonkinSheet = null, dragonkinSpinSheet = null;
 // Dragon Boss sheets (1 col × 4 rows, top-to-bottom)
 let dragonIdleSheet = null, dragonBiteSheet = null;
 let dragonLeftClawSheet = null, dragonRightClawSheet = null, dragonSteamSheet = null;
+let alekRatSheet = null;
 let golemTransitionArt = null, minotaurTransitionArt = null, skeletonCryptTransitionArt = null, orcTransitionArt = null, trollTransitionArt = null, ghoulPitTransitionArt = null, spellBladeTransitionArt = null, tribunalTransitionArt = null, twinGuardianTransitionArt = null;
 const stageBgImgs = {};
 // Master sprite sheet layout constants (2048×2048, each quadrant 1024×1024, frames 256×256)
@@ -800,7 +827,7 @@ const STAGE_PLAY_AREAS = {
 };
 
 let loaded = 0;
-const TOTAL_IMAGES = 135;
+const TOTAL_IMAGES = 136;
 let audioAssetCount = 0;
 let gameLoopStarted = false;
 let startupRegistrationComplete = false;
@@ -811,6 +838,7 @@ let fixedLoopLastTime = 0;
 let fixedLoopAccumulator = 0;
 const ASSET_VERSION = '2026-05-22-v1';
 const AUDIO_STARTUP_TIMEOUT_MS = 4500;
+const STARTUP_LOADER_GRACE_MS = 9000;
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
@@ -937,7 +965,8 @@ function drawLoadingScreen() {
 
   ctx.fillStyle = '#8f8065';
   ctx.font = `400 ${Math.max(11, Math.min(14, Math.round(W / 105)))}px 'Cinzel', serif`;
-  ctx.fillText('Preparing the vale...', W / 2, barY + 46);
+  const pending = pendingAssetSummary();
+  ctx.fillText(pending ? `Waiting for: ${pending}` : 'Preparing the vale...', W / 2, barY + 46);
 
   if (loadingText) loadingText.textContent = `Loading assets ${loaded}/${totalAssets}`;
   if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
@@ -958,6 +987,15 @@ function startGameLoopFromLoader() {
   fixedLoopLastTime = 0;
   fixedLoopAccumulator = FIXED_STEP_MS;
   requestAnimationFrame(loop);
+}
+
+function forceStartAfterLoaderGrace() {
+  if (gameLoopStarted || !startupRegistrationComplete) return;
+  if (loaded >= totalStartupAssets()) return;
+  const pending = pendingAssetSummary() || 'unknown assets';
+  console.warn(`Starting with pending startup assets (${loaded}/${totalStartupAssets()}): ${pending}`);
+  if (loadingHint) loadingHint.textContent = `Continuing without: ${pending}`;
+  startGameLoopFromLoader();
 }
 
 drawLoadingScreen();
@@ -1298,6 +1336,14 @@ function pendantIconKey(name) {
   img.onerror = () => { onLoad(); };
 })();
 
+// Alek rat master sprite sheet (2048x2048 quad layout)
+(function loadAlekRatSheet() {
+  const img = new Image();
+  img.src = 'Monster animations/Alek Rat Master.png';
+  img.onload = () => { alekRatSheet = makeMonsterSheet(img); onLoad(); };
+  img.onerror = () => { onLoad(); };
+})();
+
 // Dragonkin sheets
 (function loadDragonkinSheets() {
   const sheets = [
@@ -1587,6 +1633,52 @@ function spawnTroll() {
     wanderDx: 0, wanderDy: 0, wanderTimer: 0, frameIndex: 0, frameTick: 0 };
 }
 
+function spawnBloodhideTroll(role, nx, ny) {
+  const configs = {
+    crusher: { hp: 180, damage: 17, speed: 1.65, size: 2.15, cd: 112, knock: 2.45, tint: 'crusher' },
+    mauler:  { hp: 125, damage: 12, speed: 2.28, size: 1.75, cd: 68,  knock: 1.55, tint: 'mauler' },
+    guard:   { hp: 155, damage: 15, speed: 1.88, size: 1.95, cd: 92,  knock: 1.95, tint: 'guard' },
+  };
+  const cfg = configs[role] || configs.mauler;
+  const size = Math.round(DISPLAY_SIZE * cfg.size);
+  const pt = stagePointToWorld(nx, ny, size, size, BLOODHIDE_STAGE);
+  return {
+    type: 'troll',
+    x: pt.x,
+    y: pt.y,
+    direction: 'down',
+    hp: cfg.hp,
+    maxHp: cfg.hp,
+    hitFlash: 0,
+    state: 'chase',
+    throwTimer: 999999,
+    kickTimer: 0,
+    kickCooldown: 24 + Math.floor(Math.random() * 45),
+    kickHit: false,
+    slowTimer: 0,
+    aliveFrames: 0,
+    wanderDx: 0,
+    wanderDy: 0,
+    wanderTimer: 0,
+    frameIndex: 0,
+    frameTick: 0,
+    bloodhide: true,
+    bloodhideRole: role,
+    bloodhideTint: cfg.tint,
+    size,
+    baseSpeed: cfg.speed,
+    kickDamage: cfg.damage,
+    kickCooldownMax: cfg.cd,
+    knockbackDist: Math.round(DISPLAY_SIZE * cfg.knock),
+    rageTimer: 0,
+    dying: false,
+    deathFrame: 0,
+    deathTick: 0,
+    deathDone: false,
+    corpseTimer: 0
+  };
+}
+
 function spawnGhoul(side = null) {
   let x, y;
   const chosenSide = side || (Math.random() < 0.5 ? 'left' : 'right');
@@ -1709,6 +1801,96 @@ function spawnMimic() {
   };
 }
 
+function levelTenPrimaryBuild(className) {
+  const cls = CLASSES.find(c => c.name === className) || CLASSES[0];
+  const stats = { str: cls.str, agi: cls.agi, int: cls.int };
+  const primary = cls.primaryStat;
+  stats[primary] += 27;
+  const primaryVal = stats[primary];
+  return {
+    primary,
+    str: stats.str,
+    agi: stats.agi,
+    int: stats.int,
+    hp: stats.str * 10,
+    damage: primaryVal,
+    speed: Math.round(2.5 * (1 + stats.agi * 0.05) * 10) / 10,
+    cooldownReduction: stats.int * 12
+  };
+}
+
+function spawnRiftEcho(className, nx, ny, opts = {}) {
+  const pt = stagePointToWorld(nx, ny, DISPLAY_SIZE, DISPLAY_SIZE, RIFT_TRIAL_STAGE);
+  const s = levelTenPrimaryBuild(className);
+  const openers = { Barbarian: 'r', Rogue: 'e', Mage: 'e' };
+  return {
+    type: 'mimic', x: pt.x, y: pt.y, direction: 'down',
+    hp: opts.hp || s.hp * 4, maxHp: opts.hp || s.hp * 4, hitFlash: 0,
+    state: 'wander', attackTimer: 0, slowTimer: 0,
+    wanderDx: 0, wanderDy: 0, wanderTimer: 0, frameIndex: 0, frameTick: 0,
+    mimicClass: className,
+    mimicPrimary: s.primary,
+    mimicStr: s.str, mimicAgi: s.agi, mimicInt: s.int,
+    mimicDamage: opts.damage || s.damage * 2,
+    mimicSpeed: opts.speed || s.speed * 1.25,
+    mimicLevel: 10,
+    mimicExtra: opts.extra || 'e',
+    mimicOpener: opts.opener || openers[className] || 'q',
+    mimicSkills: opts.skills || ['q', 'w', 'e', 'r'],
+    mimicSkillCursor: 0,
+    mimicCooldowns: { q: opts.qCd || 0, w: opts.wCd || 35, e: opts.eCd || 70, r: opts.rCd || 0 },
+    mimicGlobalCooldown: opts.globalCd || 0,
+    avoidSign: opts.avoidSign || (Math.random() < 0.5 ? 1 : -1),
+    echoKey: null, echoTimer: 0,
+    activeAbility: null, atkFrame: 0,
+    riftEcho: true,
+    dying: false, deathFrame: 0, deathTick: 0, deathDone: false, corpseTimer: 0
+  };
+}
+
+function spawnAlekRat(kind, nx, ny, opts = {}) {
+  const boss = kind === 'king';
+  const size = boss ? ALEK_RAT_KING_SIZE : ALEK_RAT_SIZE;
+  const pt = stagePointToWorld(nx, ny, size, size, ALEK_RAT_STAGE);
+  return {
+    type: 'alek_rat',
+    x: pt.x,
+    y: pt.y,
+    direction: 'down',
+    hp: boss ? ALEK_RAT_KING_HP : ALEK_RAT_HP,
+    maxHp: boss ? ALEK_RAT_KING_HP : ALEK_RAT_HP,
+    hitFlash: 0,
+    state: 'chase',
+    ratKind: kind,
+    summoned: Boolean(opts.summoned),
+    size,
+    damage: boss ? ALEK_RAT_KING_DAMAGE : ALEK_RAT_DAMAGE,
+    speed: boss ? Math.max(1.4, DISPLAY_SIZE / 48) : Math.max(2.1, DISPLAY_SIZE / 34),
+    attackTimer: boss ? 50 : 25,
+    biteHit: false,
+    burrowCooldown: boss ? 300 : 0,
+    summonCooldown: boss ? 420 : 0,
+    crumbCooldown: boss ? 140 : 0,
+    scatterTimer: 0,
+    frameIndex: 0,
+    frameTick: 0,
+    attackFrame: 0,
+    attackTick: 0,
+    dying: false,
+    deathFrame: 0,
+    deathTick: 0,
+    deathDone: false,
+    corpseTimer: 0
+  };
+}
+
+function spawnAlekRatAt(kind, x, y, opts = {}) {
+  const rat = spawnAlekRat(kind, 0.5, 0.5, opts);
+  rat.x = Math.max(TILE_SIZE, Math.min(canvas.width - rat.size - TILE_SIZE, x));
+  rat.y = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - rat.size - TILE_SIZE, y));
+  return rat;
+}
+
 function spawnSpellBlade() {
   const pt = stagePointToWorld(0.50, 0.28, SPELLBLADE_SIZE, SPELLBLADE_SIZE, 8);
   return {
@@ -1790,6 +1972,48 @@ function spawnStage(n) {
     placePlayerAt(0.50, 0.72, 99);
     player.direction = 'up';
     enemies.push(spawnDragon());
+  }
+  else if (n === RIFT_TRIAL_STAGE) {
+    stageBgImgs[RIFT_TRIAL_STAGE] = stageBgImgs[10];
+    riftTrialPulseTimer = 210;
+    riftTrialSurgeCount = 0;
+    placePlayerAt(0.50, 0.78, RIFT_TRIAL_STAGE);
+    player.direction = 'up';
+    enemies.push(
+      spawnRiftEcho('Barbarian', 0.30, 0.30, { avoidSign: 1, globalCd: 0 }),
+      spawnRiftEcho('Mage',      0.50, 0.22, { avoidSign: -1, globalCd: 45 }),
+      spawnRiftEcho('Rogue',     0.70, 0.30, { avoidSign: 1, globalCd: 85 })
+    );
+    const center = stagePointToWorld(0.50, 0.48, 1, 1, RIFT_TRIAL_STAGE);
+    addHazard('rift_anchor', center.x, center.y, DISPLAY_SIZE * 0.65, 999999, {
+      slow: true,
+      damage: 3,
+      damageEvery: 60,
+      color: '#7f4dff'
+    });
+    addMarker(center.x, center.y - DISPLAY_SIZE, 'RIFT TRIAL', '#c875ff');
+  }
+  else if (n === ALEK_RAT_STAGE) {
+    stageBgImgs[ALEK_RAT_STAGE] = stageBgImgs[1];
+    placePlayerAt(0.50, 0.78, ALEK_RAT_STAGE);
+    player.direction = 'up';
+    enemies.push(
+      spawnAlekRat('king', 0.50, 0.34),
+      spawnAlekRat('rat', 0.36, 0.50),
+      spawnAlekRat('rat', 0.64, 0.50)
+    );
+    addMarker(canvas.width / 2, GAME_HEIGHT * 0.28, 'ALEK RAT NEST', '#a6d96a');
+  }
+  else if (n === BLOODHIDE_STAGE) {
+    stageBgImgs[BLOODHIDE_STAGE] = stageBgImgs[6];
+    placePlayerAt(0.50, 0.76, BLOODHIDE_STAGE);
+    player.direction = 'up';
+    enemies.push(
+      spawnBloodhideTroll('crusher', 0.50, 0.28),
+      spawnBloodhideTroll('mauler',  0.32, 0.45),
+      spawnBloodhideTroll('guard',   0.68, 0.45)
+    );
+    addMarker(canvas.width / 2, GAME_HEIGHT * 0.25, 'BLOODHIDE PIT', '#c06b3d');
   }
   else               { for (let i=0;i<Math.min(n+2,8);i++) enemies.push(spawnGoblin()); }
 }
@@ -1988,6 +2212,7 @@ charSelectVoice.Shaman.volume    = 1.0;
 startupRegistrationComplete = true;
 drawLoadingScreen();
 if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
+setTimeout(forceStartAfterLoaderGrace, STARTUP_LOADER_GRACE_MS);
 let lastVoiceClass = -1;
 let audioWarmupStarted = false;
 
@@ -2039,6 +2264,16 @@ function playsfx(name) {
   const s = sfx[name].cloneNode();
   s.volume = sfx[name].volume * gameVolume;
   s.play().catch(() => {});
+}
+function playsfxCapped(name, volumeMult = 1, stopAfterMs = 700) {
+  if (!sfx[name]) return;
+  const s = sfx[name].cloneNode();
+  s.volume = sfx[name].volume * gameVolume * volumeMult;
+  s.play().catch(() => {});
+  setTimeout(() => {
+    s.pause();
+    s.currentTime = 0;
+  }, stopAfterMs);
 }
 function playSfxBurst(name, count = 3, delayMs = 150) {
   for (let i = 0; i < count; i++) {
@@ -2111,6 +2346,18 @@ function orderedAbilities(list = abilities) {
   return [...list].sort((a, b) => orderOf(a) - orderOf(b));
 }
 
+function resetRunTimer() {
+  runTimerFrames = 0;
+  victoryRunFrames = 0;
+}
+
+function formatRunTime(frames) {
+  const totalSeconds = Math.max(0, Math.floor((frames || 0) / 60));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 function startGame(classIdx) {
   const cls = CLASSES[classIdx];
   const speed = Math.round(2.5 * (1 + cls.agi * 0.05) * 10) / 10;
@@ -2131,6 +2378,7 @@ function startGame(classIdx) {
   player.dying = false; player.deathFrame = 0; player.deathTick = 0; player.deathTimer = 0;
   player.slowTimer = 0; player.stunTimer = 0; player.berserkTimer = 0;
   player.knockbackTimer = 0; player.knockbackDx = 0; player.knockbackDy = 0;
+  player.pendingEdgeStunFrames = 0; player.pendingEdgeBonusDamage = 0;
   player.berserkCasting = false; player.berserkCastFrame = 0; player.berserkCastTick = 0;
   player.windwalkActive = false; player.windwalkTimer = 0; player.windwalkDmg = 0;
   player.windwalkEntering = false; player.windwalkEnterFrame = 0; player.windwalkEnterTick = 0;
@@ -2157,6 +2405,7 @@ function startGame(classIdx) {
   player.eternalFocusActive = false; player.eternalFocusCasts = 0;
   player.slamImmunity = 0;
   setupAbilitiesForClass(cls);
+  resetRunTimer();
   stage = 1;
   spawnStage(1);
   gameState = 'playing';
@@ -2172,7 +2421,7 @@ function expForEnemy(e) {
     archer:   25,  // ×6  → up to 150 fresh (ranged, easy to ignore)
     skeletal_champion: 35,
     orc:      40,  // ×4  → up to 160 fresh
-    troll:    60,  // ×2  → up to 120 fresh
+    troll:    e.bloodhide ? (e.bloodhideRole === 'crusher' ? 75 : 60) : 60,  // ×2  → up to 120 fresh
     ghoul:        1,
     abomination:  75,
     mimic:        100,
@@ -2182,6 +2431,7 @@ function expForEnemy(e) {
     trib_warden:   30,
     trib_priest:   30,
     johnpork: 150,
+    alek_rat: e.ratKind === 'king' ? 80 : e.summoned ? 0 : 20,
   }[e.type] ?? 150;
 
   // Decay: XP halves every 45 seconds (2700 frames). Fast kills rewarded.
@@ -2214,6 +2464,15 @@ document.addEventListener('keydown', (e) => {
   if ((gameState === 'pendant' || gameState === 'levelup' ||
        gameState === 'stagechoice' || gameState === 'stageclear') && moveKey) {
     clearMovementKeys();
+    return;
+  }
+
+  if (gameState === 'paused') {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+      clearMovementKeys();
+      resumeCountdown = RESUME_COUNTDOWN_FRAMES;
+      gameState = 'playing';
+    }
     return;
   }
 
@@ -2294,7 +2553,7 @@ document.addEventListener('keydown', (e) => {
 
     } else { // ── Stage (section 5) ──
       if (e.key === 'ArrowLeft')  devSetupStage = Math.max(1, devSetupStage - 1);
-      if (e.key === 'ArrowRight') devSetupStage = Math.min(13, devSetupStage + 1);
+      if (e.key === 'ArrowRight') devSetupStage = Math.min(16, devSetupStage + 1);
       if (e.key === 'Enter') applyDevConfig();
     }
     return;
@@ -2503,6 +2762,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (gameState === 'playing' && e.key === 'Escape') {
+    autoPauseGame();
+    return;
+  }
+
   keys[e.key] = true;
 
   if (player.state === 'idle') {
@@ -2545,6 +2809,19 @@ document.addEventListener('keydown', (e) => {
     });
   }
 });
+
+function autoPauseGame() {
+  if (gameState !== 'playing' || resumeCountdown > 0) return;
+  clearMovementKeys();
+  player.moving = false;
+  gameState = 'paused';
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) autoPauseGame();
+});
+
+window.addEventListener('blur', autoPauseGame);
 document.addEventListener('keyup', (e) => {
   keys[e.key] = false;
   if (gameState === 'levelup' && levelupPhase === 'talentConfirm' &&
@@ -2763,6 +3040,7 @@ function isStageArtBlocked(x, y) {
   if (stage === 99) {
     if (y < canvas.height * 0.38) return false; // dragon zone at top
   }
+  if (stage === ALEK_RAT_STAGE) return false;
 
   const playArea = STAGE_PLAY_AREAS[stage];
   const playAreaBgRect = playArea && getStageBgRect(stage);
@@ -2875,6 +3153,19 @@ function updateHazards() {
   for (let i = hazards.length - 1; i >= 0; i--) {
     const h = hazards[i];
     h.tick++;
+    if (h.type === 'rift_anchor') {
+      h.x = canvas.width / 2;
+      h.y = GAME_HEIGHT * 0.48;
+    }
+    if (h.type === 'rift_warning' && h.life <= 1) {
+      addHazard('shadow', h.x, h.y, h.r, RIFT_TRIAL_ZONE_LIFE, {
+        slow: true,
+        damage: h.eruptDamage || RIFT_TRIAL_DAMAGE,
+        damageEvery: 24,
+        color: h.color || '#bb66ff'
+      });
+      playsfx('forceField');
+    }
     if (h.damage && h.tick % (h.damageEvery || 30) === 0) {
       const pcx = player.x + DISPLAY_SIZE / 2, pcy = player.y + DISPLAY_SIZE / 2;
       if (Math.hypot(pcx - h.x, pcy - h.y) < h.r) {
@@ -2896,6 +3187,35 @@ function updateTelegraphs() {
 function playerHazardSlowMult() {
   const pcx = player.x + DISPLAY_SIZE / 2, pcy = player.y + DISPLAY_SIZE / 2;
   return hazards.some(h => h.slow && Math.hypot(pcx - h.x, pcy - h.y) < h.r) ? 0.55 : 1;
+}
+
+function spawnRiftWarning(x, y, radius = DISPLAY_SIZE * 1.28) {
+  addHazard('rift_warning', x, y, radius, RIFT_TRIAL_WARNING, {
+    color: '#c875ff',
+    eruptDamage: RIFT_TRIAL_DAMAGE
+  });
+}
+
+function updateRiftTrial() {
+  if (stage !== RIFT_TRIAL_STAGE || gameState !== 'playing') return;
+  const aliveEchoes = enemies.filter(e => e.riftEcho && !e.dying && !e.deathDone && e.hp > 0);
+  const killed = 3 - aliveEchoes.length;
+  riftTrialSurgeCount = Math.max(riftTrialSurgeCount, killed);
+
+  if (--riftTrialPulseTimer > 0) return;
+  riftTrialPulseTimer = Math.max(150, RIFT_TRIAL_PULSE_CD - riftTrialSurgeCount * 25);
+  const pcx = player.x + DISPLAY_SIZE / 2;
+  const pcy = player.y + DISPLAY_SIZE / 2;
+  spawnRiftWarning(pcx, pcy, DISPLAY_SIZE * (1.18 + riftTrialSurgeCount * 0.08));
+  if (riftTrialSurgeCount >= 1) {
+    const center = stagePointToWorld(0.50, 0.48, 1, 1, RIFT_TRIAL_STAGE);
+    spawnRiftWarning(center.x, center.y, DISPLAY_SIZE * 1.05);
+  }
+  if (riftTrialSurgeCount >= 2) {
+    const sideX = pcx < canvas.width / 2 ? canvas.width * 0.70 : canvas.width * 0.30;
+    spawnRiftWarning(sideX, Math.max(DISPLAY_SIZE * 2, Math.min(GAME_HEIGHT - DISPLAY_SIZE, pcy)), DISPLAY_SIZE * 0.95);
+  }
+  addMarker(pcx, pcy - DISPLAY_SIZE * 0.6, 'RIFT PULSE', '#c875ff');
 }
 
 function blocksPlayerMove(nx, ny) {
@@ -3031,7 +3351,7 @@ function enemyHitbox(e) {
       return { x: e.x, y: e.y, w: size, h: size };
     }
     case 'minotaur': return { x: e.x, y: e.y, w: DISPLAY_SIZE*2,              h: DISPLAY_SIZE*2 };
-    case 'troll':    return { x: e.x, y: e.y, w: DISPLAY_SIZE*2,              h: DISPLAY_SIZE*2 };
+    case 'troll':    return { x: e.x, y: e.y, w: e.size || DISPLAY_SIZE*2,    h: e.size || DISPLAY_SIZE*2 };
     case 'guardian': return { x: e.x, y: e.y, w: GUARDIAN_SIZE,               h: GUARDIAN_SIZE };
     case 'spellblade': return { x: e.x, y: e.y, w: SPELLBLADE_SIZE,            h: SPELLBLADE_SIZE };
     case 'trib_sentinel': return { x: e.x, y: e.y, w: TRIB_SENTINEL_SIZE,      h: TRIB_SENTINEL_SIZE };
@@ -3040,6 +3360,7 @@ function enemyHitbox(e) {
     case 'johnpork':      return { x: e.x, y: e.y, w: JP_SIZE,                 h: JP_SIZE };
     case 'dragonkin':     return { x: e.x, y: e.y, w: DRAGONKIN_SIZE,         h: DRAGONKIN_SIZE };
     case 'dragon':        return { x: e.x, y: e.y, w: e.bodyW,                h: e.bodyH + e.headR * 2 };
+    case 'alek_rat':      return { x: e.x, y: e.y, w: e.size || ALEK_RAT_SIZE, h: e.size || ALEK_RAT_SIZE };
     case 'ghoul':        return { x: e.x, y: e.y, w: Math.round(DISPLAY_SIZE*0.8),h: Math.round(DISPLAY_SIZE*0.8) };
     case 'abomination':  return { x: e.x, y: e.y, w: ABOM_SIZE, h: ABOM_SIZE };
     default:         return { x: e.x, y: e.y, w: DISPLAY_SIZE,                h: DISPLAY_SIZE };
@@ -3084,6 +3405,19 @@ function damagePlayer(baseDmg, flashDur) {
   return d;
 }
 
+function recoverPlayerFromDeathIfHealed() {
+  if (!player.dying || player.hp <= 0) return false;
+  player.dying = false;
+  player.deathFrame = 0;
+  player.deathTick = 0;
+  player.deathTimer = 0;
+  player.state = 'idle';
+  player.activeAbility = null;
+  player.hitDealt = false;
+  addMarker(player.x + DISPLAY_SIZE / 2, player.y - 12, 'RECOVERED', '#2ecc71');
+  return true;
+}
+
 function berserkDamageMultiplier() {
   if (player.berserkTimer <= 0) return 1;
   const berserk = abilities.find(a => a.name === 'berserk');
@@ -3100,8 +3434,36 @@ function berserkTooltipText(levelOrAb = abilities.find(a => a.name === 'berserk'
   return `Berserk rage. ${statFormulaMultiplierText(mult)} dmg dealt, 1.5x dmg taken for 10s.`;
 }
 
+function bloodhideBondCount(e) {
+  if (!e.bloodhide) return 0;
+  const hb = enemyHitbox(e);
+  const ex = hb.x + hb.w / 2;
+  const ey = hb.y + hb.h / 2;
+  return enemies.filter(o => {
+    if (o === e || !o.bloodhide || o.dying || o.deathDone || o.hp <= 0) return false;
+    const ob = enemyHitbox(o);
+    return Math.hypot(ex - (ob.x + ob.w / 2), ey - (ob.y + ob.h / 2)) < BLOODHIDE_BOND_RANGE;
+  }).length;
+}
+
+function enrageBloodhidePack(deadTroll) {
+  if (!deadTroll.bloodhide || deadTroll.bloodhideRageReleased) return;
+  deadTroll.bloodhideRageReleased = true;
+  enemies.forEach(o => {
+    if (!o.bloodhide || o === deadTroll || o.dying || o.deathDone || o.hp <= 0) return;
+    o.rageTimer = Math.max(o.rageTimer || 0, BLOODHIDE_RAGE_DUR);
+    o.kickCooldown = Math.min(o.kickCooldown || 0, 18);
+    addMarker(o.x + (o.size || DISPLAY_SIZE * 2) / 2, o.y - 18, 'PACK RAGE', '#ff6b35');
+  });
+  playsfxCapped('demonRoar', 0.35, 760);
+}
+
 function applyDamageToEnemy(e, baseDmg, color) {
   let dmg = baseDmg * berserkDamageMultiplier();
+  if (e.bloodhide && bloodhideBondCount(e) > 0) {
+    dmg *= (1 - BLOODHIDE_BOND_REDUCTION);
+    e.bloodhideBondFlash = 18;
+  }
   if (e.type === 'mimic' && e.state === 'mimicCast') {
     dmg *= 0.7;
   }
@@ -3157,14 +3519,17 @@ function applyDamageToEnemy(e, baseDmg, color) {
   dmg = Math.round(dmg);
   e.hp -= dmg;
   e.hitFlash = 12;
+  if (e.type === 'alek_rat' && e.ratKind !== 'king') e.scatterTimer = 28;
   addMarker(e.x + DISPLAY_SIZE / 2, e.y, `-${dmg}`, color || '#ff4444');
   if (player.lifesteal > 0) {
     const steal = player.bloodlustKillTimer > 0 ? player.lifesteal * 2 : player.lifesteal;
     const heal = Math.max(1, Math.round(dmg * steal));
     player.hp = Math.min(player.maxHp, player.hp + heal);
     addMarker(player.x + DISPLAY_SIZE / 2, player.y, `+${heal}`, '#2ecc71');
+    recoverPlayerFromDeathIfHealed();
   }
   if (e.hp <= 0 && !e.dying && !e.deathDone) {
+    if (e.bloodhide) enrageBloodhidePack(e);
     // Pick a random death animation row from this enemy's death sheet
     const deathRowCounts = { minotaur: 4, orc: 4 };
     const deathRows = { goblin: [1, 2, 3] };
@@ -3208,16 +3573,17 @@ function applyDamageToEnemy(e, baseDmg, color) {
     }
     if (player.lifesteal > 0) player.bloodlustKillTimer = 120;
     if (e.type === 'minotaur') tryDropPendant(e, STAGE3_PENDANTS);
-    if (e.type === 'mimic' || e.type === 'spellblade') tryDropPendant(e, STAGE8_PENDANTS);
+    if ((e.type === 'mimic' || e.type === 'spellblade') && stage === 8) tryDropPendant(e, STAGE8_PENDANTS);
     if      (e.type === 'goblin')      playsfx('goblinDeath');
     else if (e.type === 'golem')       playsfx('golemDeath');
     else if (e.type === 'archer' || e.type === 'skeletal_champion') playsfx('skeletonDeath');
     else if (e.type === 'orc')         playsfx('orcDeath');
-    else if (e.type === 'troll')       playsfx('bruteDeath');
+    else if (e.type === 'troll')       e.bloodhide ? playsfxCapped('bruteDeath', 0.28, 620) : playsfx('bruteDeath');
     else if (e.type === 'ghoul')       playsfx('ghoulDeath');
     else if (e.type === 'guardian')    playsfx('guardianDeath');
     else if (e.type === 'abomination') playsfx('golemDeath');
     else if (e.type === 'spellblade')  playsfx('bruteDeath');
+    else if (e.type === 'alek_rat')    playsfx(e.ratKind === 'king' ? 'ghoulDeath' : 'goblinDeath');
     else if (e.type === 'mimic') {
       const mc = e.mimicClass || player.className;
       if (mc === 'Barbarian') playsfx('barbarianDeath');
@@ -3374,9 +3740,9 @@ function shamanSpiritChainInfo(chain = player.shamanSpiritChain || []) {
   const unique = [...new Set(spirits)];
   const key = spirits.join(',');
   const primalLevel = shamanPrimalShiftLevel();
-  const dominanceAmount = primalLevel >= 2 ? 25 : 20;
-  const harmonyAmount = primalLevel >= 2 ? 7 : 5;
-  const perfectAmount = primalLevel >= 2 ? 10 : 8;
+  const dominanceAmount = primalLevel >= 2 ? 16 : 12;
+  const harmonyAmount = primalLevel >= 2 ? 5 : 4;
+  const perfectAmount = primalLevel >= 2 ? 8 : 6;
   if (!spirits.length) return null;
   if (spirits.length >= 3 && (key === 'str,agi,int' || key === 'int,agi,str')) {
     return { mode: 'perfect', stats: ['str', 'agi', 'int'], scaleStat: null, amount: perfectAmount, label: 'PERFECT HARMONY' };
@@ -3404,6 +3770,7 @@ function startShamanPrimalShift() {
   player.shamanPrimalCastStats = info.stats;
   player.shamanSpiritChain = [];
   adjustShamanPrimalStats(info.stats, info.amount);
+  spawnShamanPrimalBurst(info);
   refreshShamanTooltipsAndDamage();
   addMarker(player.x + DISPLAY_SIZE / 2, player.y - 18, info.label, '#9b59b6');
   info.stats.forEach((stat, i) => setTimeout(() => playsfx(shamanSpiritSfx(stat)), i * 120));
@@ -3898,6 +4265,10 @@ function shamanSpiritRow(stat) {
   return stat === 'str' ? 0 : stat === 'agi' ? 1 : 2;
 }
 
+function shamanSpiritIndex(stat) {
+  return stat === 'str' ? 0 : stat === 'agi' ? 1 : 2;
+}
+
 function shamanShiftColor(stat) {
   return stat === 'str' ? '#e74c3c' : stat === 'agi' ? '#2ecc71' : '#3498db';
 }
@@ -3996,7 +4367,7 @@ function shamanTooltipText(name, damage = 0, statSource = player) {
       : shamanBonusSummary(player.shamanPrimalStats, player.shamanPrimalAmount);
     return `Primal Shift. Active: ${label}; ${bonus} for ${Math.ceil(player.shamanPrimalTimer / 60)}s.`;
   }
-  return `Primal Shift. Consume spirits (${queued}). Same x3: Dominance, +20 stat at Lv1/+25 at Lv2 and all damage scales with it. Mixed: Harmony, each orb gives +5 stat at Lv1/+7 at Lv2. Q-W-E or E-W-Q: Perfect Harmony, +8 all stats at Lv1/+10 at Lv2.`;
+  return `Primal Shift. Consume spirits (${queued}). Same x3: Dominance, +12 stat at Lv1/+16 at Lv2 and all damage scales with it. Mixed: Harmony, each orb gives +4 stat at Lv1/+5 at Lv2. Q-W-E or E-W-Q: Perfect Harmony, +6 all stats at Lv1/+8 at Lv2.`;
 }
 
 function refreshShamanTooltipsAndDamage() {
@@ -4176,12 +4547,21 @@ function primaryStatLabel(stat = player.primaryStat) {
 
 
 function stunPlayerAgainstEdge() {
-  player.stunTimer = Math.max(player.stunTimer || 0, TROLL_EDGE_STUN);
+  const stunFrames = player.pendingEdgeStunFrames || TROLL_EDGE_STUN;
+  const bonusDamage = player.pendingEdgeBonusDamage || 0;
+  player.stunTimer = Math.max(player.stunTimer || 0, stunFrames);
   player.knockbackTimer = 0;
   player.knockbackDx = 0;
   player.knockbackDy = 0;
   player.hitFlash = Math.max(player.hitFlash || 0, 30);
-  addMarker(player.x + DISPLAY_SIZE / 2, player.y - 10, 'STUNNED!', '#ffd700');
+  player.pendingEdgeStunFrames = 0;
+  player.pendingEdgeBonusDamage = 0;
+  if (bonusDamage > 0) {
+    const hit = damagePlayer(bonusDamage, 12);
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 10, `-${hit} SLAM`, '#ffd166');
+  } else {
+    addMarker(player.x + DISPLAY_SIZE / 2, player.y - 10, 'STUNNED!', '#ffd700');
+  }
   playsfx('stoneCrash');
 }
 
@@ -4247,6 +4627,10 @@ function updatePlayer() {
          c.y - c.r <= TILE_SIZE || c.y + c.r >= GAME_HEIGHT - TILE_SIZE)) {
       stunPlayerAgainstEdge();
     }
+    if (player.knockbackTimer <= 0) {
+      player.pendingEdgeStunFrames = 0;
+      player.pendingEdgeBonusDamage = 0;
+    }
   }
   if (player.berserkCasting) {
     if (++player.berserkCastTick >= ATK_SPEED) {
@@ -4276,6 +4660,7 @@ function updatePlayer() {
       if (!surrounded) {
         const heal = Math.max(1, Math.round(player.maxHp * 0.02));
         player.hp = Math.min(player.maxHp, player.hp + heal);
+        recoverPlayerFromDeathIfHealed();
       }
     }
   }
@@ -4897,6 +5282,23 @@ function spawnDarkSummon(x, y, spawnFn) {
   });
 }
 
+function spawnShamanPrimalBurst(info) {
+  if (!info) return;
+  const stats = shamanVisualStats(info.stats);
+  spellEffects.push({
+    type: 'shamanPrimalBurst',
+    x: player.x + DISPLAY_SIZE / 2,
+    y: player.y + DISPLAY_SIZE * 0.52,
+    frame: 0,
+    tick: 0,
+    life: info.mode === 'perfect' ? 42 : 34,
+    maxLife: info.mode === 'perfect' ? 42 : 34,
+    mode: info.mode,
+    stats,
+    amount: info.amount
+  });
+}
+
 function applyFireballSplash(x, y, damage, directHit = null) {
   enemies.forEach(e => {
     if (e.hp <= 0 || e.dying) return;
@@ -4913,7 +5315,10 @@ function applyFireballSplash(x, y, damage, directHit = null) {
 function updateSpellEffects() {
   for (let i = spellEffects.length - 1; i >= 0; i--) {
     const fx = spellEffects[i];
-    const frameSpeed = fx.type === 'trollRockImpact' ? 2 : fx.type === 'shamanLightning' ? 3 : fx.type === 'darkSummon' ? 4 : 4;
+    const frameSpeed = fx.type === 'trollRockImpact' ? 2 :
+      fx.type === 'shamanLightning' ? 3 :
+      fx.type === 'shamanPrimalBurst' ? 2 :
+      fx.type === 'darkSummon' ? 4 : 4;
     if (++fx.tick >= frameSpeed) {
       fx.tick = 0;
       fx.frame++;
@@ -4925,6 +5330,7 @@ function updateSpellEffects() {
     const maxFrames = fx.type === 'fireballExplosion' ? FIREBALL_EXPLOSION_FRAMES :
       fx.type === 'trollRockImpact' ? TROLL_BOULDER_IMPACT_FRAMES :
       fx.type === 'shamanLightning' ? 6 :
+      fx.type === 'shamanPrimalBurst' ? 999 :
       fx.type === 'darkSummon' ? DARK_SUMMON_FRAMES : 4;
     if (--fx.life <= 0 || fx.frame >= maxFrames) spellEffects.splice(i, 1);
   }
@@ -5019,6 +5425,54 @@ function drawProjectiles() {
 
 // ── Simple melee helper ───────────────────────────────────────────────────────
 
+function drawShamanPrimalBurst(fx) {
+  const t = 1 - Math.max(0, fx.life) / (fx.maxLife || 1);
+  const fade = Math.max(0, 1 - t);
+  const stats = shamanVisualStats(fx.stats);
+  const unique = [...new Set(stats)];
+  const cx = fx.x;
+  const cy = fx.y;
+  const baseRadius = DISPLAY_SIZE * (0.52 + t * (fx.mode === 'perfect' ? 1.25 : 0.78));
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  unique.forEach((stat, i) => {
+    const color = shamanShiftColor(stat);
+    const ringT = Math.max(0, Math.min(1, t - i * 0.045));
+    ctx.globalAlpha = (0.36 - i * 0.05) * fade;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18 + 18 * fade;
+    ctx.lineWidth = Math.max(2, DISPLAY_SIZE * 0.035 * fade);
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * (0.82 + ringT * 0.35 + i * 0.12), 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  if (fx.mode === 'perfect' && shamanPrimalShiftSheet && shamanPrimalShiftFrames) {
+    const travel = DISPLAY_SIZE * (0.25 + t * 1.45);
+    const frame = t < 0.28 ? 2 : t < 0.72 ? 3 : 4;
+    ['str', 'agi', 'int'].forEach((stat, i) => {
+      const src = shamanPrimalShiftFrames[shamanSpiritRow(stat)]?.[frame];
+      if (!src) return;
+      const angle = -Math.PI / 2 + i * (Math.PI * 2 / 3) + t * 0.22;
+      const pulse = Math.sin(Math.PI * Math.min(1, t * 1.15));
+      const size = DISPLAY_SIZE * (1.05 + pulse * 0.55);
+      const x = cx + Math.cos(angle) * travel - size / 2;
+      const y = cy + Math.sin(angle) * travel * 0.72 - size / 2;
+      const color = shamanShiftColor(stat);
+
+      ctx.globalAlpha = 0.44 * fade;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 22 + 16 * pulse;
+      ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, x, y, size, size);
+      ctx.globalAlpha = 0.16 * fade;
+      ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, x - size * 0.05, y - size * 0.05, size * 1.1, size * 1.1);
+    });
+  }
+  ctx.restore();
+}
+
 function drawSpellEffects() {
   spellEffects.forEach(fx => {
     if (fx.type === 'fireballExplosion' && mageFireballExplosionSheet) {
@@ -5064,6 +5518,8 @@ function drawSpellEffects() {
         ctx.stroke();
       }
       ctx.restore();
+    } else if (fx.type === 'shamanPrimalBurst') {
+      drawShamanPrimalBurst(fx);
     } else if (fx.type === 'trollRockImpact' && trollBoulderSheet) {
       const frame = Math.min(15, fx.frame + 1);
       const col = frame % 4;
@@ -5366,7 +5822,7 @@ function updateOrc(e) {
 
   let mx = 0, my = 0;
   const baseSpeed = e.brute ? ORC_SPEED * 1.3 : ORC_SPEED;
-  const chaseRange = e.brute ? DISPLAY_SIZE * 999 : ORC_CHASE;
+  const chaseRange = (e.brute || e.johnPorkMinion) ? DISPLAY_SIZE * 999 : ORC_CHASE;
   const spd = e.slowTimer > 0 ? Math.max(1, Math.round(baseSpeed * 0.5)) : baseSpeed;
   if (dist < orcAtkRange && e.state !== 'cooldown') {
     e.state = 'attacking';
@@ -5500,20 +5956,111 @@ function updateGuardian(e) {
 function knockPlayerFromTroll(e) {
   const pcx = player.x + DISPLAY_SIZE / 2;
   const pcy = player.y + DISPLAY_SIZE / 2;
-  const tcx = e.x + DISPLAY_SIZE;
-  const tcy = e.y + DISPLAY_SIZE;
+  const size = e.size || DISPLAY_SIZE * 2;
+  const tcx = e.x + size / 2;
+  const tcy = e.y + size / 2;
   const dx = pcx - tcx;
   const dy = pcy - tcy;
   const mag = Math.hypot(dx, dy) || 1;
   const ux = dx / mag;
   const uy = dy / mag;
-  const step = TROLL_KNOCKBACK_DIST / TROLL_KNOCKBACK_DUR;
-  player.knockbackTimer = TROLL_KNOCKBACK_DUR;
+  const knockDist = e.knockbackDist || TROLL_KNOCKBACK_DIST;
+  const knockDur = e.knockbackDur || TROLL_KNOCKBACK_DUR;
+  const step = knockDist / knockDur;
+  player.knockbackTimer = knockDur;
   player.knockbackDx = ux * step;
   player.knockbackDy = uy * step;
 }
 
+function updateBloodhideTroll(e) {
+  if (e.dying || e.hp <= 0) return;
+  e.aliveFrames++;
+  if (e.hitFlash > 0) e.hitFlash--;
+  if (e.bloodhideBondFlash > 0) e.bloodhideBondFlash--;
+  if (e.rageTimer > 0) e.rageTimer--;
+  if (e.kickCooldown > 0) e.kickCooldown--;
+
+  const size = e.size || DISPLAY_SIZE * 2;
+  const pcx = player.x + DISPLAY_SIZE / 2;
+  const pcy = player.y + DISPLAY_SIZE / 2;
+  const ecx = e.x + size / 2;
+  const ecy = e.y + size / 2;
+  const dx = pcx - ecx;
+  const dy = pcy - ecy;
+  const dist = Math.hypot(dx, dy) || 1;
+
+  if (e.state === 'kick') {
+    e.kickTimer--;
+    if (++e.frameTick >= Math.max(4, Math.floor(TROLL_KICK_WINDUP / 4))) {
+      e.frameTick = 0;
+      e.attackFrame = Math.min((e.attackFrame || 0) + 1, 3);
+    }
+    if (!e.kickHit && e.kickTimer <= Math.floor(TROLL_KICK_WINDUP * 0.45)) {
+      e.kickHit = true;
+      const hb = rectInFrontOf(e, TROLL_KICK_RANGE * 1.05, size * 0.72, size);
+      if (rectsOverlap(hb.x, hb.y, hb.w, hb.h, player.x, player.y, DISPLAY_SIZE, DISPLAY_SIZE)) {
+        const hit = damagePlayer(e.kickDamage || TROLL_KICK_DAMAGE, 16);
+        addMarker(player.x + DISPLAY_SIZE / 2, player.y, `-${hit} KICK`, '#c06b3d');
+        playsfx('trollKickImpact');
+        player.stunTimer = Math.max(player.stunTimer || 0, BLOODHIDE_STAGGER);
+        player.pendingEdgeStunFrames = BLOODHIDE_WALL_STUN;
+        player.pendingEdgeBonusDamage = e.bloodhideRole === 'crusher' ? 5 : 3;
+        knockPlayerFromTroll(e);
+      }
+    }
+    if (e.kickTimer <= 0) {
+      e.state = 'chase';
+      e.attackFrame = 0;
+      e.frameIndex = 0;
+      e.frameTick = 0;
+    }
+    return;
+  }
+
+  const baseSpeed = e.baseSpeed || TROLL_SPEED;
+  const rageMult = e.rageTimer > 0 ? 1.24 : 1;
+  const bondMult = bloodhideBondCount(e) > 0 ? 1.07 : 1;
+  const spd = (e.slowTimer > 0 ? baseSpeed * 0.5 : baseSpeed) * rageMult * bondMult;
+  const sep = separationVec(e, size * 0.9);
+  const closeEnough = dist < TROLL_KICK_RANGE * 1.05;
+
+  if (closeEnough && e.kickCooldown <= 0) {
+    e.state = 'kick';
+    e.kickTimer = TROLL_KICK_WINDUP;
+    e.kickCooldown = Math.round((e.kickCooldownMax || TROLL_KICK_CD) / rageMult);
+    e.kickHit = false;
+    e.attackFrame = 0;
+    e.frameTick = 0;
+    e.direction = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up');
+    playsfx('trollKick');
+    return;
+  }
+
+  const chase = chaseVec(dx, dy, spd);
+  const flank = e.bloodhideRole === 'mauler' ? 0.35 : e.bloodhideRole === 'guard' ? -0.22 : 0;
+  const mx = chase.mx + sep.fx * 0.75 + (-dy / dist) * spd * flank;
+  const my = chase.my + sep.fy * 0.75 + ( dx / dist) * spd * flank;
+  if (Math.abs(mx) >= Math.abs(my)) {
+    if (mx > 0) e.direction = 'right';
+    else if (mx < 0) e.direction = 'left';
+  } else {
+    if (my > 0) e.direction = 'down';
+    else if (my < 0) e.direction = 'up';
+  }
+  const moved = moveEntityWithSlide(e, mx, my);
+  if (moved) {
+    if (++e.frameTick >= Math.max(5, FRAME_SPEED - (e.rageTimer > 0 ? 2 : 0))) {
+      e.frameTick = 0;
+      e.frameIndex = (e.frameIndex + 1) % 4;
+    }
+  } else {
+    e.frameIndex = 0;
+    e.frameTick = 0;
+  }
+}
+
 function updateTroll(e) {
+  if (e.bloodhide) return updateBloodhideTroll(e);
   if (e.dying || e.hp <= 0) return;
   e.aliveFrames++;
   if (e.hitFlash > 0) e.hitFlash--;
@@ -6008,7 +6555,7 @@ function startMimicCast(e, key, windup = 30) {
   e.frameTick = 0;
   e.activeAbility = key || 'q';
   if (!e.mimicCooldowns) e.mimicCooldowns = { q: 0, w: 0, e: 0, r: 0 };
-  e.mimicCooldowns[e.activeAbility] = mimicCooldownFrames(e.activeAbility);
+  e.mimicCooldowns[e.activeAbility] = mimicCooldownFrames(e.activeAbility, e);
   e.mimicGlobalCooldown = 34;
 }
 
@@ -6120,7 +6667,16 @@ function chooseContextualMimicSkill(e, dist, skillKeys, pendingKey = null) {
   return skillKeys.find(canUse) || null;
 }
 
-function mimicCooldownFrames(key) {
+function mimicCooldownFrames(key, e = null) {
+  if (e?.riftEcho) {
+    const baseByClass = {
+      Barbarian: { q: 240, w: 480, e: 840, r: 1800 },
+      Rogue:     { q: 240, w: 360, e: 840, r: 1800 },
+      Mage:      { q: 240, w: 660, e: 840, r: 1200 },
+    };
+    const base = baseByClass[e.mimicClass]?.[key] || 240;
+    return Math.max(60, Math.round(base - ((e.mimicInt || 0) * 12)));
+  }
   const ab = abilities.find(a => a.key === key);
   return Math.max(30, Math.round(((ab && ab.cooldown) || 240) - 120));
 }
@@ -6148,7 +6704,7 @@ function updateMimic(e) {
   if (e.retreatTimer > 0) e.retreatTimer--;
   const dx = player.x - e.x, dy = player.y - e.y, dist = Math.hypot(dx, dy);
   const skillKeys = (e.mimicSkills && e.mimicSkills.length ? e.mimicSkills : ['q']);
-  if (!e.phaseTwo && e.hp <= e.maxHp * 0.5) {
+  if (!e.riftEcho && !e.phaseTwo && e.hp <= e.maxHp * 0.5) {
     e.phaseTwo = true;
     e.enraged = true;
     addMarker(e.x + DISPLAY_SIZE / 2, e.y - 24, 'ADAPTED', '#bb66ff');
@@ -6157,7 +6713,9 @@ function updateMimic(e) {
     else e.forceSkillKey = phaseKey;
     return;
   }
-  const speedFloor = Math.max(e.mimicSpeed || GOBLIN_SPEED, player.speed * 0.95);
+  const speedFloor = e.riftEcho
+    ? (e.mimicSpeed || GOBLIN_SPEED)
+    : Math.max(e.mimicSpeed || GOBLIN_SPEED, player.speed * 0.95);
   const spdBase = speedFloor * (e.enraged ? 1.15 : 1);
   const spd = e.slowTimer > 0 ? Math.max(1, spdBase * 0.5) : spdBase;
   const overlapSpace = DISPLAY_SIZE * 0.48;
@@ -6238,7 +6796,7 @@ function updateMimic(e) {
       const usedKey = e.activeAbility || 'q';
       mimicUseAbility(e, usedKey);
       if (!e.mimicCooldowns) e.mimicCooldowns = { q: 0, w: 0, e: 0, r: 0 };
-      e.mimicCooldowns[usedKey] = Math.max(e.mimicCooldowns[usedKey] || 0, mimicCooldownFrames(usedKey));
+      e.mimicCooldowns[usedKey] = Math.max(e.mimicCooldowns[usedKey] || 0, mimicCooldownFrames(usedKey, e));
       e.mimicGlobalCooldown = Math.max(e.mimicGlobalCooldown || 0, 34);
       e.state = 'cooldown';
       e.attackTimer = 20;
@@ -6536,7 +7094,8 @@ function spawnJohnPorkMinionAt(x, y) {
   minion.x = Math.max(TILE_SIZE, Math.min(canvas.width - hb.w - TILE_SIZE, x - hb.w / 2));
   minion.y = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - hb.h - TILE_SIZE, y - hb.h / 2));
   minion.direction = 'down';
-  minion.state = minion.type === 'skeletal_champion' ? 'chase' : 'wander';
+  minion.johnPorkMinion = true;
+  minion.state = minion.type === 'skeletal_champion' || minion.type === 'orc' ? 'chase' : 'wander';
   minion.spawnWarning = 0;
   minion.aliveFrames = 0;
   minion.hitFlash = 18;
@@ -6764,6 +7323,150 @@ function updateDragonkin(e) {
   }
 }
 
+function updateAlekRat(e) {
+  if (e.dying || e.hp <= 0) return;
+  e.aliveFrames = (e.aliveFrames || 0) + 1;
+  if (e.hitFlash > 0) e.hitFlash--;
+  if (e.slowTimer > 0) e.slowTimer--;
+  if (e.attackTimer > 0) e.attackTimer--;
+  const size = e.size || ALEK_RAT_SIZE;
+  const cx = e.x + size / 2;
+  const cy = e.y + size / 2;
+  const pcx = player.x + DISPLAY_SIZE / 2;
+  const pcy = player.y + DISPLAY_SIZE / 2;
+  const dx = pcx - cx;
+  const dy = pcy - cy;
+  const dist = Math.hypot(dx, dy) || 1;
+  if (Math.abs(dx) >= Math.abs(dy)) e.direction = dx >= 0 ? 'right' : 'left';
+  else e.direction = dy >= 0 ? 'down' : 'up';
+
+  if (e.ratKind === 'king') {
+    if (e.burrowCooldown > 0) e.burrowCooldown--;
+    if (e.summonCooldown > 0) e.summonCooldown--;
+    if (e.crumbCooldown > 0) e.crumbCooldown--;
+
+    if (e.state === 'burrow') {
+      if (--e.burrowTimer <= 0) {
+        e.x = Math.max(TILE_SIZE, Math.min(canvas.width - size - TILE_SIZE, e.burrowX - size / 2));
+        e.y = Math.max(TILE_SIZE, Math.min(GAME_HEIGHT - size - TILE_SIZE, e.burrowY - size / 2));
+        if (Math.hypot(pcx - e.burrowX, pcy - e.burrowY) < DISPLAY_SIZE * 1.05) {
+          const hit = damagePlayer(ALEK_RAT_KING_DAMAGE + 1, 12);
+          addMarker(pcx, player.y, `-${hit} BURROW`, '#9fcb58');
+          playsfx('damage');
+        }
+        addHazard('poison', e.burrowX, e.burrowY, DISPLAY_SIZE * 0.82, 120, {
+          slow: true,
+          color: '#9fcb58'
+        });
+        e.state = 'recover';
+        e.attackTimer = 24;
+        playsfx('ghoulAttack');
+      }
+      return;
+    }
+
+    if (e.state === 'recover') {
+      if (e.attackTimer <= 0) e.state = 'chase';
+      return;
+    }
+
+    if (e.state === 'bite') {
+      if (++e.attackTick >= 6) {
+        e.attackTick = 0;
+        e.attackFrame = Math.min(3, (e.attackFrame || 0) + 1);
+      }
+      if (!e.biteHit && e.attackTimer <= 8) {
+        e.biteHit = true;
+        if (dist < DISPLAY_SIZE * 1.1) {
+          const hit = damagePlayer(ALEK_RAT_KING_DAMAGE, 12);
+          addMarker(pcx, player.y, `-${hit}`, '#a6d96a');
+          playsfx('damage');
+        }
+      }
+      if (e.attackTimer <= 0) {
+        e.state = 'chase';
+        e.attackTimer = 48;
+        e.attackFrame = 0;
+      }
+      return;
+    }
+
+    if (e.summonCooldown <= 0 && enemies.filter(r => r.type === 'alek_rat' && r.ratKind !== 'king' && !r.dying && r.hp > 0).length < 3) {
+      enemies.push(spawnAlekRatAt('rat', cx, cy + DISPLAY_SIZE * 0.95, { summoned: true }));
+      e.summonCooldown = 480;
+      addMarker(cx, e.y - 16, 'SKITTER', '#a6d96a');
+      playsfx('ghoulIntro');
+      return;
+    }
+
+    if (e.burrowCooldown <= 0 && dist > DISPLAY_SIZE * 1.6) {
+      e.state = 'burrow';
+      e.burrowTimer = ALEK_RAT_BURROW_WARNING;
+      e.burrowX = pcx;
+      e.burrowY = pcy;
+      e.burrowCooldown = 330;
+      addMarker(pcx, pcy - DISPLAY_SIZE * 0.5, 'BURROW', '#9fcb58');
+      playsfx('ghoulAttack');
+      return;
+    }
+
+    if (dist < DISPLAY_SIZE * 1.0 && e.attackTimer <= 0) {
+      e.state = 'bite';
+      e.attackTimer = 22;
+      e.attackFrame = 0;
+      e.attackTick = 0;
+      e.biteHit = false;
+      return;
+    }
+
+    if (e.crumbCooldown <= 0) {
+      addHazard('poison', cx, cy, DISPLAY_SIZE * 0.38, 90, { slow: true, color: '#9fcb58' });
+      e.crumbCooldown = 165;
+    }
+  } else {
+    if (e.scatterTimer > 0) e.scatterTimer--;
+    if (e.state === 'bite') {
+      if (++e.attackTick >= 5) {
+        e.attackTick = 0;
+        e.attackFrame = Math.min(3, (e.attackFrame || 0) + 1);
+      }
+      if (!e.biteHit && e.attackTimer <= 10) {
+        e.biteHit = true;
+        if (dist < DISPLAY_SIZE * 0.82) {
+          const hit = damagePlayer(ALEK_RAT_DAMAGE, 8);
+          addMarker(pcx, player.y, `-${hit}`, '#b8e986');
+          playsfx('damage');
+        }
+      }
+      if (e.attackTimer <= 0) {
+        e.state = 'chase';
+        e.attackTimer = 58;
+        e.attackFrame = 0;
+        e.scatterTimer = 22;
+      }
+      return;
+    }
+    if (dist < DISPLAY_SIZE * 0.75 && e.attackTimer <= 0) {
+      e.state = 'bite';
+      e.attackTimer = 20;
+      e.attackFrame = 0;
+      e.attackTick = 0;
+      e.biteHit = false;
+      playsfx('ghoulAttack');
+      return;
+    }
+  }
+
+  const moveSpeed = (e.slowTimer > 0 ? e.speed * 0.5 : e.speed) * (e.scatterTimer > 0 ? 1.22 : 1);
+  const dir = e.scatterTimer > 0 ? -1 : 1;
+  const sep = separationVec(e, size * 1.25);
+  const moved = moveEntityWithSlide(e, (dx / dist) * moveSpeed * dir + sep.fx * 0.55, (dy / dist) * moveSpeed * dir + sep.fy * 0.55);
+  if (++e.frameTick >= (e.ratKind === 'king' ? 8 : 6)) {
+    e.frameTick = 0;
+    if (moved || e.ratKind !== 'king') e.frameIndex = (e.frameIndex + 1) % 4;
+  }
+}
+
 function updateDragon(e) {
   if (e.hitFlash > 0) e.hitFlash--;
   const animSpeed = e.state === 'idle' ? 20 : 8;
@@ -6935,6 +7638,57 @@ function drawDragonkin(e) {
     drawMasterQuadrantSprite(dragonkinSheet, 'run', e.frameIndex, row, e.x, e.y, sz, sz);
   }
   ctx.filter = 'none';
+}
+
+function drawAlekRat(e) {
+  const size = e.size || ALEK_RAT_SIZE;
+  const row = dirToRow(e.direction);
+  const attacking = e.state === 'bite';
+  const burrowing = e.state === 'burrow';
+  const col = e.dying ? Math.min(3, e.deathFrame || 0) : attacking ? Math.min(3, e.attackFrame || 0) : e.frameIndex % 4;
+
+  if (burrowing && e.burrowX && e.burrowY) {
+    const progress = 1 - Math.max(0, e.burrowTimer || 0) / ALEK_RAT_BURROW_WARNING;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + progress * 0.45;
+    ctx.fillStyle = 'rgba(150, 205, 80, 0.22)';
+    ctx.strokeStyle = '#a6d96a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.burrowX, e.burrowY, DISPLAY_SIZE * (0.45 + progress * 0.6), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (burrowing && (e.burrowTimer || 0) < ALEK_RAT_BURROW_WARNING * 0.72) return;
+
+  applyHitFlash(e.hitFlash);
+  ctx.save();
+  if (e.ratKind === 'king' && !(e.hitFlash > 0)) ctx.filter = 'brightness(1.12) saturate(1.35) hue-rotate(30deg)';
+  if (e.scatterTimer > 0 && !(e.hitFlash > 0)) ctx.filter = 'brightness(1.25) saturate(1.4)';
+  if (alekRatSheet) {
+    const quad = e.dying ? 'death' : attacking ? 'attack' : 'run';
+    drawMasterQuadrantSprite(alekRatSheet, quad, col, row, e.x, e.y, size, size);
+  } else {
+    ctx.fillStyle = e.ratKind === 'king' ? '#6f5a38' : '#6d6d55';
+    ctx.fillRect(e.x + size * 0.18, e.y + size * 0.2, size * 0.64, size * 0.55);
+    ctx.fillStyle = '#d7e59a';
+    ctx.fillRect(e.x + size * 0.32, e.y + size * 0.08, size * 0.36, size * 0.28);
+  }
+  ctx.restore();
+  ctx.filter = 'none';
+
+  if (!e.dying && e.hp > 0) {
+    drawEnemyHpBar(e, size, -8);
+    if (e.ratKind === 'king') {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#a6d96a';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText('ALEK RAT', e.x + size / 2, e.y - 14);
+      ctx.textAlign = 'left';
+    }
+  }
 }
 
 function drawDragon(e) {
@@ -7145,6 +7899,7 @@ function updateEnemy(e) {
   if (e.type === 'dragonkin') return updateDragonkin(e);
   // Dragon is static — immune to windwalk tracking loss
   if (e.type === 'dragon') return updateDragon(e);
+  if (e.type === 'alek_rat') return updateAlekRat(e);
   if (player.windwalkActive && e.hp > 0) {
     // Enemies wander aimlessly while player is invisible
     if (e.hitFlash > 0) e.hitFlash--;
@@ -7198,6 +7953,8 @@ function restartCurrentStageSoftcore() {
   player.knockbackTimer = 0;
   player.knockbackDx = 0;
   player.knockbackDy = 0;
+  player.pendingEdgeStunFrames = 0;
+  player.pendingEdgeBonusDamage = 0;
   player.berserkTimer = 0;
   player.berserkCasting = false;
   player.sliceDiceTimer = 0;
@@ -7216,11 +7973,13 @@ function restartCurrentStageSoftcore() {
 }
 
 function update() {
+  runTimerFrames++;
   updatePlayer();
   enemies.forEach(updateEnemy);
   updateProjectiles();
   updateSpellEffects();
   updateHazards();
+  updateRiftTrial();
   updateTelegraphs();
   abilities.forEach(ab => { if (ab.timer > 0) ab.timer = Math.max(0, ab.timer - (player.cooldownRegenMult || 1)); });
   // Slice and dice: extra cooldown tick for double recharge rate
@@ -7236,6 +7995,7 @@ function update() {
   for (let i = markers.length - 1; i >= 0; i--) {
     if (--markers[i].life <= 0) markers.splice(i, 1);
   }
+  recoverPlayerFromDeathIfHealed();
   if (player.hp <= 0) {
     if (!player.dying) {
       player.dying = true;
@@ -7293,7 +8053,11 @@ function update() {
   const waitingForGhoulWave = stage === 7 && ghoulWaveIndex < GHOUL_WAVES.length - 1;
   if (stageCombatDone && !waitingForGhoulWave) {
     if (!doorOpen && stage < 11) doorOpen = true;
-    if (stage >= 11) { gameState = 'win'; return; }
+    if (stage >= 11) {
+      victoryRunFrames = runTimerFrames;
+      gameState = 'win';
+      return;
+    }
   }
 }
 
@@ -7317,6 +8081,16 @@ function drawMap() {
   if (stageBg) {
     const bgRect = getStageBgRect(stage);
     ctx.drawImage(stageBg, bgRect.x, bgRect.y, bgRect.w, bgRect.h);
+    if (stage === RIFT_TRIAL_STAGE) {
+      ctx.save();
+      const g = ctx.createRadialGradient(canvas.width / 2, GAME_HEIGHT * 0.45, DISPLAY_SIZE, canvas.width / 2, GAME_HEIGHT * 0.45, canvas.width * 0.72);
+      g.addColorStop(0, 'rgba(130, 60, 255, 0.08)');
+      g.addColorStop(0.58, 'rgba(50, 15, 95, 0.22)');
+      g.addColorStop(1, 'rgba(0, 0, 0, 0.48)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, GAME_HEIGHT);
+      ctx.restore();
+    }
     drawDoor();
     return;
   }
@@ -7501,13 +8275,31 @@ function drawHazards() {
     const alpha = Math.max(0.12, Math.min(0.55, h.life / h.maxLife));
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = h.type === 'rubble' ? 'rgba(95,80,65,0.75)' : h.type === 'shadow' ? 'rgba(100,40,150,0.45)' : 'rgba(170,90,25,0.45)';
+    ctx.fillStyle = h.type === 'rubble' ? 'rgba(95,80,65,0.75)'
+      : h.type === 'shadow' ? 'rgba(100,40,150,0.45)'
+      : h.type === 'rift_warning' ? 'rgba(180,80,255,0.20)'
+      : h.type === 'rift_anchor' ? 'rgba(80,30,150,0.38)'
+      : h.type === 'poison' ? 'rgba(120,170,55,0.38)'
+      : 'rgba(170,90,25,0.45)';
     ctx.strokeStyle = h.color || '#cc8844';
     ctx.lineWidth = h.block ? 3 : 2;
     ctx.beginPath();
     ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    if (h.type === 'rift_warning') {
+      const pulse = 0.55 + 0.45 * Math.sin(h.tick * 0.45);
+      ctx.globalAlpha = alpha * pulse;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r * Math.max(0.25, 1 - h.life / h.maxLife), 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (h.type === 'rift_anchor') {
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r * (0.45 + 0.12 * Math.sin(Date.now() / 220)), 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   });
 }
@@ -7575,6 +8367,85 @@ function drawAttackRange() {
   ctx.restore();
 }
 
+function drawShamanPrimalResidue(drawX, drawY, dsize) {
+  const stats = shamanVisualStats(player.shamanPrimalStats);
+  const mode = player.shamanPrimalMode;
+  const dominant = mode === 'dominance' ? player.shamanPrimalStat : null;
+  const cx = drawX + dsize / 2;
+  const cy = drawY + dsize / 2;
+  const footY = drawY + dsize * 0.82;
+  const pulse = 0.5 + 0.5 * Math.sin(player.shamanPrimalTimer / 8);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  if (dominant === 'str') {
+    const ember = ctx.createRadialGradient(cx, footY, dsize * 0.08, cx, footY, dsize * 0.58);
+    ember.addColorStop(0, 'rgba(221, 78, 48, 0.20)');
+    ember.addColorStop(0.48, 'rgba(156, 42, 31, 0.10)');
+    ember.addColorStop(1, 'rgba(92, 20, 18, 0)');
+    ctx.globalAlpha = 0.55 + pulse * 0.15;
+    ctx.fillStyle = ember;
+    ctx.beginPath();
+    ctx.ellipse(cx, footY, dsize * 0.56, dsize * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.14 + pulse * 0.08;
+    ctx.strokeStyle = '#d84c35';
+    ctx.shadowColor = '#b6372c';
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = Math.max(1.5, dsize * 0.025);
+    [-0.18, 0, 0.18].forEach((offset, i) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + dsize * offset, drawY + dsize * (0.56 + i * 0.035));
+      ctx.quadraticCurveTo(cx + dsize * (offset + 0.04), drawY + dsize * 0.48, cx + dsize * (offset + 0.12), drawY + dsize * 0.43);
+      ctx.stroke();
+    });
+  } else if (dominant === 'agi') {
+    const moving = Math.abs(player.dx || 0) + Math.abs(player.dy || 0) > 0 || player.state === 'moving';
+    if (moving) {
+      ctx.globalAlpha = 0.12 + pulse * 0.08;
+      ctx.fillStyle = '#2ecc71';
+      ctx.shadowColor = '#2ecc71';
+      ctx.shadowBlur = 10;
+      const trailX = player.direction === 'right' ? -dsize * 0.22 : player.direction === 'left' ? dsize * 0.22 : 0;
+      const trailY = player.direction === 'down' ? -dsize * 0.18 : player.direction === 'up' ? dsize * 0.18 : 0;
+      ctx.fillRect(drawX + trailX + dsize * 0.16, drawY + trailY + dsize * 0.18, dsize * 0.68, dsize * 0.62);
+    }
+    ctx.globalAlpha = 0.18 + pulse * 0.06;
+    ctx.strokeStyle = '#2ecc71';
+    ctx.lineWidth = Math.max(1.5, dsize * 0.02);
+    ctx.beginPath();
+    ctx.arc(cx, cy, dsize * 0.52, -0.25 * Math.PI, 0.55 * Math.PI);
+    ctx.stroke();
+  } else if (dominant === 'int') {
+    ctx.globalAlpha = 0.14 + pulse * 0.08;
+    ctx.fillStyle = '#82cfff';
+    ctx.shadowColor = '#3498db';
+    ctx.shadowBlur = 12;
+    for (let i = 0; i < 5; i++) {
+      const drift = (Date.now() / 280 + i * 1.7) % 1;
+      const x = drawX + dsize * (0.24 + i * 0.13);
+      const y = drawY + dsize * (0.72 - drift * 0.62);
+      ctx.beginPath();
+      ctx.arc(x, y, dsize * (0.025 + 0.015 * (1 - drift)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    stats.forEach((stat, i) => {
+      const angle = Date.now() / 720 + i * (Math.PI * 2 / Math.max(3, stats.length));
+      const color = shamanShiftColor(stat);
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(angle) * dsize * 0.42, cy + Math.sin(angle) * dsize * 0.22, dsize * 0.055, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+
 function drawPlayerEffects(drawX, drawY, dsize) {
   if (player.berserkTimer > 0 && Math.floor(player.berserkTimer / 4) % 2 === 0) {
     ctx.save();
@@ -7584,22 +8455,7 @@ function drawPlayerEffects(drawX, drawY, dsize) {
     ctx.restore();
   }
   if (player.shamanPrimalTimer > 0) {
-    const stats = shamanVisualStats(player.shamanPrimalStats);
-    const color = shamanCycleColor(stats);
-    const cx = drawX + dsize / 2;
-    const cy = drawY + dsize / 2;
-    ctx.save();
-    ctx.globalAlpha = 0.22 + 0.10 * Math.sin(player.shamanPrimalTimer / 6);
-    ctx.shadowColor = color; ctx.shadowBlur = 18;
-    ctx.strokeStyle = color; ctx.lineWidth = 3;
-    stats.forEach((stat, i) => {
-      ctx.strokeStyle = shamanShiftColor(stat);
-      ctx.globalAlpha = 0.18 + 0.08 * Math.sin(player.shamanPrimalTimer / 6 + i);
-      ctx.beginPath();
-      ctx.arc(cx, cy, dsize * (0.58 + i * 0.12), 0, Math.PI * 2);
-      ctx.stroke();
-    });
-    ctx.restore();
+    drawShamanPrimalResidue(drawX, drawY, dsize);
   }
   if (player.avatarActive) {
     ctx.save();
@@ -7813,17 +8669,42 @@ function drawShamanPrimalShiftBehind(drawX, drawY, dsize) {
   ctx.restore();
 }
 
+function drawShamanActiveSpiritBehind(drawX, drawY, dsize) {
+  if (!shamanPrimalShiftSheet || !shamanPrimalShiftFrames) return;
+  if (player.shamanPrimalTimer <= 0 || player.shamanPrimalMode !== 'dominance' || !player.shamanPrimalStat) return;
+  const stat = player.shamanPrimalStat;
+  const src = shamanPrimalShiftFrames[shamanSpiritRow(stat)]?.[4];
+  if (!src) return;
+
+  const pulse = 0.5 + 0.5 * Math.sin(player.shamanPrimalTimer / 9);
+  const color = shamanShiftColor(stat);
+  const size = dsize * (1.42 + pulse * 0.08);
+  const dx = drawX + dsize / 2 - size / 2;
+  const dy = drawY + dsize * 0.88 - size;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 0.14 + pulse * 0.04;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 18;
+  ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, dx, dy, size, size);
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.07 + pulse * 0.03;
+  ctx.drawImage(shamanPrimalShiftSheet, src.sx, src.sy, src.sw, src.sh, dx - size * 0.04, dy - size * 0.04, size * 1.08, size * 1.08);
+  ctx.restore();
+}
+
 function drawShamanFrameTinted(sx, sy, sw, sh, dx, dy, dw, dh) {
   const active = player.shamanPrimalTimer > 0 && player.shamanPrimalMode;
   const color = active ? shamanCycleColor(player.shamanPrimalStats) : null;
-  const alpha = active ? 0.24 + 0.06 * Math.sin(player.shamanPrimalTimer / 5) : 0;
+  const alpha = active ? 0.12 + 0.035 * Math.sin(player.shamanPrimalTimer / 5) : 0;
   drawImageTintedByAlpha(shamanSheet, sx, sy, sw, sh, dx, dy, dw, dh, color, alpha);
   if (!active) return;
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.10;
+  ctx.globalAlpha = 0.055;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 10;
   ctx.drawImage(shamanSheet, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();
 }
@@ -7857,27 +8738,47 @@ function drawShamanSpiritOrbs(drawX, drawY, dsize) {
   if (!shamanSpiritOrbSheet || !shamanSpiritOrbFrames || !shamanHasPrimalShiftLearned()) return;
   const chain = (player.shamanSpiritChain || []).slice(-3);
   if (!chain.length) return;
-  const t = Date.now() / 620;
+  const info = shamanSpiritChainInfo(chain);
+  const mode = chain.length >= 3 ? (info?.mode || 'building') : 'building';
+  const t = Date.now() / (mode === 'dominance' ? 430 : mode === 'perfect' ? 520 : 680);
   const cx = drawX + dsize / 2;
   const cy = drawY + dsize * 0.45;
-  const radius = dsize * 0.58;
-  const size = dsize * 0.32;
+  const radius = dsize * (mode === 'dominance' ? 0.42 : mode === 'perfect' ? 0.66 : 0.58);
+  const size = dsize * (mode === 'dominance' ? 0.30 : mode === 'perfect' ? 0.34 : 0.32);
   const alphaBase = player.shamanPrimalTimer > 0 ? 0.42 : 0.70;
   ctx.save();
-  chain.forEach((stat, i) => {
-    const src = shamanSpiritOrbFrames[0]?.[stat === 'str' ? 0 : stat === 'agi' ? 1 : 2];
-    if (!src) return;
-    const angle = t + i * (Math.PI * 2 / Math.max(3, chain.length));
-    const x = cx + Math.cos(angle) * radius - size / 2;
-    const y = cy + Math.sin(angle) * radius * 0.55 - size / 2;
-    const color = shamanShiftColor(stat);
-    ctx.globalAlpha = alphaBase;
+  if (mode === 'dominance') {
+    const color = shamanShiftColor(chain[0]);
+    ctx.globalAlpha = 0.18 + 0.06 * Math.sin(t * 3);
+    ctx.fillStyle = color;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
-    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, x, y, size, size);
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(cx, cy, dsize * 0.34, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  chain.forEach((stat, i) => {
+    const src = shamanSpiritOrbFrames[0]?.[shamanSpiritIndex(stat)];
+    if (!src) return;
+    const orderPulse = i === chain.length - 1 ? 1 + 0.12 * Math.sin(t * 5) : 1;
+    const angle = mode === 'perfect'
+      ? -Math.PI / 2 + i * (Math.PI * 2 / 3) + Math.sin(t * 1.8) * 0.08
+      : t + i * (Math.PI * 2 / Math.max(3, chain.length));
+    const x = cx + Math.cos(angle) * radius - size / 2;
+    const bob = mode === 'perfect' ? Math.sin(t * 3.2 + i * 1.35) * dsize * 0.09 : Math.sin(t * 2.4 + i) * dsize * 0.035;
+    const y = cy + Math.sin(angle) * radius * 0.55 + bob - size / 2;
+    const color = shamanShiftColor(stat);
+    const orderAlpha = 0.72 + i * 0.14;
+    const drawSize = size * orderPulse * (mode === 'perfect' ? 1.06 : 1);
+    const dx = x - (drawSize - size) / 2;
+    const dy = y - (drawSize - size) / 2;
+    ctx.globalAlpha = alphaBase * Math.min(1, orderAlpha);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = mode === 'perfect' ? 16 : mode === 'dominance' ? 14 : 10;
+    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, dx, dy, drawSize, drawSize);
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.16;
-    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, x - size * 0.06, y - size * 0.06, size * 1.12, size * 1.12);
+    ctx.globalAlpha = i === chain.length - 1 ? 0.26 : 0.14;
+    ctx.drawImage(shamanSpiritOrbSheet, src.sx, src.sy, src.sw, src.sh, dx - drawSize * 0.06, dy - drawSize * 0.06, drawSize * 1.12, drawSize * 1.12);
     ctx.globalCompositeOperation = 'source-over';
   });
   ctx.restore();
@@ -7897,6 +8798,7 @@ function drawShaman() {
 
   drawAttackRange();
   applyHitFlash(player.hitFlash);
+  drawShamanActiveSpiritBehind(player.x, player.y, dsize);
   drawShamanPrimalShiftBehind(player.x, player.y, dsize);
 
   if (player.state === 'attacking') {
@@ -8530,27 +9432,48 @@ function drawSimpleEnemy(e, bodyColor, headColor, eyeColor, W, H) {
 }
 
 function drawTroll(e) {
-  const W = DISPLAY_SIZE * 2, H = DISPLAY_SIZE * 2;
+  const W = e.size || DISPLAY_SIZE * 2, H = e.size || DISPLAY_SIZE * 2;
   const row = dirToRow(e.direction);
   if (e.dying) {
     const col = Math.min(e.deathFrame, 3);
     ctx.globalAlpha = Math.max(0.25, 1 - e.deathFrame / 5);
+    if (e.bloodhide) ctx.filter = 'sepia(0.55) saturate(1.8) hue-rotate(330deg) brightness(0.92)';
     if (trollMasterSheet) drawMasterQuadrantSprite(trollMasterSheet, 'death', col, row, e.x, e.y, W, H);
     else drawMonSprite(trollRunSheet, col, row, e.x, e.y, W, H);
+    ctx.filter = 'none';
     ctx.globalAlpha = 1;
     return;
   }
   if (e.deathDone) {
     ctx.globalAlpha = 0.5;
+    if (e.bloodhide) ctx.filter = 'sepia(0.55) saturate(1.8) hue-rotate(330deg) brightness(0.82)';
     if (trollMasterSheet) drawMasterQuadrantSprite(trollMasterSheet, 'death', 3, row, e.x, e.y, W, H);
     else drawMonSprite(trollRunSheet, 3, row, e.x, e.y, W, H);
+    ctx.filter = 'none';
     ctx.globalAlpha = 1;
     return;
   }
   if (e.hp <= 0) return;
+  if (e.bloodhide && (bloodhideBondCount(e) > 0 || e.bloodhideBondFlash > 0)) {
+    ctx.save();
+    ctx.globalAlpha = e.bloodhideBondFlash > 0 ? 0.35 : 0.18;
+    ctx.strokeStyle = '#ff9a52';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(e.x + W / 2, e.y + H * 0.64, W * 0.42, H * 0.25, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   applyHitFlash(e.hitFlash);
   const attacking = e.state === 'attacking' || e.state === 'kick';
   const col = attacking ? (e.attackFrame || 0) % 4 : e.frameIndex % 4;
+  ctx.save();
+  if (e.bloodhide && !(e.hitFlash > 0)) {
+    const rage = e.rageTimer > 0;
+    ctx.filter = rage
+      ? 'sepia(0.65) saturate(2.5) hue-rotate(330deg) brightness(1.15)'
+      : 'sepia(0.55) saturate(1.8) hue-rotate(330deg) brightness(0.92)';
+  }
   if (e.state === 'kick' && trollKickSheet) {
     drawSheetSprite(trollKickSheet, col, row, e.x, e.y, W, H, 4, 4);
   } else if (trollMasterSheet) {
@@ -8559,8 +9482,16 @@ function drawTroll(e) {
     const sheet = e.state === 'attacking' || e.state === 'kick' ? (trollAtkSheet || trollRunSheet) : trollRunSheet;
     drawMonSprite(sheet, col, row, e.x, e.y, W, H);
   }
+  ctx.restore();
   ctx.filter = 'none';
   drawEnemyHpBar(e, W, -12);
+  if (e.bloodhide && e.rageTimer > 0) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff6b35';
+    ctx.font = 'bold 9px Arial';
+    ctx.fillText('RAGE', e.x + W / 2, e.y - 20);
+    ctx.textAlign = 'left';
+  }
 }
 
 function drawGuardian(e) {
@@ -8937,6 +9868,7 @@ function drawEnemy(e) {
   if (e.type === 'johnpork') return drawJohnPork(e);
   if (e.type === 'dragonkin') return drawDragonkin(e);
   if (e.type === 'dragon')   return drawDragon(e);
+  if (e.type === 'alek_rat') return drawAlekRat(e);
   if (e.type === 'mimic') {
     if (e.dying || e.deathDone) {
       const fadeAlpha = e.deathDone ? 0 : Math.max(0, 1 - e.deathFrame / 3);
@@ -9523,6 +10455,7 @@ function drawStageStats() {
 // ── Dev mode helpers ──────────────────────────────────────────────────────────
 
 function applyDevConfig() {
+  resetRunTimer();
   // ── Stat points: use manual allocation, remainder to primary stat ──────────
   const totalPts = (devSetupLevel - 1) * 3;
   const usedPts  = devStatAlloc[0] + devStatAlloc[1] + devStatAlloc[2];
@@ -9572,6 +10505,18 @@ function applyDevConfig() {
   } else if (devSetupStage === 13) {
     stage = 99;
     spawnStage(99);
+    gameState = 'playing';
+  } else if (devSetupStage === 14) {
+    stage = RIFT_TRIAL_STAGE;
+    spawnStage(RIFT_TRIAL_STAGE);
+    gameState = 'playing';
+  } else if (devSetupStage === 15) {
+    stage = ALEK_RAT_STAGE;
+    spawnStage(ALEK_RAT_STAGE);
+    gameState = 'playing';
+  } else if (devSetupStage === 16) {
+    stage = BLOODHIDE_STAGE;
+    spawnStage(BLOODHIDE_STAGE);
     gameState = 'playing';
   } else {
     stage = devSetupStage;
@@ -9750,7 +10695,7 @@ function drawDevSetup() {
 
   // ── 4: Stage ─────────────────────────────────────────────────────────────
   sectionLabel(5, '── STAGE ──');
-  const stageNames = ['','Goblins','Golems','Minotaur','Archers','Orcs','Trolls','Ghouls','Spell Blade','Guardians','Iron Tribunal','John Pork','Dragonkin (Dev/98)','Dragon (Dev/99)'];
+  const stageNames = ['','Goblins','Golems','Minotaur','Archers','Orcs','Trolls','Ghouls','Spell Blade','Guardians','Iron Tribunal','John Pork','Dragonkin (Dev/98)','Dragon (Dev/99)','Rift Trial (Dev/100)','Alek Rat Nest (Dev/101)','Bloodhide Pit (Dev/102)'];
   ctx.fillStyle = '#fff'; ctx.font = 'bold 36px Arial';
   ctx.fillText(devSetupStage, W/2, SEC[5] + 38);
   ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
@@ -9766,7 +10711,6 @@ function drawDevSetup() {
 
 function drawWin() {
   const W = canvas.width, H = canvas.height;
-  {
   if (victoryBgImg) {
     const scale = Math.max(W / victoryBgImg.width, H / victoryBgImg.height);
     const dw = victoryBgImg.width * scale;
@@ -9776,64 +10720,97 @@ function drawWin() {
     ctx.fillStyle = '#0a0a1a';
     ctx.fillRect(0, 0, W, H);
   }
+
   const shade = ctx.createLinearGradient(0, 0, 0, H);
   shade.addColorStop(0, 'rgba(0,0,0,0.35)');
   shade.addColorStop(0.45, 'rgba(0,0,0,0.48)');
   shade.addColorStop(1, 'rgba(0,0,0,0.72)');
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W/2, H*0.38, 20, W/2, H*0.38, 300);
-  glow.addColorStop(0, 'rgba(255,215,0,0.25)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffd700'; ctx.font = `700 ${Math.round(H * 0.07)}px 'Cinzel Decorative', serif`;
-  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 30;
-  ctx.fillText('You have cleared Rendfall Depths', W/2, H * 0.35);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#ead9b9'; ctx.font = `600 ${Math.round(H * 0.026)}px 'Cinzel', serif`;
-  ctx.fillText('The darkness below has fallen silent.', W/2, H * 0.48);
-  ctx.fillStyle = '#d8c29a'; ctx.font = `600 ${Math.round(H * 0.018)}px 'Cinzel', serif`;
-  ctx.fillText(`Hero: ${player.className}  -  Level: ${player.level}  -  Stage: 11`, W/2, H * 0.55);
-  ctx.fillText(`STR ${player.str}  -  AGI ${player.agi}  -  INT ${player.int}`, W/2, H * 0.60);
-  if (player.pendants && player.pendants.length > 0) {
-    ctx.fillStyle = '#9b59b6'; ctx.font = `600 ${Math.round(H * 0.016)}px 'Cinzel', serif`;
-    ctx.fillText('Pendants: ' + player.pendants.map(p => 'Pendant of ' + p.name).join('  -  '), W/2, H * 0.66);
-  }
-  if (Math.floor(Date.now() / 700) % 2 === 0) {
-    ctx.fillStyle = '#ffd700'; ctx.font = `600 ${Math.round(H * 0.017)}px 'Cinzel', serif`;
-    ctx.fillText('Press Enter or Space to return to the Main Menu', W/2, H * 0.82);
-  }
-  ctx.textAlign = 'left';
-  return;
-  }
-  ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, W, H);
 
-  // Gold radial glow
-  const glow = ctx.createRadialGradient(W/2, H*0.38, 20, W/2, H*0.38, 300);
-  glow.addColorStop(0, 'rgba(255,215,0,0.25)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, H * 0.38, 20, W / 2, H * 0.38, 300);
+  glow.addColorStop(0, 'rgba(255,215,0,0.25)');
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  const selectedTalents = [];
+  (player.talentTaken || []).forEach((tiers, pi) => {
+    tiers.forEach((taken, ti) => {
+      if (!taken) return;
+      const path = TALENT_TREE[pi];
+      const tier = path?.tiers?.[ti];
+      if (path && tier) selectedTalents.push(`${path.path}: ${tier.label}`);
+    });
+  });
+  const skillLines = orderedAbilities(abilities).map(ab =>
+    `${ab.label} ${abilityDisplayName(ab)}: Lv ${ab.level}/${ab.maxLevel}`
+  );
+  const pendantNames = (player.pendants || []).map(p => `Pendant of ${p.name}`);
+  const formatLine = (label, items, fallback = 'None') => {
+    const text = items.length ? items.join('  -  ') : fallback;
+    return `${label}: ${text}`;
+  };
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 64px Arial';
-  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 30;
-  ctx.fillText('VICTORY!', W/2, H * 0.35);
+  ctx.fillStyle = '#ffd700';
+  ctx.font = `700 ${Math.round(H * 0.07)}px 'Cinzel Decorative', serif`;
+  ctx.shadowColor = '#ffd700';
+  ctx.shadowBlur = 30;
+  ctx.fillText('You have cleared Rendfall Depths', W / 2, H * 0.34);
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#fff'; ctx.font = '22px Arial';
-  ctx.fillText('Rendfall Depths has been conquered.', W/2, H * 0.48);
+  ctx.fillStyle = '#ead9b9';
+  ctx.font = `600 ${Math.round(H * 0.026)}px 'Cinzel', serif`;
+  ctx.fillText('The darkness below has fallen silent.', W / 2, H * 0.47);
 
-  ctx.fillStyle = '#aaa'; ctx.font = '16px Arial';
-  ctx.fillText(`Hero: ${player.className}  ·  Level: ${player.level}  ·  Stage: 11`, W/2, H * 0.55);
-  ctx.fillText(`STR ${player.str}  ·  AGI ${player.agi}  ·  INT ${player.int}`, W/2, H * 0.60);
+  const small = Math.max(12, Math.round(H * 0.017));
+  const lineH = Math.max(17, Math.round(H * 0.026));
+  let y = H * 0.54;
+  ctx.fillStyle = '#d8c29a';
+  ctx.font = `600 ${small}px 'Cinzel', serif`;
+  ctx.fillText(`Hero: ${player.className}  -  Level: ${player.level}  -  Stage: 11  -  Time ${formatRunTime(victoryRunFrames || runTimerFrames)}  -  ${gameMode === 'softcore' ? 'Softcore' : 'Normal'}`, W / 2, y);
+  y += lineH;
+  const victoryPrimaryText = player.className === 'Shaman'
+    ? 'Primary Balance'
+    : `Primary ${primaryStatLabel(player.primaryStat)}`;
+  ctx.fillText(`HP ${player.hp} / ${player.maxHp}  -  STR ${player.str}  -  AGI ${player.agi}  -  INT ${player.int}  -  ${victoryPrimaryText}`, W / 2, y);
+  y += lineH * 1.25;
 
-  if (player.pendants && player.pendants.length > 0) {
-    ctx.fillStyle = '#9b59b6'; ctx.font = '14px Arial';
-    ctx.fillText('Pendants: ' + player.pendants.map(p => 'Pendant of ' + p.name).join('  ·  '), W/2, H * 0.66);
-  }
+  const detailMaxW = W * 0.82;
+  const detailLines = [
+    formatLine('Skills', skillLines),
+    formatLine('Talents', selectedTalents),
+    formatLine('Pendants', pendantNames),
+  ];
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `600 ${Math.max(11, Math.round(H * 0.015))}px 'Cinzel', serif`;
+  detailLines.forEach(line => {
+    const words = line.split(' ');
+    let current = '';
+    const wrapped = [];
+    words.forEach(word => {
+      const test = current ? `${current} ${word}` : word;
+      if (ctx.measureText(test).width > detailMaxW && current) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    });
+    if (current) wrapped.push(current);
+    wrapped.slice(0, 2).forEach(wrappedLine => {
+      ctx.fillText(wrappedLine, W / 2, y);
+      y += lineH * 0.9;
+    });
+    y += lineH * 0.25;
+  });
 
   if (Math.floor(Date.now() / 700) % 2 === 0) {
-    ctx.fillStyle = '#ffd700'; ctx.font = '15px Arial';
-    ctx.fillText('Press Enter or Space to return to the Main Menu', W/2, H * 0.82);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `600 ${Math.round(H * 0.017)}px 'Cinzel', serif`;
+    ctx.fillText('Press Enter or Space to return to the Main Menu', W / 2, H * 0.86);
   }
   ctx.textAlign = 'left';
 }
@@ -10275,12 +11252,12 @@ function drawClassConfirm() {
     ctx.save();
     ctx.globalAlpha = alpha;
     const shamanSelectedArt = cls.name === 'Shaman' && art === shamanSelectedImg;
-    const scale = shamanSelectedArt
-      ? Math.min(W / art.width, H / art.height) * 0.96
-      : Math.max(W / art.width, H / art.height);
+    const scale = shamanSelectedArt ? W / art.width : Math.max(W / art.width, H / art.height);
     const dw = art.width  * scale;
     const dh = art.height * scale;
-    ctx.drawImage(art, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    const dx = shamanSelectedArt ? 0 : (W - dw) / 2;
+    const dy = shamanSelectedArt ? 0 : (H - dh) / 2;
+    ctx.drawImage(art, dx, dy, dw, dh);
     ctx.restore();
   }
 
@@ -10707,7 +11684,43 @@ function drawResumeCountdown() {
   ctx.restore();
 }
 
+function drawPaused() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.58)';
+  ctx.fillRect(0, 0, canvas.width, GAME_HEIGHT);
+  drawWoodPanel(canvas.width / 2 - 190, GAME_HEIGHT / 2 - 82, 380, 156, '#7a512e', 2);
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#d8b45d';
+  ctx.font = `700 ${Math.round(canvas.height * 0.045)}px 'Cinzel Decorative', serif`;
+  ctx.fillText('PAUSED', canvas.width / 2, GAME_HEIGHT / 2 - 24);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ead9b9';
+  ctx.font = `600 ${Math.round(canvas.height * 0.018)}px 'Cinzel', serif`;
+  ctx.fillText('The game paused when the browser lost focus.', canvas.width / 2, GAME_HEIGHT / 2 + 14);
+  ctx.fillStyle = '#c7b08c';
+  ctx.font = `600 ${Math.round(canvas.height * 0.016)}px 'Cinzel', serif`;
+  ctx.fillText('Press Enter, Space, or Escape to resume', canvas.width / 2, GAME_HEIGHT / 2 + 44);
+  ctx.restore();
+}
+
+function resetCanvasStateForFrame() {
+  ctx.globalAlpha = 1;
+  ctx.filter = 'none';
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = 1;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = '10px Arial';
+  ctx.setLineDash([]);
+}
+
 function runGameFrame() {
+  resetCanvasStateForFrame();
   if (gameState === 'title') {
     drawTitle();
   } else if (gameState === 'classconfirm') {
@@ -10747,6 +11760,7 @@ function runGameFrame() {
     if (gameState === 'stagechoice') drawStageChoice();
     if (gameState === 'stageclear') drawStageStats();
     if (gameState === 'gameover')   drawGameOver();
+    if (gameState === 'paused')     drawPaused();
     if (gameState === 'playing')    drawResumeCountdown();
   }
 }

@@ -61,3 +61,18 @@ Ghouls:
 
 ☑ Mimic needs reworking, AI seems off, needs to use skills contextually instead of just spamming. Should also avoid completely overlapping hero sprite
 
+New balances and features potential May 10th 2026
+- Let monster death animations play before pendant drops ☑ 
+- make enemies attack both host and client(s)
+- dungeon size mismatch when host/client have different canvas/browser window resolutions
+- sync advancing to next stage between players
+- make sure enemy attacks, including AoE attacks/debuffs and projectiles can dmg both host and clients
+- set up lobby system for multiplayer instead of all connected clients going into same game
+- handle host/client disconnections more gracefully
+
+Bugs:
+- in PVP only fireball did damage and didnt collide with other hero
+- only player 1 had death animation when killed by player 2
+- some hero spells are not doing damage (mage Q and E)
+- Minotaur bugs when rogue windwalks, it can cancel his charge animation?
+- there is a bug with the archer level where their arrow fly off randomly to the right and are not tracking me

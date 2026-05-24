@@ -90,9 +90,9 @@ Q	Claw: deals 1.5x Strength in damage in front.
 W	Ancestral Leap: charges forward over an 8-frame animation, dealing 1.5x Agility to enemies hit and mini-stunning them for 0.25s.
 E	Lightning: strikes a straight line forward for 1.5x Intelligence. Base cooldown is 10s before Intelligence cooldown reduction.
 R	Primal Shift: consumes the Shaman's current spirit chain after R has been learned. Q adds Bear/Strength, W adds Wolf/Agility, and E adds Owl/Intelligence. Buff lasts 10s.
-	Dominance (three matching spirits): Lv1 +20 to that stat; Lv2 +25 to that stat. All Shaman damage scales with the Dominance stat while active.
-	Spirit Harmony (mixed non-perfect chain): each consumed spirit gives Lv1 +5 to its stat or Lv2 +7 to its stat. Example: Q-Q-W gives Lv1 +10 Strength and +5 Agility. Damage keeps native scaling.
-	Perfect Harmony (Q-W-E or E-W-Q): Lv1 +8 to all stats; Lv2 +10 to all stats. Damage keeps native scaling.
+	Dominance (three matching spirits): Lv1 +12 to that stat; Lv2 +16 to that stat. All Shaman damage scales with the Dominance stat while active.
+	Spirit Harmony (mixed non-perfect chain): each consumed spirit gives Lv1 +4 to its stat or Lv2 +5 to its stat. Example: Q-Q-W gives Lv1 +8 Strength and +4 Agility. Damage keeps native scaling.
+	Perfect Harmony (Q-W-E or E-W-Q): Lv1 +6 to all stats; Lv2 +8 to all stats. Damage keeps native scaling.
 
 
 LEVELING
@@ -234,6 +234,29 @@ Stage 11 - John Pork:
   Loops sounds/Voice lines/facebook_call.mp3.
   After 10 seconds, the stage starts and the ring sound stops.
   Normal music remains paused during the John Pork stage.
+
+Dev Stage 100 - Rift Trial:
+  Dev Test selector 14.
+  Uses Stage 10 art with a purple rift overlay.
+  Intended for level 9-10 hero testing.
+  Spawns three elite hero echoes: Barbarian, Mage, and Rogue.
+  Echo stats use level 10 class builds with all 27 level-up points spent in the class primary stat.
+  Echo HP, movement speed, damage, and cooldown reduction are derived from those resulting stats.
+  Center rift slows and damages over time.
+  Timed rift warnings erupt into slow/damage zones.
+  Each defeated echo triggers Rift Surge, empowering the remaining echoes and increasing pulse pressure.
+
+Dev Stage 101 - Alek Rat Nest:
+  Dev Test selector 15.
+  Uses Stage 1 art and Monster animations/Alek Rat Master.png.
+  Intended for level 1 hero testing.
+  Difficulty and fresh XP target should be comparable to Stage 1 Goblin Swarm.
+  Spawns Alek Rat plus two small ratlings.
+  Fresh XP: Alek Rat 80, initial ratlings 20 each, summoned ratlings 0.
+  Ratlings are fragile, nip the player, and scatter briefly when hit.
+  Alek Rat drops poison crumbs that slow movement but do not deal direct damage.
+  Alek Rat can burrow toward the player with a clear warning circle, then erupts and leaves a slowing poison patch.
+  Alek Rat periodically calls one ratling, capped so the stage stays fair.
 
 
 STAGE ART SYSTEM
