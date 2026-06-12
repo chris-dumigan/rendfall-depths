@@ -1002,34 +1002,42 @@ setInterval(() => {
 const barbMoveImg = new Image();
 barbMoveImg.src = 'Barbarian Animations/Barbarian Run.png';
 barbMoveImg.onload = () => { barbWalkSheet = barbMoveImg; onLoad(); };
+barbMoveImg.onerror = () => { onLoad(); };
 
 const barbAtkImg = new Image();
 barbAtkImg.src = 'Barbarian Animations/attack animations.png';
 barbAtkImg.onload = () => { barbAtkSheet = makeOffscreen(barbAtkImg); onLoad(); };
+barbAtkImg.onerror = () => { onLoad(); };
 
 const barbSlamRImg = new Image();
 barbSlamRImg.src = 'Barbarian Animations/Barb slam right animation.png';
 barbSlamRImg.onload = () => { barbSlamRSheet = barbSlamRImg; onLoad(); };
+barbSlamRImg.onerror = () => { onLoad(); };
 
 const barbSlamLImg = new Image();
 barbSlamLImg.src = 'Barbarian Animations/Barb slam left animation mirrored.png';
 barbSlamLImg.onload = () => { barbSlamLSheet = barbSlamLImg; onLoad(); };
+barbSlamLImg.onerror = () => { onLoad(); };
 
 const barbBerserkSlamRImg = new Image();
 barbBerserkSlamRImg.src = 'Barbarian Animations/Barbarian Berserk Slam right2.png';
 barbBerserkSlamRImg.onload = () => { barbBerserkSlamRSheet = barbBerserkSlamRImg; onLoad(); };
+barbBerserkSlamRImg.onerror = () => { onLoad(); };
 
 const barbBerserkSlamLImg = new Image();
 barbBerserkSlamLImg.src = 'Barbarian Animations/Barbarian Berserk Slam left2.png';
 barbBerserkSlamLImg.onload = () => { barbBerserkSlamLSheet = barbBerserkSlamLImg; onLoad(); };
+barbBerserkSlamLImg.onerror = () => { onLoad(); };
 
 const barbWhirlImg = new Image();
 barbWhirlImg.src = 'Barbarian Animations/Barb Whirlwind.png';
 barbWhirlImg.onload = () => { barbWhirlSheet = barbWhirlImg; onLoad(); };
+barbWhirlImg.onerror = () => { onLoad(); };
 
 const barbDeathImg = new Image();
 barbDeathImg.src = assetUrl('Barbarian Animations/Barbarian Death.png');
 barbDeathImg.onload = () => { barbDeathSheet = barbDeathImg; onLoad(); };
+barbDeathImg.onerror = () => { onLoad(); };
 
 (function loadBarbarianBerserkSheets() {
   const sheets = [
@@ -1065,6 +1073,7 @@ darkSummonImg.onerror = () => { onLoad(); };
     const img = new Image();
     img.src = assetUrl(src);
     img.onload = () => { assign(img); onLoad(); };
+    img.onerror = () => { onLoad(); };
   });
 })();
 
@@ -1157,6 +1166,7 @@ function pendantIconKey(name) {
     const img = new Image();
     img.src = src;
     img.onload = () => { assign(makeMonsterSheet(img)); onLoad(); };
+    img.onerror = () => { onLoad(); };
   }
 })();
 
@@ -1280,6 +1290,10 @@ function pendantIconKey(name) {
       assign(cleanupMode === 'keepDark' ? makeMonsterSheetKeepDarkPixels(img) : makeMonsterSheet(img, Boolean(cleanupMode)));
       onLoad();
     };
+    img.onerror = () => {
+      console.warn('Monster sheet failed to load:', src);
+      onLoad();
+    };
   }
 })();
 
@@ -1288,6 +1302,7 @@ function pendantIconKey(name) {
   const img = new Image();
   img.src = assetUrl('Game Art/Intro Art 3.png');
   img.onload = () => { titleBgImg = img; onLoad(); };
+  img.onerror = () => { onLoad(); };
 })();
 
 // Victory background
