@@ -838,7 +838,6 @@ let fixedLoopLastTime = 0;
 let fixedLoopAccumulator = 0;
 const ASSET_VERSION = '2026-05-22-v1';
 const AUDIO_STARTUP_TIMEOUT_MS = 4500;
-const STARTUP_LOADER_GRACE_MS = 9000;
 const pendingAssetLabels = new Set();
 function assetUrl(src) {
   return `${src}?v=${ASSET_VERSION}`;
@@ -928,6 +927,10 @@ function pendingAssetSummary() {
   return Array.from(pendingAssetLabels).slice(0, 3).join(', ');
 }
 
+function startupAssetsReady() {
+  return startupRegistrationComplete && loaded >= totalStartupAssets() && pendingAssetLabels.size === 0;
+}
+
 function drawLoadingScreen() {
   const totalAssets = totalStartupAssets();
   const progress = Math.max(0, Math.min(1, loaded / Math.max(1, totalAssets)));
@@ -976,7 +979,7 @@ function onLoad() {
   loaded++;
   if (gameLoopStarted) return;
   drawLoadingScreen();
-  if (startupRegistrationComplete && loaded >= totalStartupAssets()) startGameLoopFromLoader();
+  if (startupAssetsReady()) startGameLoopFromLoader();
 }
 
 function startGameLoopFromLoader() {
@@ -987,15 +990,6 @@ function startGameLoopFromLoader() {
   fixedLoopLastTime = 0;
   fixedLoopAccumulator = FIXED_STEP_MS;
   requestAnimationFrame(loop);
-}
-
-function forceStartAfterLoaderGrace() {
-  if (gameLoopStarted || !startupRegistrationComplete) return;
-  if (loaded >= totalStartupAssets()) return;
-  const pending = pendingAssetSummary() || 'unknown assets';
-  console.warn(`Starting with pending startup assets (${loaded}/${totalStartupAssets()}): ${pending}`);
-  if (loadingHint) loadingHint.textContent = `Continuing without: ${pending}`;
-  startGameLoopFromLoader();
 }
 
 drawLoadingScreen();
@@ -2211,8 +2205,7 @@ charSelectVoice.Mage.volume      = 1.0;
 charSelectVoice.Shaman.volume    = 1.0;
 startupRegistrationComplete = true;
 drawLoadingScreen();
-if (loaded >= totalStartupAssets()) startGameLoopFromLoader();
-setTimeout(forceStartAfterLoaderGrace, STARTUP_LOADER_GRACE_MS);
+if (startupAssetsReady()) startGameLoopFromLoader();
 let lastVoiceClass = -1;
 let audioWarmupStarted = false;
 
