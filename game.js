@@ -928,12 +928,13 @@ function pendingAssetSummary() {
 }
 
 function startupAssetsReady() {
-  return startupRegistrationComplete && loaded >= totalStartupAssets() && pendingAssetLabels.size === 0;
+  return startupRegistrationComplete && loaded >= totalStartupAssets();
 }
 
 function drawLoadingScreen() {
   const totalAssets = totalStartupAssets();
-  const progress = Math.max(0, Math.min(1, loaded / Math.max(1, totalAssets)));
+  const displayedLoaded = Math.min(loaded, totalAssets);
+  const progress = Math.max(0, Math.min(1, displayedLoaded / Math.max(1, totalAssets)));
   const W = canvas.width;
   const H = canvas.height;
   const barW = Math.min(520, W * 0.72);
@@ -956,7 +957,7 @@ function drawLoadingScreen() {
 
   ctx.fillStyle = '#d8d0b8';
   ctx.font = `600 ${Math.max(14, Math.min(20, Math.round(W / 70)))}px 'Cinzel', serif`;
-  ctx.fillText(`Loading assets ${loaded}/${totalAssets}`, W / 2, barY - 18);
+  ctx.fillText(`Loading assets ${displayedLoaded}/${totalAssets}`, W / 2, barY - 18);
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(barX, barY, barW, barH);
@@ -968,10 +969,10 @@ function drawLoadingScreen() {
 
   ctx.fillStyle = '#8f8065';
   ctx.font = `400 ${Math.max(11, Math.min(14, Math.round(W / 105)))}px 'Cinzel', serif`;
-  const pending = pendingAssetSummary();
+  const pending = displayedLoaded < totalAssets ? pendingAssetSummary() : '';
   ctx.fillText(pending ? `Waiting for: ${pending}` : 'Preparing the vale...', W / 2, barY + 46);
 
-  if (loadingText) loadingText.textContent = `Loading assets ${loaded}/${totalAssets}`;
+  if (loadingText) loadingText.textContent = `Loading assets ${displayedLoaded}/${totalAssets}`;
   if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
 }
 
